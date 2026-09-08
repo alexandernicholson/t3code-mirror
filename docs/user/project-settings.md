@@ -33,3 +33,17 @@ upstream.
 T3 Code only pulls when it can fast-forward and the checkout has no changed files, untracked files,
 or local commits. It skips checkouts on another branch or without an upstream. If a checkout has
 local work, resolve it yourself before automatic pulls can resume.
+
+## Tools and MCP servers
+
+In web or desktop, open **Settings → Tools & MCP servers**, choose an environment, and add
+an HTTP server or a local command. Choose which providers and projects can use it. Local
+commands run on the environment's machine. These tools are available to its conversations
+from web, desktop, and mobile.
+
+For credentials, set a secret environment variable in **Settings → Providers**, then reference
+its name in the MCP server configuration. Changes, including disabling or removing a server,
+apply when a provider session next starts or restarts; existing sessions keep their tools.
+
+T3-managed servers support Codex, Claude, Cursor, Grok, and Antigravity. OpenCode, OAuth setup,
+and servers configured directly in a provider remain managed through that provider.

@@ -8,6 +8,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/tools"
   | "/settings/integrations"
   | "/settings/source-control"
   | "/settings/connections"
@@ -55,6 +56,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/tools": "Tools & MCP servers",
   "/settings/integrations": "Integrations",
   "/settings/source-control": "Source Control",
   "/settings/connections": "Connections",
@@ -67,6 +69,15 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
  * that may not be mounted point at their nearest stable section instead.
  */
 export const SETTINGS_SEARCH_ITEMS = [
+  {
+    id: "mcp-servers",
+    title: "Tools & MCP servers",
+    to: "/settings/tools",
+    targetId: "mcp-servers",
+    searchTerms: [
+      "tools mcp servers add edit remove enable disable http stdio credentials integrations",
+    ],
+  },
   {
     id: "project-defaults",
     title: "Project defaults and overrides",

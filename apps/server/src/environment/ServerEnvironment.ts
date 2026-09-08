@@ -219,6 +219,7 @@ export const make = Effect.gen(function* () {
       pullRequests: true,
       threadSettlement: true,
       threadAutoSettlement: true,
+      managedMcpServers: true,
       threadRestartContinuation: true,
       threadSnooze: true,
       environmentThemes: true,

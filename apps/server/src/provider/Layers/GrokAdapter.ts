@@ -42,6 +42,7 @@ import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import * as ManagedMcp from "../../mcp/ManagedMcpServers.ts";
 import {
   ProviderAdapterProcessError,
   ProviderAdapterRequestError,
@@ -986,6 +987,12 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
             threadId: input.threadId,
           });
 
+          const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+            ManagedMcp.toAcpMcpServers(
+              ManagedMcp.readManagedMcpServers(input.threadId),
+              options?.environment ?? process.env,
+            ),
+          );
           const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
           const acp = yield* makeGrokAcpRuntime({
             grokSettings,
@@ -995,23 +1002,19 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
             runtimeMode: input.runtimeMode,
             ...(resumeSessionId ? { resumeSessionId } : {}),
             clientInfo: { name: "t3-code", version: "0.0.0" },
-            ...(mcpSession
-              ? {
-                  mcpServers: [
+            mcpServers: [
+              ...managedMcpConfig,
+              ...(mcpSession
+                ? [
                     {
                       type: "http" as const,
                       name: "t3-code",
                       url: mcpSession.endpoint,
-                      headers: [
-                        {
-                          name: "Authorization",
-                          value: mcpSession.authorizationHeader,
-                        },
-                      ],
+                      headers: [{ name: "Authorization", value: mcpSession.authorizationHeader }],
                     },
-                  ],
-                }
-              : {}),
+                  ]
+                : []),
+            ],
             ...acpNativeLoggers,
           }).pipe(
             Effect.provideService(Crypto.Crypto, crypto),

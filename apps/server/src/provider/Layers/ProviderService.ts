@@ -75,8 +75,10 @@ import { type EventNdjsonLogger } from "./EventNdjsonLogger.ts";
 import * as ProviderEventLoggers from "./ProviderEventLoggers.ts";
 import * as AnalyticsService from "../../telemetry/AnalyticsService.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import * as ManagedMcp from "../../mcp/ManagedMcpServers.ts";
 import * as McpSessionRegistry from "../../mcp/McpSessionRegistry.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import { selectManagedMcpServers } from "@t3tools/contracts";
 import * as ProjectionSnapshotQuery from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 const isModelSelection = Schema.is(ModelSelection);
 const encodePromptJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
@@ -890,6 +892,30 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
 
   const prepareMcpSession = (threadId: ThreadId, providerInstanceId: ProviderInstanceId) =>
     Effect.gen(function* () {
+      const managedServers = yield* Effect.gen(function* () {
+        const settings = yield* serverSettings.getSettings;
+        if (Object.keys(settings.managedMcpServers).length === 0) return {};
+        const instance = yield* registry.getInstanceInfo(providerInstanceId);
+        const needsProject = Object.values(settings.managedMcpServers).some(
+          (server) => server.projectIds.length > 0,
+        );
+        const thread =
+          needsProject && Option.isSome(projectionQuery)
+            ? yield* projectionQuery.value.getThreadShellById(threadId)
+            : Option.none();
+        return selectManagedMcpServers(
+          settings.managedMcpServers,
+          instance.driverKind,
+          Option.isSome(thread) ? thread.value.projectId : undefined,
+        );
+      }).pipe(
+        Effect.catch(() =>
+          Effect.logWarning(
+            "Could not load managed MCP servers; withholding them for this session.",
+          ).pipe(Effect.as({})),
+        ),
+      );
+      ManagedMcp.setManagedMcpServers(threadId, managedServers);
       if (!(yield* agentBrowserAccessEnabled(threadId))) {
         // Revoke as well as clear. Every other prepare path reaches
         // `issueActiveMcpCredential`, which revokes the thread first, so
@@ -909,7 +935,12 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
     });
   const clearMcpSession = (threadId: ThreadId) =>
     McpSessionRegistry.revokeActiveMcpThread(threadId).pipe(
-      Effect.tap(() => Effect.sync(() => McpProviderSession.clearMcpProviderSession(threadId))),
+      Effect.tap(() =>
+        Effect.sync(() => {
+          McpProviderSession.clearMcpProviderSession(threadId);
+          ManagedMcp.clearManagedMcpServers(threadId);
+        }),
+      ),
     );
 
   const publishRuntimeEvent = (event: ProviderRuntimeEvent): Effect.Effect<void> =>

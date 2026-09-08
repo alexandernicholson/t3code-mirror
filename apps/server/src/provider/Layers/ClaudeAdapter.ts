@@ -82,6 +82,7 @@ import * as Stream from "effect/Stream";
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import * as ManagedMcp from "../../mcp/ManagedMcpServers.ts";
 import { resolveClaudeSdkExecutablePath } from "../Drivers/ClaudeExecutable.ts";
 import { claudeSignedOutMessage, makeClaudeEnvironment } from "../Drivers/ClaudeHome.ts";
 import { planClaudeSkillDispatch } from "../Drivers/ClaudeSkillDispatch.ts";
@@ -4658,6 +4659,12 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           ? { autoCompactWindow: Number(claudeSettings.autoCompactWindow) }
           : {}),
       };
+      const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+        ManagedMcp.toClaudeMcpServers(
+          ManagedMcp.readManagedMcpServers(input.threadId),
+          claudeEnvironment,
+        ),
+      );
       const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
       // The attachments dir grant lets the agent Read/copy pasted images at
       // the paths ProviderService injects into the turn text, without an
@@ -4699,19 +4706,18 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         env: claudeEnvironment,
         additionalDirectories,
         ...(Object.keys(extraArgs).length > 0 ? { extraArgs } : {}),
-        ...(mcpSession
-          ? {
-              mcpServers: {
+        mcpServers: {
+          ...managedMcpConfig,
+          ...(mcpSession
+            ? {
                 "t3-code": {
-                  type: "http",
+                  type: "http" as const,
                   url: mcpSession.endpoint,
-                  headers: {
-                    Authorization: mcpSession.authorizationHeader,
-                  },
+                  headers: { Authorization: mcpSession.authorizationHeader },
                 },
-              },
-            }
-          : {}),
+              }
+            : {}),
+        },
       };
 
       yield* Effect.annotateCurrentSpan({

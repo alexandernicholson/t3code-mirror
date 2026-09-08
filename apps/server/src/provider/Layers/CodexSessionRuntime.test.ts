@@ -15,6 +15,7 @@ import {
   buildTurnStartParams,
   describeMcpElicitation,
   hasConfiguredMcpServer,
+  hasConfiguredBrowserMcpServer,
   isRecoverableThreadResumeError,
   makeMemoryConsolidationNotificationFilter,
   openCodexThread,
@@ -543,6 +544,31 @@ describe("T3 browser developer instructions", () => {
       /preview_open/,
     );
   });
+});
+
+it("keeps browser instructions off when only a custom MCP server is configured", () => {
+  const customArgs = ["-c", 'mcp_servers.team_docs.url="https://example.com/mcp"'];
+  NodeAssert.equal(hasConfiguredMcpServer(customArgs), true);
+  NodeAssert.doesNotMatch(
+    buildCodexDeveloperInstructions(
+      "default",
+      { model: "gpt-5.3-codex", reasoningEffort: "high" },
+      hasConfiguredBrowserMcpServer(customArgs),
+    ),
+    /preview_open/,
+  );
+  NodeAssert.match(
+    buildCodexDeveloperInstructions(
+      "default",
+      { model: "gpt-5.3-codex", reasoningEffort: "high" },
+      hasConfiguredBrowserMcpServer([
+        ...customArgs,
+        "-c",
+        "mcp_servers.t3-code.url=http://127.0.0.1/mcp",
+      ]),
+    ),
+    /preview_open/,
+  );
 });
 
 describe("hasConfiguredMcpServer", () => {

@@ -38,6 +38,7 @@ import type * as EffectAcpSchema from "effect-acp/schema";
 import { ServerConfig } from "../../config.ts";
 import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import * as ManagedMcp from "../../mcp/ManagedMcpServers.ts";
 import type { AntigravityAuth } from "../AntigravityAuth.ts";
 import {
   ProviderAdapterRequestError,
@@ -124,6 +125,7 @@ function mapAntigravityError(threadId: ThreadId, method: string, cause: EffectAc
 }
 
 export interface AntigravityAdapterOptions {
+  readonly environment?: NodeJS.ProcessEnv;
   readonly instanceId: ProviderInstanceId;
   readonly makeRuntime: (
     input: Omit<AntigravityAcpRuntimeInput, "spawn" | "childProcessSpawner" | "onAuthorizationUrl">,
@@ -785,6 +787,12 @@ export const makeAntigravityAdapter = Effect.fn("makeAntigravityAdapter")(functi
           .withProcess(
             stopOwned,
             Effect.gen(function* () {
+              const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+                ManagedMcp.toAcpMcpServers(
+                  ManagedMcp.readManagedMcpServers(input.threadId),
+                  options.environment ?? process.env,
+                ),
+              );
               const mcp = McpProviderSession.readMcpProviderSession(input.threadId);
               // The attachments dir grant lets the agent read pasted files at
               // the paths ProviderService injects into the turn text. It is a
@@ -795,16 +803,19 @@ export const makeAntigravityAdapter = Effect.fn("makeAntigravityAdapter")(functi
                 clientFileSystem: true,
                 additionalDirectories: [serverConfig.attachmentsDir],
                 ...(Option.isSome(cursor) ? { resumeSessionId: cursor.value.sessionId } : {}),
-                mcpServers: mcp
-                  ? [
-                      {
-                        type: "http",
-                        name: "t3-code",
-                        url: mcp.endpoint,
-                        headers: [{ name: "Authorization", value: mcp.authorizationHeader }],
-                      },
-                    ]
-                  : [],
+                mcpServers: [
+                  ...managedMcpConfig,
+                  ...(mcp
+                    ? [
+                        {
+                          type: "http" as const,
+                          name: "t3-code",
+                          url: mcp.endpoint,
+                          headers: [{ name: "Authorization", value: mcp.authorizationHeader }],
+                        },
+                      ]
+                    : []),
+                ],
                 ...makeNativeLoggers({
                   nativeEventLogger: options.nativeEventLogger,
                   provider: PROVIDER,

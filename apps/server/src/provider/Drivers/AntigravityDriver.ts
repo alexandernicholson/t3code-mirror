@@ -300,6 +300,7 @@ export const AntigravityDriver: ProviderDriver<AntigravitySettings, AntigravityD
         Effect.map((manifest) => ModelManifest.manifestDefaultModel(manifest, DRIVER)),
       );
       const adapter = yield* makeAntigravityAdapter(settings, {
+        environment: processEnvironment,
         instanceId,
         makeRuntime,
         withProcess: authFlow.withProcess,

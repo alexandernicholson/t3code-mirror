@@ -4,6 +4,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
 import type {
+  ManagedMcpServers,
   ProviderApprovalDecision,
   ProviderRuntimeEvent,
   ProviderSendTurnInput,
@@ -75,6 +76,7 @@ import {
 } from "../../persistence/Layers/Sqlite.ts";
 import * as ServerConfig from "../../config.ts";
 import * as ServerSettings from "../../serverSettings.ts";
+import * as ManagedMcp from "../../mcp/ManagedMcpServers.ts";
 import * as AnalyticsService from "../../telemetry/AnalyticsService.ts";
 import { makeAdapterRegistryMock } from "../testUtils/providerAdapterRegistryMock.ts";
 import * as ProjectionSnapshotQuery from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -4804,6 +4806,8 @@ describe("agent browser access", () => {
     enableAgentBrowserAccess: boolean,
     threadId: ThreadId,
     projectOverride?: boolean,
+    managedMcpServers: ManagedMcpServers = {},
+    onStarted?: (servers: ManagedMcpServers) => void,
   ) =>
     Effect.gen(function* () {
       const issued: Array<ThreadId> = [];
@@ -4876,6 +4880,7 @@ describe("agent browser access", () => {
         Layer.provide(
           ServerSettings.ServerSettingsService.layerTest({
             enableAgentBrowserAccess,
+            managedMcpServers,
             projectAgentBrowserAccessOverrides:
               projectOverride === undefined ? {} : { [projectId]: projectOverride },
           }),
@@ -4892,16 +4897,48 @@ describe("agent browser access", () => {
 
       yield* Effect.gen(function* () {
         const provider = yield* ProviderService.ProviderService;
-        return yield* provider.startSession(threadId, {
+        const session = yield* provider.startSession(threadId, {
           provider: CODEX_DRIVER,
           providerInstanceId: codexInstanceId,
           threadId,
           runtimeMode: "full-access",
         });
+        if (onStarted) {
+          onStarted(ManagedMcp.readManagedMcpServers(threadId));
+          yield* provider.stopSession({ threadId });
+          assert.deepEqual(ManagedMcp.readManagedMcpServers(threadId), {});
+        }
+        return session;
       }).pipe(Effect.provide(providerLayer));
 
       return issued;
     });
+
+  it.effect(
+    "attaches project-scoped managed servers even with browser access off, and clears them on stop",
+    () =>
+      Effect.gen(function* () {
+        const shared = {
+          enabled: true,
+          providers: ["codex"] as const,
+          projectIds: [projectId],
+          connection: { type: "http" as const, url: "https://example.com/mcp" },
+        };
+        const issued = yield* startSessionWith(
+          false,
+          asThreadId("managed-mcp"),
+          undefined,
+          {
+            docs: shared,
+            disabled: { ...shared, enabled: false },
+            otherProject: { ...shared, projectIds: [ProjectId.make("other-project")] },
+            otherProvider: { ...shared, providers: ["claudeAgent"] },
+          },
+          (servers) => assert.deepEqual(servers, { docs: shared }),
+        );
+        assert.deepEqual(issued, []);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   // Credential issuance is the observable that matters: it is the only place a
   // credential is minted, and `/mcp` accepts nothing else, so withholding it is

@@ -171,6 +171,7 @@ export function applyServerSettingsPatch(
     backgroundActivityProfile,
     backgroundActivity,
     // Merged per entry below; its `null` removals must not reach deepMerge.
+    managedMcpServers: managedMcpServersPatch,
     usageLimitSources: usageLimitSourcesPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     projectAgentBrowserAccessOverrides: projectAgentBrowserAccessOverridesPatch,
@@ -215,6 +216,14 @@ export function applyServerSettingsPatch(
   const next = deepMerge(current, patchForMerge);
   const nextWithReplacementsBase = {
     ...next,
+    ...(managedMcpServersPatch !== undefined
+      ? {
+          managedMcpServers: mergeSettingsEntries(
+            current.managedMcpServers,
+            managedMcpServersPatch,
+          ),
+        }
+      : {}),
     ...(backgroundActivity !== undefined
       ? {
           backgroundActivity: {
