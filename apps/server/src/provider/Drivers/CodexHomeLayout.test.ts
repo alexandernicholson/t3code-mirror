@@ -40,6 +40,34 @@ const writeTextFile = Effect.fn("CodexHomeLayout.test.writeTextFile")(function* 
 });
 
 it.layer(NodeServices.layer)("CodexHomeLayout", (it) => {
+  it.effect.skipIf(!symlinksSupported)(
+    "shares a config created after multiple shadow homes are materialized",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* makeTempDir("t3code-global-config-");
+        const sharedHome = path.join(root, "shared");
+        const first = path.join(root, "first");
+        const second = path.join(root, "second");
+        for (const shadowHomePath of [first, second]) {
+          const layout = yield* resolveCodexHomeLayout(
+            decodeCodexSettings({ homePath: sharedHome, shadowHomePath }),
+          );
+          yield* materializeCodexShadowHome(layout);
+        }
+        expect(yield* fs.exists(path.join(sharedHome, "config.toml"))).toBe(false);
+        yield* fs.writeFileString(path.join(sharedHome, "config.toml"), 'web_search = "live"\n');
+        for (const shadowHomePath of [first, second]) {
+          expect(yield* fs.readLink(path.join(shadowHomePath, "config.toml"))).toBe(
+            path.join(sharedHome, "config.toml"),
+          );
+          expect(yield* fs.readFileString(path.join(shadowHomePath, "config.toml"))).toContain(
+            '"live"',
+          );
+        }
+      }),
+  );
   describe("resolveCodexHomeLayout", () => {
     it.effect("uses direct CODEX_HOME when no shadow home is configured", () =>
       Effect.gen(function* () {
