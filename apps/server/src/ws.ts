@@ -1,3 +1,4 @@
+import * as Secrets from "./secrets/Secrets.ts";
 import {
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
@@ -472,6 +473,7 @@ const makeWsRpcLayer = (
   clientOrigin: OrchestrationClientOrigin,
   clientAnalyticsProps: Readonly<Record<string, unknown>>,
   previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
+  secrets: Secrets.Secrets["Service"],
 ) =>
   WsRpcGroup.toLayer(
     Effect.gen(function* () {
@@ -2680,6 +2682,18 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.previewReportStatus, previewManager.reportStatus(input), {
             "rpc.aggregate": "preview",
           }),
+        [WS_METHODS.secretsCreate]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsCreate, secrets.create(input)),
+        [WS_METHODS.secretsUpdate]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsUpdate, secrets.update(input)),
+        [WS_METHODS.secretsDelete]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsDelete, secrets.remove(input)),
+        [WS_METHODS.secretsRevoke]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsRevoke, secrets.revoke(input)),
+        [WS_METHODS.secretsRespond]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsRespond, secrets.respond(input)),
+        [WS_METHODS.secretsSubscribe]: () =>
+          observeRpcStream(WS_METHODS.secretsSubscribe, secrets.changes),
         [WS_METHODS.previewAutomationConnect]: (input) =>
           observeRpcStreamEffect(
             WS_METHODS.previewAutomationConnect,
@@ -2921,6 +2935,7 @@ const makeWsRpcLayer = (
 
 export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
+    const secrets = yield* Secrets.Secrets;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const baseServerSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const config = yield* ServerConfig.ServerConfig;
@@ -2981,6 +2996,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               clientOrigin,
               clientAnalyticsProps,
               previewAutomationBroker,
+              secrets,
             ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(AgentSessionScanner.layer),

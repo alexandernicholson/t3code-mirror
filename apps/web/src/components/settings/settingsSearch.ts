@@ -8,6 +8,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/secrets"
   | "/settings/tools"
   | "/settings/integrations"
   | "/settings/source-control"
@@ -56,6 +57,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/secrets": "Secrets",
   "/settings/tools": "Tools & MCP servers",
   "/settings/integrations": "Integrations",
   "/settings/source-control": "Source Control",
@@ -69,6 +71,12 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
  * that may not be mounted point at their nearest stable section instead.
  */
 export const SETTINGS_SEARCH_ITEMS = [
+  {
+    id: "secrets",
+    title: "Secrets",
+    to: "/settings/secrets",
+    searchTerms: ["secrets keys values sensitive credentials kv approval project environment"],
+  },
   {
     id: "mcp-servers",
     title: "Tools & MCP servers",

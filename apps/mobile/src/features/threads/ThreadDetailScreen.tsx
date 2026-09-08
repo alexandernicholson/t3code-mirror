@@ -1,3 +1,4 @@
+import { SecretAccessCard } from "./SecretAccessCard";
 import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
 import {
   appendCodexArtifactTemplateUsePrompt,
@@ -949,6 +950,11 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
                     />
                   </Animated.View>
                 ) : null}
+                <SecretAccessCard
+                  key={selectedThreadKey}
+                  environmentId={props.environmentId}
+                  threadId={props.selectedThread.id}
+                />
                 {props.activePendingApproval || props.activePendingUserInput ? (
                   <Animated.View
                     className="shrink-0 gap-3 px-4 pb-3"

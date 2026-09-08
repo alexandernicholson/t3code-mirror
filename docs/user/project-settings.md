@@ -47,3 +47,21 @@ apply when a provider session next starts or restarts; existing sessions keep th
 
 T3-managed servers support Codex, Claude, Cursor, Grok, and Antigravity. OpenCode, OAuth setup,
 and servers configured directly in a provider remain managed through that provider.
+
+## Secrets
+
+Open **Settings → Secrets**, choose an environment, and add a key and value. Choose
+**Environment-wide** to share it across projects, or select a project to limit access to
+that project's agents. The same key can exist in both scopes. Ask your agent to store or
+retrieve a secret and specify its scope.
+
+Mark a secret **Highly sensitive** to require approval before retrieval. In chat, choose
+**Allow once**, **Allow for thread**, or **Deny**. Approval shares the value with the agent
+and its provider. You can revoke thread access from chat; updating or deleting the secret,
+or restarting the environment, also clears that access. Agents cannot lower a secret's
+sensitivity. Use Settings to change it or replace a stored value.
+
+Values stay on the selected environment and are not displayed in Settings. Local storage
+uses restricted file permissions, without encryption at rest. Approval controls access
+through T3's secret tools; it does not isolate secrets from programs with filesystem access
+on that machine. Bitwarden and 1Password are not connected yet.

@@ -45,7 +45,7 @@ export const ProviderGlobalSettingsWriteInput = Schema.Struct({
 });
 export type ProviderGlobalSettingsWriteInput = typeof ProviderGlobalSettingsWriteInput.Type;
 
-export class ProviderGlobalSettingsError extends Schema.TaggedErrorClass<ProviderGlobalSettingsError>()(
+export class ProviderGlobalSettingsError extends Schema.TaggedError<ProviderGlobalSettingsError>()(
   "ProviderGlobalSettingsError",
   {
     instanceId: ProviderInstanceId,
