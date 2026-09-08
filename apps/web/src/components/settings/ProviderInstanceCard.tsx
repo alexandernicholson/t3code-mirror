@@ -368,6 +368,7 @@ interface ProviderInstanceCardProps {
    */
   readonly headerAction?: ReactNode | undefined;
   readonly setup?: ReactNode;
+  readonly globalSettings?: ReactNode;
   readonly hiddenModels: ReadonlyArray<string>;
   readonly favoriteModels: ReadonlyArray<string>;
   readonly modelOrder: ReadonlyArray<string>;
@@ -410,6 +411,7 @@ export function ProviderInstanceCard({
   onDelete,
   headerAction,
   setup,
+  globalSettings,
   hiddenModels,
   favoriteModels,
   modelOrder,
@@ -870,6 +872,8 @@ export function ProviderInstanceCard({
           />
         )}
       </SettingsSection>
+
+      {globalSettings}
 
       <SettingsSection
         title="Environment"

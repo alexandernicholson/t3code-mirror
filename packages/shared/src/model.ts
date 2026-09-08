@@ -10,6 +10,7 @@ import {
 } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { parseContextWindowTokens } from "./contextWindow.ts";
 
 const DEFAULT_PROVIDER_DRIVER_KIND = ProviderDriverKind.make("codex");
 
@@ -81,6 +82,9 @@ function resolveDescriptorChoiceValue(
     return descriptor.currentValue ?? descriptor.options.find((option) => option.isDefault)?.id;
   }
   if (descriptor.options.length === 0) {
+    return trimmed;
+  }
+  if (descriptor.contextWindow && parseContextWindowTokens(trimmed) !== undefined) {
     return trimmed;
   }
   if (
@@ -184,6 +188,10 @@ export function getProviderOptionCurrentLabel(
   const currentValue = getProviderOptionCurrentValue(descriptor);
   if (typeof currentValue !== "string") {
     return undefined;
+  }
+  if (descriptor.contextWindow) {
+    const tokens = parseContextWindowTokens(currentValue);
+    if (tokens !== undefined) return `Custom · ${tokens.toLocaleString("en-US")}`;
   }
   return descriptor.options.find((option) => option.id === currentValue)?.label;
 }

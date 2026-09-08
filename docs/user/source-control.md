@@ -67,6 +67,10 @@ make your first commit before pushing.
 Use a thread's Git actions to commit, push, and create a pull request. T3 Code can generate commit
 messages, review titles, and descriptions from your changes.
 
+GitHub PR actions target the project's selected Git remote, normally `origin`.
+For a fork, this means PRs stay in the fork instead of silently targeting its upstream
+repository. Explicit PR URLs still refer to the repository named in the URL.
+
 Choose the writing style and model in **Settings → Source Control**. **Repository conventions**
 uses the project's instructions and recent commit subjects.
 

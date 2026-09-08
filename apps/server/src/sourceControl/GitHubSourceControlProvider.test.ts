@@ -3,6 +3,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import * as VcsProcess from "../vcs/VcsProcess.ts";
@@ -10,6 +11,7 @@ import * as GitHubCli from "./GitHubCli.ts";
 import { parseGitHubAuthStatus } from "./gitHubAuthStatus.ts";
 import * as GitHubSourceControlProvider from "./GitHubSourceControlProvider.ts";
 
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const processResult = (
   stdout: string,
   options?: {
@@ -182,32 +184,123 @@ it.effect("treats empty non-open change request listing output as no results", (
   }),
 );
 
-it.effect("creates GitHub PRs through provider-neutral input names", () =>
+it.effect("creates and finds a fork PR in the bound remote rather than gh's upstream default", () =>
   Effect.gen(function* () {
-    let createInput: Parameters<GitHubCli.GitHubCli["Service"]["createPullRequest"]>[0] | null =
-      null;
-    const provider = yield* makeProvider({
-      createPullRequest: (input) => {
-        createInput = input;
-        return Effect.void;
-      },
-    });
-
+    const fork = "github.com/my-org/project";
+    const upstream = "github.com/upstream/project";
+    const created = new Map<string, object>();
+    const provider = yield* GitHubSourceControlProvider.make.pipe(
+      Effect.provide(
+        GitHubCli.layer.pipe(
+          Layer.provide(
+            Layer.mock(VcsProcess.VcsProcess)({
+              run: (input) => {
+                const repositoryIndex = input.args.indexOf("--repo");
+                const repository =
+                  repositoryIndex === -1 ? upstream : input.args[repositoryIndex + 1]!;
+                if (input.args[0] === "repo" && input.args[1] === "view") {
+                  return Effect.succeed(
+                    processResult(input.args[2] === fork ? "fork-main\n" : "upstream-main\n"),
+                  );
+                }
+                if (input.args[0] === "pr" && input.args[1] === "create") {
+                  created.set(repository, {
+                    number: 42,
+                    title: "Scoped PR",
+                    url: `https://${repository}/pull/42`,
+                    baseRefName: "fork-main",
+                    headRefName: "feature/settings",
+                    state: "OPEN",
+                    mergedAt: null,
+                    isCrossRepository: false,
+                  });
+                  return Effect.succeed(processResult(""));
+                }
+                if (input.args[0] === "pr" && input.args[1] === "list") {
+                  const request = created.get(repository);
+                  return encodeJson(request ? [request] : []).pipe(
+                    Effect.map(processResult),
+                    Effect.orDie,
+                  );
+                }
+                if (input.args[0] === "pr" && input.args[1] === "view") {
+                  return encodeJson(created.get(repository)).pipe(
+                    Effect.map(processResult),
+                    Effect.orDie,
+                  );
+                }
+                return Effect.die("Unexpected GitHub command in repository-targeting regression");
+              },
+            }),
+          ),
+        ),
+      ),
+    );
+    const context = {
+      provider: { kind: "github" as const, name: "GitHub", baseUrl: "https://github.com" },
+      remoteName: "origin",
+      remoteUrl: "git@github.com:my-org/project.git",
+    };
+    const baseRefName = yield* provider.getDefaultBranch({ cwd: "/repo", context });
+    assert.equal(baseRefName, "fork-main");
     yield* provider.createChangeRequest({
       cwd: "/repo",
-      baseRefName: "main",
-      headSelector: "owner:feature/provider",
-      title: "Provider PR",
+      context,
+      baseRefName: baseRefName!,
+      headSelector: "feature/settings",
+      title: "Scoped PR",
       bodyFile: "/tmp/body.md",
     });
+    assert.isFalse(created.has(upstream), "must not create a PR in gh's implicit upstream");
+    for (const state of ["open", "all"] as const) {
+      const requests = yield* provider.listChangeRequests({
+        cwd: "/repo",
+        context,
+        headSelector: "feature/settings",
+        state,
+      });
+      assert.deepEqual(
+        requests.map((request) => request.url),
+        ["https://github.com/my-org/project/pull/42"],
+      );
+    }
+    const request = yield* provider.getChangeRequest({ cwd: "/repo", context, reference: "42" });
+    assert.equal(request.url, "https://github.com/my-org/project/pull/42");
+  }),
+);
 
-    assert.deepStrictEqual(createInput, {
+it.effect("targets a selected enterprise remote without forwarding URL credentials", () =>
+  Effect.gen(function* () {
+    let destination: string | undefined;
+    const provider = yield* GitHubSourceControlProvider.make.pipe(
+      Effect.provide(
+        GitHubCli.layer.pipe(
+          Layer.provide(
+            Layer.mock(VcsProcess.VcsProcess)({
+              run: ({ args }) => {
+                destination = args[args.indexOf("--repo") + 1];
+                return Effect.succeed(processResult(""));
+              },
+            }),
+          ),
+        ),
+      ),
+    );
+    yield* provider.checkoutChangeRequest({
       cwd: "/repo",
-      baseBranch: "main",
-      headSelector: "owner:feature/provider",
-      title: "Provider PR",
-      bodyFile: "/tmp/body.md",
+      context: {
+        provider: {
+          kind: "github",
+          name: "GitHub Enterprise",
+          baseUrl: "https://github.example.test:8443",
+        },
+        remoteName: "review",
+        remoteUrl:
+          "https://user:secret@github.example.test:8443/team/project.git?token=secret#fragment",
+      },
+      reference: "42",
     });
+    assert.equal(destination, "github.example.test:8443/team/project");
   }),
 );
 

@@ -2,6 +2,7 @@ import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusTitle } from "@t3tools/client-runtime/connection";
 import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
+import { ProviderGlobalSettingsSection } from "./ProviderGlobalSettingsSection";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -899,6 +900,16 @@ export function EnvironmentProviderSettings({
         selected={mode === "list" && selectedRow?.instanceId === row.instanceId}
         onSelect={mode === "list" ? () => setSelectedInstanceId(row.instanceId) : undefined}
         readOnly={readOnly}
+        globalSettings={
+          mode === "editor" && liveProvider?.supportsGlobalSettings ? (
+            <ProviderGlobalSettingsSection
+              key={`${environmentId}:${row.instanceId}`}
+              environmentId={environmentId}
+              instanceId={row.instanceId}
+              readOnly={readOnly}
+            />
+          ) : null
+        }
         setup={
           mode === "editor" && row.driver === "antigravity" ? (
             <ProviderSetupSection

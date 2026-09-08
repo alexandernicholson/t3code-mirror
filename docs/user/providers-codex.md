@@ -4,6 +4,20 @@ For one account, use the default Codex provider with your normal Codex login.
 [Provider setup](./install.md#providers) covers installation, Settings > Providers,
 and custom binaries or environment variables.
 
+## Configure global settings
+
+Open **Settings > Providers**, choose the environment and Codex instance, then
+open **Global settings**. On mobile, choose the provider under **Settings > Providers**.
+Configure web search, response verbosity, personality, and context or compaction
+limits. Use **Advanced settings** for other configuration keys; values
+use JSON, including quoted strings, arrays, and objects. Resetting a key removes
+its override so Codex can inherit its default.
+
+Changes are saved to the provider's configuration file and apply to new provider
+sessions. Instances sharing a Codex home share these settings. Thread settings,
+launch arguments, project configuration, and managed policies can override them.
+If someone edits the file while you are working, reload it before saving again.
+
 ## Use multiple accounts
 
 A shared Codex home with a shadow home lets work and personal accounts continue
@@ -48,6 +62,17 @@ settings. If two instances show the same unexpected account or models, check the
 reported accounts, refresh provider status, and confirm the second instance has
 its own shadow path and login. A shadow-home conflict usually means the directory
 contains a copied Codex setup. Use a fresh shadow directory and sign in again.
+
+## Choose a context window
+
+Open the model options beside the composer and choose **Default**, **Highest
+available**, or **Custom** under **Context Window**. T3 Code shows the current
+setting, Codex's shipped default, and the maximum reported by your Codex installation.
+Custom limits cannot exceed that reported maximum. If Codex has not reported a
+limit, it appears as unavailable; refresh models to check again.
+
+Changes apply on your next turn and preserve the conversation. Codex reserves part
+of the configured window, so the context meter can show a smaller usable capacity.
 
 ## Answer questions while Codex works
 

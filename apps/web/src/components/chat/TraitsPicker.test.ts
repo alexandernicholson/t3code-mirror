@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { ProviderDriverKind, type ProviderOptionDescriptor } from "@t3tools/contracts";
 import { buildTraitsTriggerDisplay, buildUnavailableModelOptionDescriptors } from "./TraitsPicker";
+import { buildContextWindowDescriptor } from "@t3tools/shared/contextWindow";
 
 function selectDescriptor(
   id: string,
@@ -61,6 +62,13 @@ function display(descriptors: ReadonlyArray<ProviderOptionDescriptor>) {
 }
 
 describe("buildTraitsTriggerDisplay", () => {
+  it("shows the selected Codex token count without a long mode label", () => {
+    const descriptor = buildContextWindowDescriptor({ defaultTokens: 272_000, maxTokens: 872_000 });
+    expect(display([EFFORT, descriptor]).label).toBe("High · 272k");
+    expect(display([EFFORT, { ...descriptor, currentValue: "maximum" }]).label).toBe("High · 872k");
+    expect(display([EFFORT, { ...descriptor, currentValue: "500000" }]).label).toBe("High · 500k");
+  });
+
   it("omits fast mode from the label entirely when it is off", () => {
     expect(display([EFFORT, fastModeDescriptor(false), CONTEXT_WINDOW])).toEqual({
       label: "High · 1M",

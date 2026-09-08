@@ -58,7 +58,7 @@ export const SecretsSnapshot = Schema.Struct({
 });
 export type SecretsSnapshot = typeof SecretsSnapshot.Type;
 
-export class SecretsError extends Schema.TaggedErrorClass<SecretsError>()("SecretsError", {
+export class SecretsError extends Schema.TaggedError<SecretsError>()("SecretsError", {
   code: Schema.Literals(["not_found", "conflict", "denied", "unavailable", "capacity"]),
 }) {
   override get message(): string {

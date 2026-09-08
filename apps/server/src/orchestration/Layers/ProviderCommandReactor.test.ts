@@ -2512,6 +2512,50 @@ describe("ProviderCommandReactor", () => {
     });
   });
 
+  effectIt.effect("resumes the same Codex conversation when context limits change", () =>
+    Effect.gen(function* () {
+      const harness = yield* Effect.promise(() => createHarness());
+      const values = ["default", "maximum", "500000", "default"];
+      for (const [index, value] of values.entries()) {
+        const sent = yield* Deferred.make<void>();
+        harness.sendTurn.mockImplementationOnce(() =>
+          Deferred.succeed(sent, undefined).pipe(
+            Effect.as({
+              threadId: ThreadId.make("thread-1"),
+              turnId: asTurnId(`turn-context-${index}`),
+            }),
+          ),
+        );
+        yield* harness.engine.dispatch({
+          type: "thread.turn.start",
+          commandId: CommandId.make(`context-start-${index}`),
+          threadId: ThreadId.make("thread-1"),
+          message: {
+            messageId: asMessageId(`context-message-${index}`),
+            role: "user",
+            text: "continue",
+            attachments: [],
+          },
+          modelSelection: {
+            instanceId: ProviderInstanceId.make("codex"),
+            model: "gpt-5-codex",
+            options: [{ id: "contextWindow", value }],
+          },
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          runtimeMode: "approval-required",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+        yield* Deferred.await(sent);
+        yield* Effect.promise(() => harness.drain());
+        expect(harness.startSession).toHaveBeenCalledTimes(index + 1);
+        expect(harness.startSession.mock.calls[index]?.[1]).toMatchObject({
+          modelSelection: { options: [{ id: "contextWindow", value }] },
+          ...(index > 0 ? { resumeCursor: { opaque: "resume-1" } } : {}),
+        });
+      }
+    }),
+  );
+
   it("preserves the active session model when in-session model switching is unsupported", async () => {
     const harness = await createHarness({ sessionModelSwitch: "unsupported" });
     const now = "2026-01-01T00:00:00.000Z";

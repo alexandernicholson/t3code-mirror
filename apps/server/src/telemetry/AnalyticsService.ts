@@ -62,7 +62,7 @@ export class AnalyticsService extends Context.Service<
   );
 }
 
-export function serverOsFromNodePlatform(platform: string): ClientOs {
+function serverOsFromNodePlatform(platform: string): ClientOs {
   switch (platform) {
     case "darwin":
       return "macOS";
@@ -77,6 +77,7 @@ export function serverOsFromNodePlatform(platform: string): ClientOs {
   }
 }
 
+/** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.gen(function* () {
   const enabled = yield* Config.boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false));
   const disabled = AnalyticsService.of({ record: () => Effect.void, flush: Effect.void });

@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 
 import * as ServerConfig from "../config.ts";
 
-class TelemetryIdentityReadError extends Schema.TaggedErrorClass<TelemetryIdentityReadError>()(
+class TelemetryIdentityReadError extends Schema.TaggedError<TelemetryIdentityReadError>()(
   "TelemetryIdentityReadError",
   {
     source: Schema.Literal("anonymous"),
@@ -20,7 +20,7 @@ class TelemetryIdentityReadError extends Schema.TaggedErrorClass<TelemetryIdenti
   }
 }
 
-export class TelemetryAnonymousIdGenerationError extends Schema.TaggedErrorClass<TelemetryAnonymousIdGenerationError>()(
+export class TelemetryAnonymousIdGenerationError extends Schema.TaggedError<TelemetryAnonymousIdGenerationError>()(
   "TelemetryAnonymousIdGenerationError",
   {
     source: Schema.Literal("anonymous"),
@@ -33,7 +33,7 @@ export class TelemetryAnonymousIdGenerationError extends Schema.TaggedErrorClass
   }
 }
 
-export class TelemetryAnonymousIdPersistenceError extends Schema.TaggedErrorClass<TelemetryAnonymousIdPersistenceError>()(
+export class TelemetryAnonymousIdPersistenceError extends Schema.TaggedError<TelemetryAnonymousIdPersistenceError>()(
   "TelemetryAnonymousIdPersistenceError",
   {
     source: Schema.Literal("anonymous"),

@@ -807,6 +807,42 @@ describe("isRecoverableThreadResumeError", () => {
 });
 
 describe("openCodexThread", () => {
+  it.effect("applies context overrides to fresh and resumed conversations", () =>
+    Effect.gen(function* () {
+      for (const contextWindow of [872_000, 500_000, 272_000]) {
+        for (const resumeThreadId of [undefined, "saved-thread"]) {
+          const calls: Array<{ method: string; payload: unknown }> = [];
+          const opened = yield* openCodexThread({
+            client: {
+              request: (method, payload) => {
+                calls.push({ method, payload });
+                return Effect.succeed(makeThreadOpenResponse("new-thread"));
+              },
+              raw: {
+                request: (method, payload) => {
+                  calls.push({ method, payload });
+                  return Effect.succeed(makeThreadOpenResponse("saved-thread"));
+                },
+              },
+            },
+            threadId: ThreadId.make("thread-context"),
+            runtimeMode: "full-access",
+            cwd: "/tmp/project",
+            requestedModel: "gpt-6-astra",
+            serviceTier: undefined,
+            resumeThreadId,
+            contextWindow,
+          });
+          NodeAssert.equal(opened.thread.id, resumeThreadId ?? "new-thread");
+          NodeAssert.equal(calls[0]?.method, resumeThreadId ? "thread/resume" : "thread/start");
+          NodeAssert.partialDeepStrictEqual(calls[0]?.payload, {
+            config: { model_context_window: contextWindow },
+          });
+        }
+      }
+    }),
+  );
+
   it.effect("resumes metadata when historical turns contain unknown error values", () =>
     Effect.gen(function* () {
       const response = makeThreadOpenResponse("saved-thread");

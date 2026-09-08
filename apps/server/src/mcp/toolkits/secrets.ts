@@ -18,7 +18,7 @@ export const SecretsToolkit = Toolkit.make(
   Tool.make("secrets_list", {
     description:
       "List secret keys and sensitivity in this environment and the current project. Never returns values.",
-    parameters: Schema.Struct({}),
+    parameters: Tool.EmptyParams,
     success: Schema.Array(SecretMetadata),
     failure: SecretsError,
     dependencies,
@@ -120,6 +120,8 @@ const register = Effect.gen(function* () {
         annotations: {
           readOnlyHint: Context.get(tool.annotations, Tool.Readonly),
           destructiveHint: Context.get(tool.annotations, Tool.Destructive),
+          idempotentHint: Context.get(tool.annotations, Tool.Idempotent),
+          openWorldHint: Context.get(tool.annotations, Tool.OpenWorld),
         },
       }),
       annotations: tool.annotations,

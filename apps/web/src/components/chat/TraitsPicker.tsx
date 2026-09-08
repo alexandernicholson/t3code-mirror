@@ -40,6 +40,9 @@ import {
 } from "./ComposerControl";
 import { composerFloatingLayerProps } from "./composerEventScope";
 import { useComposerMenuState } from "./useComposerMenuState";
+import { ContextWindowOptions } from "./ContextWindowOptions";
+import { contextWindowTokens } from "@t3tools/shared/contextWindow";
+import { formatContextWindowTokens } from "../../lib/contextWindow";
 
 type ProviderOptions = ReadonlyArray<ProviderOptionSelection>;
 
@@ -387,6 +390,17 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
   return (
     <>
       {selectDescriptors.map((descriptor, index) => {
+        if (descriptor.contextWindow) {
+          return (
+            <div key={descriptor.id}>
+              {index > 0 ? <MenuDivider /> : null}
+              <ContextWindowOptions
+                descriptor={descriptor}
+                onChange={(value) => handleSelectChange(descriptor, value)}
+              />
+            </div>
+          );
+        }
         const selectedValue =
           ultrathinkPromptControlled && descriptor.id === primarySelectDescriptor?.id
             ? "ultrathink"
@@ -496,6 +510,15 @@ export function buildTraitsTriggerDisplay(input: {
   let fastModeEnabled = false;
   const labels: Array<string> = [];
   for (const descriptor of input.descriptors) {
+    if (descriptor.type === "select" && descriptor.contextWindow) {
+      const value = getProviderOptionCurrentValue(descriptor);
+      const tokens = contextWindowTokens(
+        descriptor.contextWindow,
+        typeof value === "string" ? value : undefined,
+      );
+      if (tokens !== undefined) labels.push(formatContextWindowTokens(tokens));
+      continue;
+    }
     if (descriptor.id === "fastMode" && descriptor.type === "boolean") {
       fastModeEnabled = descriptor.currentValue === true;
       fastModeFallbackLabel = fastModeEnabled ? "Fast" : "Normal";

@@ -35,6 +35,9 @@ import {
   ProviderInstanceId,
   type ProviderInstallState,
   ProviderSetupError,
+  ProviderGlobalSettingsError,
+  type ProviderGlobalSettings,
+  type ProviderGlobalSettingsWriteInput,
   ResolvedKeybindingRule,
   type ServerLifecycleStreamEvent,
   ThreadId,
@@ -5775,6 +5778,117 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
+  it.effect("provider global settings route by instance and preserve typed errors", () =>
+    Effect.gen(function* () {
+      const secondId = ProviderInstanceId.make("second-config");
+      const unsupportedId = ProviderInstanceId.make("unsupported-config");
+      const initial: ProviderGlobalSettings = {
+        filePath: "/home/work/.codex/config.toml",
+        version: "v1",
+        fields: [],
+        userConfig: { features: { memories: true } },
+        effectiveConfig: {},
+        origins: {},
+      };
+      const writes: ProviderGlobalSettingsWriteInput[] = [];
+      const configInstance = (
+        instanceId: ProviderInstanceId,
+        globalSettings?: ProviderInstance["globalSettings"],
+      ): ProviderInstance => ({
+        instanceId,
+        driverKind: providerSetupDriver,
+        displayName: "Configuration test",
+        enabled: false,
+        continuationIdentity: providerSetupInstance.continuationIdentity,
+        get adapter() {
+          return providerSetupInstance.adapter;
+        },
+        get snapshot() {
+          return providerSetupInstance.snapshot;
+        },
+        get textGeneration() {
+          return providerSetupInstance.textGeneration;
+        },
+        ...(globalSettings ? { globalSettings } : {}),
+      });
+      yield* buildAppUnderTest({
+        layers: {
+          providerInstanceRegistry: {
+            getInstance: (instanceId) =>
+              Effect.succeed(
+                instanceId === providerSetupInstanceId
+                  ? configInstance(instanceId, {
+                      read: Effect.succeed(initial),
+                      write: (input: ProviderGlobalSettingsWriteInput) =>
+                        Effect.sync(() => {
+                          writes.push(input);
+                          return { ...initial, version: "v2" };
+                        }),
+                    })
+                  : instanceId === secondId
+                    ? configInstance(instanceId, {
+                        read: Effect.succeed({
+                          ...initial,
+                          filePath: "/home/personal/.codex/config.toml",
+                        }),
+                        write: () =>
+                          Effect.fail(
+                            new ProviderGlobalSettingsError({
+                              instanceId: secondId,
+                              detail: "Reload configuration before saving.",
+                            }),
+                          ),
+                      })
+                    : instanceId === unsupportedId
+                      ? configInstance(instanceId)
+                      : undefined,
+              ),
+          },
+        },
+      });
+      const wsUrl = yield* getWsServerUrl("/ws");
+      yield* Effect.scoped(
+        withWsRpcClient(wsUrl, (client) =>
+          Effect.gen(function* () {
+            const first = yield* client[WS_METHODS.providerReadGlobalSettings]({
+              instanceId: providerSetupInstanceId,
+            });
+            const second = yield* client[WS_METHODS.providerReadGlobalSettings]({
+              instanceId: secondId,
+            });
+            assert.deepEqual(first.userConfig, initial.userConfig);
+            assert.notEqual(first.filePath, second.filePath);
+            const input = {
+              instanceId: providerSetupInstanceId,
+              filePath: first.filePath,
+              expectedVersion: first.version,
+              edits: [
+                { key: "features", value: { memories: false } },
+                { key: "model_verbosity", value: null },
+              ],
+            };
+            const saved = yield* client[WS_METHODS.providerWriteGlobalSettings](input);
+            assert.equal(saved.version, "v2");
+            assert.deepEqual(writes, [input]);
+            const conflict = yield* client[WS_METHODS.providerWriteGlobalSettings]({
+              ...input,
+              instanceId: secondId,
+            }).pipe(Effect.flip);
+            assert.equal(conflict._tag, "ProviderGlobalSettingsError");
+            if (conflict._tag === "ProviderGlobalSettingsError")
+              assert.equal(conflict.detail, "Reload configuration before saving.");
+            for (const instanceId of [unsupportedId, ProviderInstanceId.make("missing-config")]) {
+              const failure = yield* client[WS_METHODS.providerReadGlobalSettings]({
+                instanceId,
+              }).pipe(Effect.flip);
+              assert.equal(failure._tag, "ProviderGlobalSettingsError");
+            }
+          }),
+        ),
+      );
+    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
   it.effect("provider setup lets read-only clients observe installation but not change setup", () =>
     Effect.gen(function* () {
       let installStarts = 0;
@@ -5827,6 +5941,15 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
             }).pipe(Stream.runHead, Effect.map(Option.getOrThrow));
             assert.deepEqual(observed, providerSetupInstallState);
             const errors = [
+              yield* client[WS_METHODS.providerReadGlobalSettings]({
+                instanceId: providerSetupInstanceId,
+              }).pipe(Effect.flip),
+              yield* client[WS_METHODS.providerWriteGlobalSettings]({
+                instanceId: providerSetupInstanceId,
+                filePath: "/config.toml",
+                expectedVersion: "v1",
+                edits: [{ key: "model_verbosity", value: "low" }],
+              }).pipe(Effect.flip),
               yield* client[WS_METHODS.providerInstallStart]({
                 instanceId: providerSetupInstanceId,
               }).pipe(Effect.flip),

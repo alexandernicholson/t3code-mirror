@@ -28,7 +28,7 @@ const gitHubCliFailureFields = {
   cause: Schema.Defect(),
 } as const;
 
-export class GitHubCliUnavailableError extends Schema.TaggedErrorClass<GitHubCliUnavailableError>()(
+export class GitHubCliUnavailableError extends Schema.TaggedError<GitHubCliUnavailableError>()(
   "GitHubCliUnavailableError",
   gitHubCliFailureFields,
 ) {
@@ -41,7 +41,7 @@ export class GitHubCliUnavailableError extends Schema.TaggedErrorClass<GitHubCli
   }
 }
 
-export class GitHubCliAuthenticationError extends Schema.TaggedErrorClass<GitHubCliAuthenticationError>()(
+export class GitHubCliAuthenticationError extends Schema.TaggedError<GitHubCliAuthenticationError>()(
   "GitHubCliAuthenticationError",
   gitHubCliFailureFields,
 ) {
@@ -54,7 +54,7 @@ export class GitHubCliAuthenticationError extends Schema.TaggedErrorClass<GitHub
   }
 }
 
-export class GitHubCliRateLimitError extends Schema.TaggedErrorClass<GitHubCliRateLimitError>()(
+export class GitHubCliRateLimitError extends Schema.TaggedError<GitHubCliRateLimitError>()(
   "GitHubCliRateLimitError",
   gitHubCliFailureFields,
 ) {
@@ -67,7 +67,7 @@ export class GitHubCliRateLimitError extends Schema.TaggedErrorClass<GitHubCliRa
   }
 }
 
-export class GitHubPullRequestNotFoundError extends Schema.TaggedErrorClass<GitHubPullRequestNotFoundError>()(
+export class GitHubPullRequestNotFoundError extends Schema.TaggedError<GitHubPullRequestNotFoundError>()(
   "GitHubPullRequestNotFoundError",
   gitHubCliFailureFields,
 ) {
@@ -80,7 +80,7 @@ export class GitHubPullRequestNotFoundError extends Schema.TaggedErrorClass<GitH
   }
 }
 
-export class GitHubCliCommandError extends Schema.TaggedErrorClass<GitHubCliCommandError>()(
+export class GitHubCliCommandError extends Schema.TaggedError<GitHubCliCommandError>()(
   "GitHubCliCommandError",
   gitHubCliFailureFields,
 ) {
@@ -99,7 +99,7 @@ const gitHubCliDecodeFields = {
   cause: Schema.Defect(),
 } as const;
 
-export class GitHubPullRequestListDecodeError extends Schema.TaggedErrorClass<GitHubPullRequestListDecodeError>()(
+export class GitHubPullRequestListDecodeError extends Schema.TaggedError<GitHubPullRequestListDecodeError>()(
   "GitHubPullRequestListDecodeError",
   gitHubCliDecodeFields,
 ) {
@@ -112,7 +112,7 @@ export class GitHubPullRequestListDecodeError extends Schema.TaggedErrorClass<Gi
   }
 }
 
-export class GitHubChangeRequestListDecodeError extends Schema.TaggedErrorClass<GitHubChangeRequestListDecodeError>()(
+export class GitHubChangeRequestListDecodeError extends Schema.TaggedError<GitHubChangeRequestListDecodeError>()(
   "GitHubChangeRequestListDecodeError",
   gitHubCliDecodeFields,
 ) {
@@ -125,7 +125,7 @@ export class GitHubChangeRequestListDecodeError extends Schema.TaggedErrorClass<
   }
 }
 
-export class GitHubPullRequestDecodeError extends Schema.TaggedErrorClass<GitHubPullRequestDecodeError>()(
+export class GitHubPullRequestDecodeError extends Schema.TaggedError<GitHubPullRequestDecodeError>()(
   "GitHubPullRequestDecodeError",
   gitHubCliDecodeFields,
 ) {
@@ -138,7 +138,7 @@ export class GitHubPullRequestDecodeError extends Schema.TaggedErrorClass<GitHub
   }
 }
 
-export class GitHubRepositoryDecodeError extends Schema.TaggedErrorClass<GitHubRepositoryDecodeError>()(
+export class GitHubRepositoryDecodeError extends Schema.TaggedError<GitHubRepositoryDecodeError>()(
   "GitHubRepositoryDecodeError",
   gitHubCliDecodeFields,
 ) {
@@ -233,6 +233,7 @@ export class GitHubCli extends Context.Service<
   {
     readonly execute: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly args: ReadonlyArray<string>;
       readonly timeoutMs?: number;
       /** Piped to the child's stdin, for payloads that must never appear in argv. */
@@ -242,12 +243,14 @@ export class GitHubCli extends Context.Service<
 
     readonly listOpenPullRequests: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly headSelector: string;
       readonly limit?: number;
     }) => Effect.Effect<ReadonlyArray<GitHubPullRequestSummary>, GitHubCliError>;
 
     readonly getPullRequest: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly reference: string;
     }) => Effect.Effect<GitHubPullRequestSummary, GitHubCliError>;
 
@@ -264,6 +267,7 @@ export class GitHubCli extends Context.Service<
 
     readonly createPullRequest: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly baseBranch: string;
       readonly headSelector: string;
       readonly title: string;
@@ -272,10 +276,12 @@ export class GitHubCli extends Context.Service<
 
     readonly getDefaultBranch: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
     }) => Effect.Effect<string | null, GitHubCliError>;
 
     readonly checkoutPullRequest: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly reference: string;
       readonly force?: boolean;
     }) => Effect.Effect<void, GitHubCliError>;
@@ -338,6 +344,7 @@ function deriveRepositoryCloneUrlsFromCreateOutput(
   };
 }
 
+/** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.gen(function* () {
   const process = yield* VcsProcess.VcsProcess;
 
@@ -346,7 +353,8 @@ export const make = Effect.gen(function* () {
       .run({
         operation: "GitHubCli.execute",
         command: "gh",
-        args: input.args,
+        args:
+          input.repository === undefined ? input.args : [...input.args, "--repo", input.repository],
         cwd: input.cwd,
         timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         ...(input.stdin !== undefined ? { stdin: input.stdin } : {}),
@@ -359,6 +367,7 @@ export const make = Effect.gen(function* () {
     listOpenPullRequests: (input) =>
       execute({
         cwd: input.cwd,
+        repository: input.repository,
         args: [
           "pr",
           "list",
@@ -396,6 +405,7 @@ export const make = Effect.gen(function* () {
     getPullRequest: (input) =>
       execute({
         cwd: input.cwd,
+        repository: /^https?:\/\//i.test(input.reference) ? undefined : input.repository,
         args: [
           "pr",
           "view",
@@ -455,6 +465,7 @@ export const make = Effect.gen(function* () {
     createPullRequest: (input) =>
       execute({
         cwd: input.cwd,
+        repository: input.repository,
         args: [
           "pr",
           "create",
@@ -471,7 +482,15 @@ export const make = Effect.gen(function* () {
     getDefaultBranch: (input) =>
       execute({
         cwd: input.cwd,
-        args: ["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"],
+        args: [
+          "repo",
+          "view",
+          ...(input.repository === undefined ? [] : [input.repository]),
+          "--json",
+          "defaultBranchRef",
+          "--jq",
+          ".defaultBranchRef.name",
+        ],
       }).pipe(
         Effect.map((value) => {
           const trimmed = value.stdout.trim();
@@ -481,6 +500,7 @@ export const make = Effect.gen(function* () {
     checkoutPullRequest: (input) =>
       execute({
         cwd: input.cwd,
+        repository: /^https?:\/\//i.test(input.reference) ? undefined : input.repository,
         args: ["pr", "checkout", input.reference, ...(input.force ? ["--force"] : [])],
       }).pipe(Effect.asVoid),
   });

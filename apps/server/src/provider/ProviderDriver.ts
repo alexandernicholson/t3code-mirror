@@ -23,6 +23,9 @@
  */
 import type {
   ProviderConsumeResetCreditOutcome,
+  ProviderGlobalSettings,
+  ProviderGlobalSettingsError,
+  ProviderGlobalSettingsWriteInput,
   ProviderDriverKind,
   ProviderInstanceEnvironment,
   ProviderInstanceId,
@@ -74,6 +77,12 @@ export interface ProviderInstance {
   readonly snapshot: ServerProviderShape;
   readonly snapshotForCwd?: (cwd: string) => Effect.Effect<ServerProvider, ProviderDriverError>;
   readonly refreshModels?: () => Effect.Effect<void, ProviderDriverError>;
+  readonly globalSettings?: {
+    readonly read: Effect.Effect<ProviderGlobalSettings, ProviderGlobalSettingsError>;
+    readonly write: (
+      input: ProviderGlobalSettingsWriteInput,
+    ) => Effect.Effect<ProviderGlobalSettings, ProviderGlobalSettingsError>;
+  };
   /**
    * Redeem one banked rate-limit reset credit on the signed-in account, then
    * re-probe so the snapshot reflects the cleared windows. Account-level,
