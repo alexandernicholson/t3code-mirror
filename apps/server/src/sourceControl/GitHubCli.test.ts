@@ -117,6 +117,27 @@ describe("GitHubCli.layer", () => {
     }).pipe(Effect.provide(layer)),
   );
 
+  it.effect("keeps an explicit PR URL authoritative over the local repository", () =>
+    Effect.gen(function* () {
+      mockRun.mockImplementation((input) => {
+        const index = input.args.indexOf("--repo");
+        const repository = index === -1 ? "review/project" : input.args[index + 1];
+        return Effect.succeed(
+          processOutput(
+            `{"number":42,"title":"Review","url":"https://github.com/${repository}/pull/42","baseRefName":"main","headRefName":"feature/review","state":"OPEN","mergedAt":null}`,
+          ),
+        );
+      });
+      const gh = yield* GitHubCli.GitHubCli;
+      const request = yield* gh.getPullRequest({
+        cwd: "/repo",
+        repository: "local/project",
+        reference: "https://github.com/review/project/pull/42",
+      });
+      assert.equal(request.url, "https://github.com/review/project/pull/42");
+    }).pipe(Effect.provide(layer)),
+  );
+
   it.effect("trims pull request fields decoded from gh json", () =>
     Effect.gen(function* () {
       mockRun.mockReturnValueOnce(

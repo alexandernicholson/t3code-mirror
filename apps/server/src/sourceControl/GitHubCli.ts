@@ -233,6 +233,7 @@ export class GitHubCli extends Context.Service<
   {
     readonly execute: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly args: ReadonlyArray<string>;
       readonly timeoutMs?: number;
       /** Piped to the child's stdin, for payloads that must never appear in argv. */
@@ -242,12 +243,14 @@ export class GitHubCli extends Context.Service<
 
     readonly listOpenPullRequests: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly headSelector: string;
       readonly limit?: number;
     }) => Effect.Effect<ReadonlyArray<GitHubPullRequestSummary>, GitHubCliError>;
 
     readonly getPullRequest: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly reference: string;
     }) => Effect.Effect<GitHubPullRequestSummary, GitHubCliError>;
 
@@ -264,6 +267,7 @@ export class GitHubCli extends Context.Service<
 
     readonly createPullRequest: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly baseBranch: string;
       readonly headSelector: string;
       readonly title: string;
@@ -272,10 +276,12 @@ export class GitHubCli extends Context.Service<
 
     readonly getDefaultBranch: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
     }) => Effect.Effect<string | null, GitHubCliError>;
 
     readonly checkoutPullRequest: (input: {
       readonly cwd: string;
+      readonly repository?: string | undefined;
       readonly reference: string;
       readonly force?: boolean;
     }) => Effect.Effect<void, GitHubCliError>;
@@ -347,7 +353,8 @@ export const make = Effect.gen(function* () {
       .run({
         operation: "GitHubCli.execute",
         command: "gh",
-        args: input.args,
+        args:
+          input.repository === undefined ? input.args : [...input.args, "--repo", input.repository],
         cwd: input.cwd,
         timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         ...(input.stdin !== undefined ? { stdin: input.stdin } : {}),
@@ -360,6 +367,7 @@ export const make = Effect.gen(function* () {
     listOpenPullRequests: (input) =>
       execute({
         cwd: input.cwd,
+        repository: input.repository,
         args: [
           "pr",
           "list",
@@ -397,6 +405,7 @@ export const make = Effect.gen(function* () {
     getPullRequest: (input) =>
       execute({
         cwd: input.cwd,
+        repository: /^https?:\/\//i.test(input.reference) ? undefined : input.repository,
         args: [
           "pr",
           "view",
@@ -456,6 +465,7 @@ export const make = Effect.gen(function* () {
     createPullRequest: (input) =>
       execute({
         cwd: input.cwd,
+        repository: input.repository,
         args: [
           "pr",
           "create",
@@ -472,7 +482,15 @@ export const make = Effect.gen(function* () {
     getDefaultBranch: (input) =>
       execute({
         cwd: input.cwd,
-        args: ["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"],
+        args: [
+          "repo",
+          "view",
+          ...(input.repository === undefined ? [] : [input.repository]),
+          "--json",
+          "defaultBranchRef",
+          "--jq",
+          ".defaultBranchRef.name",
+        ],
       }).pipe(
         Effect.map((value) => {
           const trimmed = value.stdout.trim();
@@ -482,6 +500,7 @@ export const make = Effect.gen(function* () {
     checkoutPullRequest: (input) =>
       execute({
         cwd: input.cwd,
+        repository: /^https?:\/\//i.test(input.reference) ? undefined : input.repository,
         args: ["pr", "checkout", input.reference, ...(input.force ? ["--force"] : [])],
       }).pipe(Effect.asVoid),
   });
