@@ -8,7 +8,7 @@ import {
 } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { mergeUsage, type EnvironmentUsage } from "./usageMerge.ts";
+import { cacheHitRate, mergeUsage, type EnvironmentUsage } from "./usageMerge.ts";
 
 function bucket(overrides: Partial<UsageBucket> = {}): UsageBucket {
   return {
@@ -74,6 +74,48 @@ function environment(id: string, usageSummary: UsageSummary): EnvironmentUsage {
 }
 
 describe("mergeUsage", () => {
+  it("weights cache hits by input tokens per provider and model, including cache writes", () => {
+    const source = { provider: "claude" as const, hostId: "mac", homePath: "/a/.claude" };
+    const merged = mergeUsage(
+      [
+        environment(
+          "env-a",
+          summary(
+            [
+              bucket(),
+              bucket({
+                totals: {
+                  uncachedInputTokens: 900,
+                  cachedInputTokens: 0,
+                  cacheCreationTokens: 90,
+                  outputTokens: 5000,
+                  reasoningTokens: 1000,
+                },
+              }),
+              bucket({ model: "another-model" }),
+            ],
+            [source],
+          ),
+        ),
+        environment("env-z-duplicate", summary([bucket()], [source])),
+      ],
+      USAGE_CONTRACT_VERSION,
+    );
+    const model = merged.models.find((entry) => entry.model === "claude-fable-5")!;
+    const provider = merged.providers[0]!;
+    expect(model.inputTokens).toBe(2100);
+    expect(model.cachedInputTokens).toBe(1000);
+    expect(cacheHitRate(model)).toBeCloseTo(1000 / 2100);
+    expect(provider.inputTokens).toBe(3210);
+    expect(provider.cachedInputTokens).toBe(2000);
+    expect(cacheHitRate(provider)).toBeCloseTo(2000 / 3210);
+  });
+
+  it("distinguishes no input from an observed cache miss", () => {
+    expect(cacheHitRate({ inputTokens: 0, cachedInputTokens: 0 })).toBeNull();
+    expect(cacheHitRate({ inputTokens: 100, cachedInputTokens: 0 })).toBe(0);
+  });
+
   it("sums environments that read different transcript directories", () => {
     const merged = mergeUsage(
       [

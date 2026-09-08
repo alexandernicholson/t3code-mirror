@@ -61,6 +61,12 @@ export interface MarkdownFileContextMenu {
   readonly actions: ReadonlyArray<MarkdownFileContextMenuAction>;
 }
 
+/** Return a custom code block, or null to keep the native code renderer. */
+export type MarkdownCodeBlockRenderer = (block: {
+  readonly code: string;
+  readonly language: string | null;
+}) => import("react").ReactNode;
+
 export interface SelectableMarkdownTextProps {
   readonly markdown: string;
   readonly textStyle: NativeMarkdownTextStyle;
@@ -71,6 +77,7 @@ export interface SelectableMarkdownTextProps {
   readonly fileContextMenu?: (href: string) => MarkdownFileContextMenu | undefined;
   readonly onFileContextMenuAction?: (href: string, actionId: string) => void;
   readonly renderImage?: MarkdownImageRenderer;
+  readonly renderCodeBlock?: MarkdownCodeBlockRenderer;
   readonly marginTop?: number;
   readonly marginBottom?: number;
 }

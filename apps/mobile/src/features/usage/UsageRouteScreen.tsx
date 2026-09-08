@@ -8,6 +8,7 @@ import {
 import {
   enumerateDays,
   enumerateHourStarts,
+  formatCacheHitRate,
   formatCount,
   formatDayShort,
   formatHourShort,
@@ -510,6 +511,10 @@ function ProviderSection(props: {
                 ? `${formatPercent(share)} of cost · ${formatTokens(provider.totalTokens)} tokens`
                 : `${formatPercent(share)} of tokens · ${formatUsd(provider.costUsd)}`}
             </Text>
+            <Text className="text-sm text-foreground-muted">
+              {formatTokens(provider.cachedInputTokens)} cached input ·{" "}
+              {formatCacheHitRate(provider)} cache hit rate
+            </Text>
           </View>
         );
       })}
@@ -523,11 +528,17 @@ function TotalsSection(props: { readonly merged: MergedUsage; readonly isPast24H
     (period) => period.totalTokens > 0,
   ).length;
   const periodAverage = activePeriods === 0 ? 0 : merged.totalTokens / activePeriods;
-  const observedInput = merged.uncachedInputTokens + merged.cachedInputTokens;
-  const cachedShare = observedInput === 0 ? 0 : merged.cachedInputTokens / observedInput;
+  const cachedShare = formatCacheHitRate({
+    inputTokens: merged.totalTokens - merged.outputTokens,
+    cachedInputTokens: merged.cachedInputTokens,
+  });
 
   return (
     <SettingsSection title="Totals" card>
+      <Text className="px-4 pt-4 text-sm text-foreground-muted">
+        Coverage: Claude, Codex, and Grok. Cache hit rate is cached reads divided by all input
+        tokens, including cache writes.
+      </Text>
       <View className="flex-row flex-wrap">
         <MetricCell
           label="Processed tokens"
@@ -546,7 +557,7 @@ function TotalsSection(props: { readonly merged: MergedUsage; readonly isPast24H
         <MetricCell
           label="Cached input"
           value={formatTokens(merged.cachedInputTokens)}
-          detail={`${formatPercent(cachedShare)} of observed input`}
+          detail={`${cachedShare} of all input (including cache writes)`}
         />
         <MetricCell
           label="Uncached input"
@@ -608,6 +619,10 @@ function ModelsSection(props: { readonly merged: MergedUsage }) {
             </Text>
             <Text className="text-sm text-foreground-muted">
               {formatPercent(model.costShare)} of cost · {formatTokens(model.totalTokens)} tokens
+            </Text>
+            <Text className="text-sm text-foreground-muted">
+              {formatTokens(model.cachedInputTokens)} cached input · {formatCacheHitRate(model)}{" "}
+              cache hit rate
             </Text>
           </View>
           <Text className="text-base tabular-nums text-foreground">{formatUsd(model.costUsd)}</Text>

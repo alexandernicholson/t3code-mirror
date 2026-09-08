@@ -103,6 +103,7 @@ import {
   type MediaVideoPreviewSource,
 } from "../../lib/videoPreviewSource";
 import { CopyTextButton } from "../../components/CopyTextButton";
+import { ThreadMermaidDiagram, useMermaidCodeBlockRenderer } from "./ThreadMermaidDiagram";
 import {
   parseReviewCommentMessageSegments,
   type ReviewInlineComment,
@@ -743,6 +744,7 @@ interface MarkdownLinkHandlers {
 }
 
 const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
+  readonly isStreaming: boolean;
   readonly markdown: string;
   readonly markdownStyles: MarkdownStyleSet;
   readonly linkHandlers: MarkdownLinkHandlers;
@@ -754,6 +756,8 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
     () => splitCodexArtifactTemplateMarkdown(props.markdown),
     [props.markdown],
   );
+
+  const renderCodeBlock = useMermaidCodeBlockRenderer(props.isStreaming);
 
   return segments.map((segment) => {
     if (segment.kind === "artifact-template") {
@@ -773,6 +777,7 @@ const AssistantMarkdownContent = memo(function AssistantMarkdownContent(props: {
         key={`markdown:${segment.sourceOffset}`}
         markdown={markdown}
         skills={props.skills}
+        renderCodeBlock={renderCodeBlock}
         textStyle={props.markdownStyles.nativeTextStyle}
         {...props.linkHandlers}
         renderImage={props.renderImage}
@@ -808,11 +813,24 @@ function MarkdownCodeBlock(props: {
   const languageLabel = props.language?.trim() || "text";
   const highlighted = useMarkdownCodeHighlight({
     code: content,
-    enabled: props.highlightCode && Boolean(props.language?.trim()),
+    enabled:
+      props.highlightCode &&
+      Boolean(props.language?.trim()) &&
+      props.language?.trim().toLowerCase() !== "mermaid",
     language: props.language,
     theme: props.theme,
   });
   let tokenOffset = 0;
+
+  if (props.language?.trim().toLowerCase() === "mermaid") {
+    return (
+      <ThreadMermaidDiagram
+        source={content}
+        theme={props.theme}
+        isStreaming={!props.highlightCode}
+      />
+    );
+  }
 
   return (
     <View
@@ -1598,6 +1616,7 @@ function renderFeedEntry(
           <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
             <AssistantMarkdownContent
               markdown={renderedText}
+              isStreaming={message.streaming}
               markdownStyles={styles}
               linkHandlers={props.markdownLinkHandlers}
               onUseArtifactTemplate={props.onUseArtifactTemplate}

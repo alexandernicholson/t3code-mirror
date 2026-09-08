@@ -1,0 +1,39 @@
+diff --git a/build/src/export/exportDomComponents.js b/build/src/export/exportDomComponents.js
+index cee1be17099f215f9a5e8c3010dc5dae14d79999..0a194e3b31fed03d511eac711603d31dced78039 100644
+--- a/build/src/export/exportDomComponents.js
++++ b/build/src/export/exportDomComponents.js
+@@ -102,16 +102,33 @@ async function exportDomComponentAsync({ filePath, projectRoot, dev, devServer,
+         // Minify may be false because it's skipped on native when Hermes is enabled, default to true.
+         minify: true
+     });
++    let template = (0, _DomComponentsMiddleware.getDomComponentHtml)();
+     if (useMd5Filename) {
++        const filenames = new Map();
+         for (const artifact of bundle.artifacts){
+             const md5 = _crypto().default.createHash('md5').update(artifact.source).digest('hex');
++            filenames.set(artifact.filename, `${md5}.${artifact.type}`);
+             artifact.filename = `${md5}.${artifact.type}`;
+         }
++        for (const artifact of bundle.artifacts){
++            if (artifact.metadata.requires) {
++                artifact.metadata.requires = artifact.metadata.requires.map((name)=>{
++                    const filename = filenames.get(name);
++                    (0, _assert().default)(filename, `Missing DOM bundle dependency: ${name}`);
++                    return filename;
++                });
++            }
++        }
++        // Keep JS bytes unchanged: native assets use their content MD5, and
++        // rewriting references would invalidate hashes (including import cycles).
++        // The DOM loader resolves Metro's original URLs through this page-local map.
++        const urls = JSON.stringify(Object.fromEntries(filenames)).replace(/</g, '\\u003c');
++        template = template.replace('<head>', `<head><script>globalThis.__EXPO_DOM_BUNDLE_URLS__ = Object.fromEntries(Object.entries(${urls}).map(([from, to]) => [new URL('./' + from, document.baseURI).href, new URL('./' + to, document.baseURI).href]));</script>`);
+     }
+     const html = await (0, _serializeHtml.serializeHtmlWithAssets)({
+         isExporting: true,
+         resources: bundle.artifacts,
+-        template: (0, _DomComponentsMiddleware.getDomComponentHtml)(),
++        template,
+         baseUrl: './'
+     });
+     const serialAssets = bundle.artifacts.map((a)=>{
