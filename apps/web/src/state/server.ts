@@ -26,6 +26,7 @@ import { environmentSession } from "./session";
 // no themes until it reconnected. The set is capped server-side and stripped
 // before caching, so following all of them costs a few KB per environment.
 export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRuntime, {
+  sourceUpdates: true,
   initialConfigValueAtom: environmentSession.initialConfigValueAtom,
   environmentThemes: true,
   usageLimitSources: true,

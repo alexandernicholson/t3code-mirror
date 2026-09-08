@@ -85,8 +85,9 @@ export function resolveVersionMismatch(
 }
 
 export function resolveServerConfigVersionMismatch(
-  serverConfig: Pick<ServerConfig, "environment"> | null | undefined,
+  serverConfig: Pick<ServerConfig, "environment" | "sourceUpdates"> | null | undefined,
 ): VersionMismatch | null {
+  if (serverConfig?.sourceUpdates?.supported === true) return null;
   return resolveVersionMismatch(serverConfig?.environment.serverVersion);
 }
 

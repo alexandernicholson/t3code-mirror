@@ -110,6 +110,10 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
 - The server is event-sourced and its async flows emit typed receipts. Wait on receipts and worker drains, never on sleeps or polling. A test that needs a timeout to pass is wrong.
 - Upon request, user-visible frontend changes should get one integrated pass in a real client: `test-t3-app` for web, `test-t3-mobile` for mobile. The primary agent does this once after integrating. Subagents do not launch their own dev servers. Ask permission before doing computer use or spinning up browsers.
 
+## Versioning this fork
+
+Each completed change includes a `VERSION` bump and a matching `CHANGELOG.md` entry. Use the [release-fork skill](.agents/skills/release-fork/SKILL.md) and `vp run release:change`, then `vp run release:check`. Bump once per completed change, not per edit; recheck against the target branch after rebasing. Keep already released notes and migrations immutable. Source service builds and release packages derive from this version.
+
 ## Pull requests
 
 - Never make a PR unless the developer explicitly asks you to do so.

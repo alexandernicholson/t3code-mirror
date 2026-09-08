@@ -1,7 +1,7 @@
 import type { ServerSelfUpdateOutcome } from "@t3tools/contracts";
 
-/** Protocol 2 snapshots SQLite before trials so migrations can be rolled back safely. */
-export const SERVICE_LAUNCHER_PROTOCOL = 2 as const;
+/** Protocol 3 adds source builds and migration-checked branch switches to rollback trials. */
+export const SERVICE_LAUNCHER_PROTOCOL = 3 as const;
 export const SERVICE_LAUNCHER_CONTEXT_ENV = "T3_SERVICE_LAUNCHER_CONTEXT";
 export const SERVICE_LAUNCHER_FILE = "service-launcher.mjs";
 export const SERVICE_STATE_FILE = "service-state.json";
@@ -16,6 +16,7 @@ export interface PendingServiceUpdate {
   readonly targetVersion: string;
   readonly dbPath: string;
   readonly status: "pending";
+  readonly sourceUpdate?: true;
 }
 
 export type ServiceUpdateRecord = PendingServiceUpdate | ServerSelfUpdateOutcome;
@@ -38,6 +39,7 @@ export type ServiceLauncherChildMessage =
       readonly type: "request-update";
       readonly targetVersion: string;
       readonly dbPath: string;
+      readonly sourceUpdate?: true;
     }
   | {
       readonly type: "prepared";
@@ -84,9 +86,11 @@ function decodeServiceUpdate(value: unknown): ServiceUpdateRecord | undefined {
   ) {
     return undefined;
   }
+  if (value.sourceUpdate !== undefined && value.sourceUpdate !== true) return undefined;
+  const source = value.sourceUpdate === true ? { sourceUpdate: true as const } : {};
   if (status === "pending") {
     return typeof value.dbPath === "string" && value.dbPath.trim() !== ""
-      ? { id, fromVersion, targetVersion, dbPath: value.dbPath, status }
+      ? { id, fromVersion, targetVersion, dbPath: value.dbPath, status, ...source }
       : undefined;
   }
   if (
@@ -94,6 +98,7 @@ function decodeServiceUpdate(value: unknown): ServiceUpdateRecord | undefined {
     (value.reason === undefined || (typeof value.reason === "string" && value.reason.trim() !== ""))
   ) {
     return {
+      ...source,
       id,
       fromVersion,
       targetVersion,
@@ -151,7 +156,9 @@ export function decodeServiceState(value: unknown): ServiceState | undefined {
     !isExactServiceVersion(value.activeVersion) ||
     (value.update !== undefined && update === undefined) ||
     (update !== undefined &&
-      compareExactServiceVersions(update.targetVersion, update.fromVersion) <= 0) ||
+      (update.targetVersion === update.fromVersion ||
+        (update.sourceUpdate !== true &&
+          compareExactServiceVersions(update.targetVersion, update.fromVersion) <= 0))) ||
     (update?.status === "pending" && update.fromVersion !== value.activeVersion) ||
     (update?.status === "committed" && update.targetVersion !== value.activeVersion) ||
     ((update?.status === "rolled-back" || update?.status === "failed") &&
@@ -240,7 +247,13 @@ export function decodeServiceLauncherChildMessage(
     typeof value.targetVersion === "string" &&
     typeof value.dbPath === "string"
   ) {
-    return { type: value.type, targetVersion: value.targetVersion, dbPath: value.dbPath };
+    if (value.sourceUpdate !== undefined && value.sourceUpdate !== true) return undefined;
+    return {
+      type: value.type,
+      targetVersion: value.targetVersion,
+      dbPath: value.dbPath,
+      ...(value.sourceUpdate === true ? { sourceUpdate: true as const } : {}),
+    };
   }
   return value.type === "prepared" && typeof value.updateId === "string"
     ? { type: value.type, updateId: value.updateId }

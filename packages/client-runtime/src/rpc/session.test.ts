@@ -429,6 +429,8 @@ describe("RpcSessionFactory", () => {
   );
 
   for (const options of [
+    { sourceUpdates: true },
+    { sourceUpdates: true, environmentThemes: true, usageLimitSources: true },
     { environmentThemes: true },
     { usageLimitSources: true },
     { environmentThemes: true, usageLimitSources: true },
@@ -1012,6 +1014,38 @@ describe("RpcSessionFactory", () => {
         settings: {
           ...DEFAULT_SERVER_SETTINGS,
           newWorktreesStartFromOrigin: !DEFAULT_SERVER_SETTINGS.newWorktreesStartFromOrigin,
+        },
+      },
+    },
+    {
+      event: {
+        version: 1,
+        type: "sourceUpdatesChanged",
+        payload: {
+          deferred: false,
+          restartRequested: false,
+          supported: true,
+          running: null,
+          phase: "ready",
+          target: null,
+          lastCheckedAt: null,
+          message: "Ready to restart",
+          updateId: null,
+          outcome: null,
+        },
+      },
+      expectedConfig: {
+        sourceUpdates: {
+          deferred: false,
+          restartRequested: false,
+          supported: true,
+          running: null,
+          phase: "ready",
+          target: null,
+          lastCheckedAt: null,
+          message: "Ready to restart",
+          updateId: null,
+          outcome: null,
         },
       },
     },

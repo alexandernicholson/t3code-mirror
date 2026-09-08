@@ -1010,6 +1010,26 @@ it.layer(
     }),
   );
 
+  it.effect("checks terminal jobs freshly before a source update, allowing idle shells", () =>
+    Effect.gen(function* () {
+      let busy = false;
+      const { manager } = yield* createManager(5, {
+        subprocessInspector: () =>
+          Effect.succeed({
+            hasRunningSubprocess: busy,
+            childCommand: busy ? "build" : null,
+            processIds: [],
+          }),
+      });
+      yield* manager.open(openInput());
+      expect(yield* manager.hasRunningJobs!).toBe(false);
+      busy = true;
+      expect(yield* manager.hasRunningJobs!).toBe(true);
+      busy = false;
+      expect(yield* manager.hasRunningJobs!).toBe(false);
+    }),
+  );
+
   it.effect("emits subprocess activity events when child-process state changes", () =>
     Effect.gen(function* () {
       let inspect: {

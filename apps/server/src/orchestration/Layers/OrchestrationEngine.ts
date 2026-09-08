@@ -1,3 +1,4 @@
+import { SourceUpdateGate } from "../../sourceUpdates/gate.ts";
 import type {
   OrchestrationClientOrigin,
   OrchestrationEvent,
@@ -82,6 +83,7 @@ function commandToAggregateRef(command: OrchestrationCommand): {
 }
 
 const makeOrchestrationEngine = Effect.gen(function* () {
+  const updateGate = yield* SourceUpdateGate;
   const sql = yield* SqlClient.SqlClient;
   const eventStore = yield* OrchestrationEventStore;
   const commandReceiptRepository = yield* OrchestrationCommandReceiptRepository;
@@ -428,7 +430,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
     readEvents,
     readThreadEvents,
     getThreadReplayStats,
-    dispatch,
+    dispatch: (command, options) => updateGate.withPermit(dispatch(command, options)),
     subscribeDomainEvents: PubSub.subscribe(eventPubSub).pipe(Effect.map(Stream.fromSubscription)),
     // Each access creates a fresh PubSub subscription so that multiple
     // consumers (wsServer, ProviderRuntimeIngestion, CheckpointReactor, etc.)

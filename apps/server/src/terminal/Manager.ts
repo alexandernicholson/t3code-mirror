@@ -1,3 +1,4 @@
+import { SourceUpdateGate } from "../sourceUpdates/gate.ts";
 /**
  * TerminalManager - Terminal session orchestration service interface.
  *
@@ -152,6 +153,7 @@ export class TerminalManager extends Context.Service<
      * Reuses an existing session for the same thread/terminal id and restores
      * persisted history on first open.
      */
+    readonly hasRunningJobs?: Effect.Effect<boolean>;
     readonly open: (
       input: TerminalOpenInput,
     ) => Effect.Effect<TerminalSessionSnapshot, TerminalError>;
@@ -1425,6 +1427,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
   const context = yield* Effect.context<never>();
   const runFork = Effect.runForkWith(context);
 
+  const updateGate = yield* SourceUpdateGate;
   const logsDir = options.logsDir;
   const historyLineLimit = options.historyLineLimit ?? DEFAULT_HISTORY_LINE_LIMIT;
   const historyByteLimit = options.historyByteLimit ?? DEFAULT_HISTORY_BYTE_LIMIT;
@@ -3036,12 +3039,26 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
     );
 
   return TerminalManager.of({
-    open,
-    attachStream,
-    write,
+    hasRunningJobs: Effect.gen(function* () {
+      const state = yield* readManagerState;
+      const sessions = [...state.sessions.values()].filter(
+        (session) => session.status === "running",
+      );
+      if (sessions.length === 0) return false;
+      const snapshot = yield* acquireSubprocessInspector;
+      if (!snapshot.snapshotSucceeded) return true;
+      for (const session of sessions) {
+        if (session.pid === null || (yield* snapshot.inspector(session.pid)).hasRunningSubprocess)
+          return true;
+      }
+      return false;
+    }).pipe(Effect.catch(() => Effect.succeed(true))),
+    open: (input) => updateGate.withPermit(open(input)),
+    attachStream: (input, listener) => updateGate.withPermit(attachStream(input, listener)),
+    write: (input) => updateGate.withPermit(write(input)),
     resize,
     clear,
-    restart,
+    restart: (input) => updateGate.withPermit(restart(input)),
     close,
     subscribe,
     subscribeMetadata,

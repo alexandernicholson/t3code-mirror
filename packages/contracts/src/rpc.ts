@@ -1,3 +1,4 @@
+import { SourceUpdateAction, SourceUpdateError, SourceUpdateStatus } from "./sourceUpdates.ts";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/unstable/rpc/Rpc";
 import * as RpcGroup from "effect/unstable/rpc/RpcGroup";
@@ -313,6 +314,7 @@ export const WS_METHODS = {
   // Server meta
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
+  serverSourceUpdate: "server.sourceUpdate",
   serverRefreshProviders: "server.refreshProviders",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
@@ -490,6 +492,12 @@ const WsProviderInstallRemoveRpc = Rpc.make(WS_METHODS.providerInstallRemove, {
   payload: ProviderSetupInput,
   success: ProviderInstallState,
   error: ProviderSetupRpcError,
+});
+
+const WsServerSourceUpdateRpc = Rpc.make(WS_METHODS.serverSourceUpdate, {
+  payload: SourceUpdateAction,
+  success: SourceUpdateStatus,
+  error: Schema.Union([SourceUpdateError, EnvironmentAuthorizationError]),
 });
 
 const WsServerUpdateServerRpc = Rpc.make(WS_METHODS.serverUpdateServer, {
@@ -1138,6 +1146,7 @@ export const WsSubscribeServerConfigRpc = Rpc.make(WS_METHODS.subscribeServerCon
      * stream only to subscribers that ask for it. Absent on old clients;
      * dropped by old servers.
      */
+    sourceUpdates: Schema.optional(Schema.Boolean),
     environmentThemes: Schema.optional(Schema.Boolean),
     /** Whether this client understands `usageLimitSourcesUpdated` events. */
     usageLimitSources: Schema.optional(Schema.Boolean),
@@ -1196,6 +1205,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsProviderInstallCancelRpc,
   WsProviderInstallSubscribeRpc,
   WsProviderInstallRemoveRpc,
+  WsServerSourceUpdateRpc,
   WsServerUpdateServerRpc,
   WsServerUpdateServerWithProgressRpc,
   WsServerCommitDesktopUpdateRpc,

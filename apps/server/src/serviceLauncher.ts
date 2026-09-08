@@ -27,6 +27,7 @@ import {
   SERVICE_STOP_MARKER_FILE,
 } from "./cloud/serviceProtocol.ts";
 import { isEntrypoint } from "./entrypoint.ts";
+import { incompatibleMigration } from "./sourceUpdates/migrations.ts";
 
 const HANDOFF_DELAY_MS = 2_000;
 const PREPARED_TIMEOUT_MS = 120_000;
@@ -49,6 +50,51 @@ const runtimePaths = (baseDir: string, version: string) => {
     sentinelPath: NodePath.join(versionDir, ".install-complete"),
   };
 };
+
+/** Keep the standalone launcher's branch-switch guard independent of candidate executable code. */
+export async function validateSourceTransition(
+  baseDir: string,
+  from: string,
+  to: string,
+): Promise<void> {
+  const read = async (version: string) => {
+    const raw: unknown = JSON.parse(
+      await NodeFSP.readFile(
+        NodePath.join(runtimePaths(baseDir, version).versionDir, "source-build.json"),
+        "utf8",
+      ),
+    );
+    if (
+      typeof raw !== "object" ||
+      raw === null ||
+      !("runtimeVersion" in raw) ||
+      raw.runtimeVersion !== version ||
+      !("commit" in raw) ||
+      typeof raw.commit !== "string" ||
+      !/^[a-f0-9]{40}$/.test(raw.commit) ||
+      !version.endsWith(`+git.${raw.commit}`) ||
+      !("repository" in raw) ||
+      typeof raw.repository !== "string" ||
+      !("migrations" in raw) ||
+      typeof raw.migrations !== "object" ||
+      raw.migrations === null
+    ) {
+      throw new Error("Invalid source build metadata.");
+    }
+    return { repository: raw.repository, migrations: raw.migrations };
+  };
+  const previous = await read(from);
+  const target = await read(to);
+  if (previous.repository !== target.repository)
+    throw new Error("Source updates must stay in the configured fork.");
+  const id = incompatibleMigration(
+    Object.fromEntries(Object.entries(previous.migrations)),
+    Object.fromEntries(Object.entries(target.migrations)),
+  );
+  if (id !== null) {
+    throw new Error(`Branch switch blocked: migration ${id} is missing, changed, or out of order.`);
+  }
+}
 
 /** SQLite persists across the main file plus its WAL and shared-memory sidecars. */
 const DB_FILE_SUFFIXES = ["", "-wal", "-shm"] as const;
@@ -220,6 +266,7 @@ function terminalUpdate<S extends TerminalStatus>(input: {
   readonly reason?: string;
 }): Exclude<ServiceUpdateRecord, PendingServiceUpdate> & { readonly status: S } {
   return {
+    ...(input.pending.sourceUpdate === true ? { sourceUpdate: true as const } : {}),
     id: input.pending.id,
     fromVersion: input.pending.fromVersion,
     targetVersion: input.pending.targetVersion,
@@ -473,7 +520,11 @@ export class Launcher {
       await reject("The requested target is not an exact version.");
       return;
     }
-    if (compareExactServiceVersions(message.targetVersion, child.version) <= 0) {
+    if (
+      message.targetVersion === child.version ||
+      (message.sourceUpdate !== true &&
+        compareExactServiceVersions(message.targetVersion, child.version) <= 0)
+    ) {
       await reject("Remote updates must select a newer server version.");
       return;
     }
@@ -486,7 +537,17 @@ export class Launcher {
       return;
     }
 
+    if (message.sourceUpdate === true) {
+      try {
+        await validateSourceTransition(this.#baseDir, child.version, message.targetVersion);
+      } catch (error) {
+        await reject(error instanceof Error ? error.message : "Invalid source runtime.");
+        return;
+      }
+    }
+
     const pending: PendingServiceUpdate = {
+      ...(message.sourceUpdate === true ? { sourceUpdate: true as const } : {}),
       id: NodeCrypto.randomUUID(),
       fromVersion: child.version,
       targetVersion: message.targetVersion,

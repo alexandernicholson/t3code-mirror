@@ -1,9 +1,37 @@
 # Updating T3 Code
 
 The app you use and the server running your agents can be on different machines.
-When a server is behind your web or desktop app, an update notice appears in the
-conversation and **Settings → Connections**. Update the machine named in that
-notice.
+Update the environment named in the notice.
+
+## Updates from this fork
+
+Linux environments installed as a source service check their selected branch on
+startup and every 15 minutes. They build the server and web app on that machine,
+even when no clients are connected. **Settings → Updates** shows the running
+version, update progress, and changes since the installed release. On mobile,
+expand the environment in Settings to manage its server updates.
+
+The default policy downloads, builds, and installs updates into staging, then
+restarts when agents and terminal commands have finished. Idle terminals may
+remain open. A long-running terminal command can postpone the restart; finish
+or close it when ready. Saved threads and settings stay in the same environment.
+
+Choose **Automatically prepare; restart manually** to keep the current version
+running until you select **Restart to update**. Database migrations happen during
+that restart. **Notify only** waits for you to prepare an update. You can pause
+checks or defer a particular build without losing the running version.
+
+Enter another branch to follow experiments. Switching back to `main` uses the
+same update policy. A branch missing or changing an already applied migration
+is blocked; choose a branch with compatible database history. Failed builds
+leave the running version alone. A failed startup trial restores the database
+and previous version, and the same failed commit is not retried automatically.
+
+The browser reconnects after a restart. The self-hosted web app reloads when it
+has no pending drafts; otherwise it offers a reload action. Native desktop and
+mobile application binaries still use their own update mechanisms.
+
+## Other installation types
 
 This fork does not check the upstream desktop feed or Expo OTA project by default.
 Install updates from your fork's releases. Running `npx t3` installs the original

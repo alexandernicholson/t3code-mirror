@@ -11,6 +11,7 @@ export type SettingsPath =
   | "/settings/tools"
   | "/settings/integrations"
   | "/settings/source-control"
+  | "/settings/updates"
   | "/settings/connections"
   | "/settings/archived";
 
@@ -60,6 +61,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/integrations": "Integrations",
   "/settings/source-control": "Source Control",
   "/settings/connections": "Connections",
+  "/settings/updates": "Updates",
   "/settings/archived": "Archive",
 };
 
@@ -69,6 +71,12 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
  * that may not be mounted point at their nearest stable section instead.
  */
 export const SETTINGS_SEARCH_ITEMS = [
+  {
+    id: "source-updates",
+    title: "Updates",
+    to: "/settings/updates",
+    searchTerms: ["version changelog automatic install restart source branch experiments"],
+  },
   {
     id: "mcp-servers",
     title: "Tools & MCP servers",

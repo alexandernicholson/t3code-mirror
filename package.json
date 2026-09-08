@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:source-runtime": "node scripts/build-source-runtime.ts",
+    "service:source": "node scripts/source-service.ts",
+    "release:change": "node scripts/release-change.ts",
+    "release:check": "node scripts/release-change.ts --check",
     "prepare": "effect-tsgo patch && vp config --no-agent",
     "dev": "node scripts/dev-runner.ts dev",
     "dev:share": "node scripts/dev-runner.ts dev --share",

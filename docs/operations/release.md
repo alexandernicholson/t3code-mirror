@@ -4,6 +4,42 @@
 
 This document covers the unified release workflow for stable and nightly desktop releases.
 
+## Fork source releases
+
+`VERSION` owns this fork's release number. Use `vp run release:change --patch
+--note "Describe the change"` (or `--minor`, `--major`, `--version`), then
+`vp run release:check`. After rebasing, validate with `--base origin/main` or
+the actual target branch. Commit the code, version, and changelog together.
+CI enforces the version bump and keeps previously released notes unchanged.
+The packaged-release workflow may stamp artifact versions, but its finalize
+job does not write those stamps back over source release metadata.
+
+The source service needs Git, the repository's Node version, `vp`, native build
+prerequisites, repository access, and enough disk for a checkout and dependencies
+alongside the running runtime. Source builds retain their dependency trees; old
+builds are cleaned up while preserving the active, previous, and prepared builds.
+
+Bootstrap once on the Linux host after this change is on the selected branch:
+
+```sh
+vp run service:source --home-dir /absolute/path/to/existing/t3-home \
+  --repository https://github.com/alexandernicholson/t3code-mirror.git --branch main
+```
+
+Use the existing service's T3 home, not its `userdata` subdirectory. This command
+builds a separate runtime before updating the standard `t3code.service` user
+service and its launcher. Finish active work before this one-time restart.
+An installation with a custom system service or additional unit arguments needs
+its service configuration reconciled with the standard launcher during bootstrap;
+do not start two services against the same data directory. Keep host-specific
+service configuration in systemd drop-ins. Routine updates subsequently preserve
+the launcher, service configuration, environment identity, and data directory.
+
+The updater follows only the repository embedded at bootstrap. It does not
+publish packages or use the upstream npm package. Build failures are recorded in
+`<t3-home>/runtime/source-build.log`. Launcher protocol changes need another
+local service update; candidate preflight refuses an unsupported launcher.
+
 ## What the workflow does
 
 - Workflow: `.github/workflows/release.yml`

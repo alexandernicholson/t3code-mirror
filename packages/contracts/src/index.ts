@@ -41,3 +41,5 @@ export * from "./usage.ts";
 export * from "./rpc.ts";
 
 export * from "./managedMcp.ts";
+
+export * from "./sourceUpdates.ts";

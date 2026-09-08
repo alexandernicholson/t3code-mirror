@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { releasePackageFiles } from "./lib/release-packages.ts";
+export { releasePackageFiles };
+
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Config from "effect/Config";
@@ -45,13 +48,6 @@ export class ReleaseGitHubOutputWriteError extends Schema.TaggedError<ReleaseGit
     return `Failed to append release package version output to '${this.filePath}'.`;
   }
 }
-
-export const releasePackageFiles = [
-  "apps/server/package.json",
-  "apps/desktop/package.json",
-  "apps/web/package.json",
-  "packages/contracts/package.json",
-] as const;
 
 interface UpdateReleasePackageVersionsOptions {
   readonly rootDir?: string | undefined;
