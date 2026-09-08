@@ -3,10 +3,10 @@
  * fallback.
  *
  * Provider catalogs and legacy classification live in `model-manifest.json`.
- * The bundled copy ships with every release; at runtime the service refreshes
- * it from the same file on `main`. Preference order is remote, then the last
- * successful on-disk copy, then the bundle. A failed fetch never fails a
- * provider check.
+ * The bundled copy ships with every release and is the default offline catalog.
+ * T3CODE_MODEL_MANIFEST_URL explicitly enables remote refreshes. When configured,
+ * preference order is remote, then the last successful on-disk copy, then the
+ * bundle. A failed fetch never fails a provider check.
  *
  * Providers with authoritative discovery can use only the classification
  * overlay. Providers with static catalogs can resolve presentation and
@@ -20,6 +20,7 @@ import {
   type ServerProviderModel,
 } from "@t3tools/contracts";
 import * as Clock from "effect/Clock";
+import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -34,9 +35,6 @@ import * as ServerSettings from "../serverSettings.ts";
 import { hasValidClaudeManifestAdapters } from "./ClaudeModelManifest.ts";
 import bundledManifestJson from "./model-manifest.json" with { type: "json" };
 import type { ServerProviderDraft } from "./providerSnapshot.ts";
-
-const MODEL_MANIFEST_URL =
-  "https://raw.githubusercontent.com/pingdotgg/t3code/main/apps/server/src/provider/model-manifest.json";
 
 /** How long a fetched manifest stays fresh before the next probe re-fetches. */
 const MANIFEST_TTL_MS = 60 * 60 * 1000;
@@ -320,6 +318,11 @@ export const BundledOnlyModelManifest: ModelManifest["Service"] = {
 export const layerTest = Layer.succeed(ModelManifest, BundledOnlyModelManifest);
 
 export const make = Effect.gen(function* () {
+  const manifestUrl = yield* Config.string("T3CODE_MODEL_MANIFEST_URL").pipe(
+    Config.withDefault(""),
+    Config.map((value) => value.trim()),
+  );
+  if (!manifestUrl) return BundledOnlyModelManifest;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const config = yield* ServerConfig;
@@ -378,7 +381,7 @@ export const make = Effect.gen(function* () {
     if (settings !== null && !settings.enableProviderUpdateChecks) return manifest;
 
     lastAttemptMs = now;
-    const fetched = yield* httpClient.get(MODEL_MANIFEST_URL).pipe(
+    const fetched = yield* httpClient.get(manifestUrl).pipe(
       Effect.flatMap(HttpClientResponse.filterStatusOk),
       Effect.flatMap((response) => response.json),
       Effect.flatMap((json) => decodeManifest(json)),

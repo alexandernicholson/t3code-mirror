@@ -7,11 +7,35 @@ import {
   hostedAppUrlConfig,
   makeCloudCliOAuthConfig,
   makeRelayUrlConfig,
-  resolveRelayClientTracingConfig,
+  cloudCliOAuthConfig,
+  relayUrlConfig,
 } from "./publicConfig.ts";
 
 const provideEnv = (env: Readonly<Record<string, string>>) =>
   Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env })));
+
+it.effect("does not use legacy cloud endpoints without explicit enablement", () =>
+  Effect.gen(function* () {
+    assert.isTrue(Result.isFailure(yield* relayUrlConfig.pipe(Effect.result)));
+    assert.isTrue(Result.isFailure(yield* cloudCliOAuthConfig.pipe(Effect.result)));
+  }).pipe(
+    provideEnv({
+      T3CODE_RELAY_URL: "https://relay.example.test",
+      T3CODE_CLERK_PUBLISHABLE_KEY: "pk_test_Y2xlcmsuZXhhbXBsZS50ZXN0JA==",
+      T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: "existing-client",
+    }),
+  ),
+);
+
+it.effect("requires an explicitly configured hosted app instead of assuming upstream", () =>
+  hostedAppUrlConfig.pipe(
+    provideEnv({}),
+    Effect.result,
+    Effect.map((result) => {
+      assert.isTrue(Result.isFailure(result));
+    }),
+  ),
+);
 
 it.effect("uses the statically injected relay URL when no runtime override exists", () =>
   Effect.gen(function* () {
@@ -143,39 +167,3 @@ it.effect("reports malformed Clerk publishable keys as typed configuration failu
     }
   }),
 );
-
-it("resolves relay client tracing from runtime config with build-time fallback", () => {
-  const fallback = {
-    tracesUrl: "https://embedded.example.test/v1/traces",
-    tracesDataset: "embedded-dataset",
-    tracesToken: "embedded-token",
-  };
-
-  assert.deepEqual(resolveRelayClientTracingConfig({}, fallback), fallback);
-  assert.deepEqual(
-    resolveRelayClientTracingConfig(
-      {
-        T3CODE_RELAY_CLIENT_OTLP_TRACES_URL: "https://runtime.example.test/v1/traces",
-        T3CODE_RELAY_CLIENT_OTLP_TRACES_DATASET: "runtime-dataset",
-        T3CODE_RELAY_CLIENT_OTLP_TRACES_TOKEN: "runtime-token",
-      },
-      fallback,
-    ),
-    {
-      tracesUrl: "https://runtime.example.test/v1/traces",
-      tracesDataset: "runtime-dataset",
-      tracesToken: "runtime-token",
-    },
-  );
-  assert.equal(
-    resolveRelayClientTracingConfig(
-      {
-        T3CODE_RELAY_CLIENT_OTLP_TRACES_URL: "http://insecure.example.test/v1/traces",
-        T3CODE_RELAY_CLIENT_OTLP_TRACES_DATASET: "runtime-dataset",
-        T3CODE_RELAY_CLIENT_OTLP_TRACES_TOKEN: "runtime-token",
-      },
-      fallback,
-    ),
-    null,
-  );
-});

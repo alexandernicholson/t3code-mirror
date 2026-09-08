@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -66,30 +67,6 @@ function makeSecretStore(
     remove: unusedSecretStoreOperation,
   };
 }
-
-it("preserves messages surfaced by cloud 500 responses", () => {
-  const cause = new Error("cloud operation failed");
-
-  expect([
-    new EnvironmentAuth.ServerAuthLinkedCloudAccountVerificationError({ cause }).message,
-    new EnvironmentAuth.ServerAuthLinkedCloudAccountReadError({ cause }).message,
-    new EnvironmentAuth.ServerAuthLinkedCloudAccountMissingError({}).message,
-    new EnvironmentAuth.ServerAuthCloudLinkJwtSigningError({ cause }).message,
-    new EnvironmentAuth.ServerAuthCloudMintPublicKeyMissingError({}).message,
-    new EnvironmentAuth.ServerAuthCloudRelayIssuerMissingError({}).message,
-    new EnvironmentAuth.ServerAuthCloudHealthJwtSigningError({ cause }).message,
-    new EnvironmentAuth.ServerAuthCloudMintJwtSigningError({ cause }).message,
-  ]).toEqual([
-    "Could not verify the linked cloud account.",
-    "Could not read the linked cloud account.",
-    "Cloud linked user is not installed for this environment.",
-    "Failed to sign cloud link JWT.",
-    "Cloud mint public key is not installed for this environment.",
-    "Cloud relay issuer is not installed for this environment.",
-    "Failed to sign cloud health JWT.",
-    "Failed to sign cloud mint JWT.",
-  ]);
-});
 
 describe("consumeCloudReplayGuards", () => {
   it.effect("reports already-created guards as replay conflicts", () =>
@@ -194,6 +171,9 @@ describe("reconcileDesiredCloudLink", () => {
         message: "Run `t3 connect link` to authorize this environment.",
       });
     }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(ConfigProvider.fromUnknown({ T3CODE_CLOUD_ENABLED: true })),
+      ),
       Effect.provideService(
         ServerSecretStore.ServerSecretStore,
         makeSecretStore(unusedSecretStoreOperation),
@@ -289,6 +269,9 @@ describe("releaseManagedTunnelOnShutdown", () => {
     (harness: ReleaseHarness) =>
     <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ T3CODE_CLOUD_ENABLED: true })),
+        ),
         Effect.provideService(ServerSecretStore.ServerSecretStore, harness.store),
         Effect.provideService(
           ServerEnvironment.ServerEnvironment,

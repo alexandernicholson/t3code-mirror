@@ -332,10 +332,24 @@ export const make = Effect.gen(function* () {
   );
 
   const hasUpdateFeedConfig = Ref.get(appUpdateYmlConfigRef).pipe(
-    Effect.map((appUpdateYmlConfig) => Option.isSome(appUpdateYmlConfig) || config.mockUpdates),
+    Effect.map(
+      (appUpdateYmlConfig) =>
+        Option.isSome(config.updateFeedUrl) ||
+        Option.isSome(appUpdateYmlConfig) ||
+        config.mockUpdates,
+    ),
   );
 
   const resolveDisabledReason = Effect.gen(function* () {
+    if (
+      !config.mockUpdates &&
+      !config.enableUpstreamUpdates &&
+      Option.isNone(config.updateFeedUrl)
+    ) {
+      return Option.some(
+        "Updates are disabled. Configure T3CODE_DESKTOP_UPDATE_URL for your fork, or explicitly enable the packaged feed with T3CODE_ENABLE_UPSTREAM_UPDATES=true.",
+      );
+    }
     const hasFeedConfig = yield* hasUpdateFeedConfig;
     return Option.fromNullishOr(
       getAutoUpdateDisabledReason({
@@ -873,6 +887,11 @@ export const make = Effect.gen(function* () {
         yield* electronUpdater.setFeedURL({
           provider: "generic",
           url: `http://localhost:${config.mockUpdateServerPort}`,
+        } as ElectronUpdater.ElectronUpdaterFeedUrl);
+      } else if (Option.isSome(config.updateFeedUrl)) {
+        yield* electronUpdater.setFeedURL({
+          provider: "generic",
+          url: config.updateFeedUrl.value.toString(),
         } as ElectronUpdater.ElectronUpdaterFeedUrl);
       }
 

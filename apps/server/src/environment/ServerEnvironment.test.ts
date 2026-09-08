@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Crypto from "effect/Crypto";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -208,6 +209,10 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         expect(emptyUrl.capabilities.agentActivityPublishing).toBe(false);
 
         yield* secrets.set(RELAY_URL_SECRET, encode("https://relay.example"));
+        const cloudDisabled = yield* serverEnvironment.getDescriptor.pipe(
+          Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))),
+        );
+        expect(cloudDisabled.capabilities.agentActivityPublishing).toBe(false);
         const linked = yield* serverEnvironment.getDescriptor;
         expect(linked.capabilities.agentActivityPublishing).toBe(true);
 
@@ -216,7 +221,16 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         yield* secrets.set(PUBLISH_AGENT_ACTIVITY_SECRET, encode("false"));
         const disabled = yield* serverEnvironment.getDescriptor;
         expect(disabled.capabilities.agentActivityPublishing).toBe(false);
-      }).pipe(Effect.provide(testLayer));
+      }).pipe(
+        Effect.provide([
+          testLayer,
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({
+              env: { T3CODE_CLOUD_ENABLED: "true" },
+            }),
+          ),
+        ]),
+      );
     }),
   );
 

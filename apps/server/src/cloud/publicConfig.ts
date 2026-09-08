@@ -1,8 +1,4 @@
-import {
-  connectLoopbackRedirectUri,
-  CONNECT_OAUTH_SCOPES,
-  DEFAULT_HOSTED_APP_URL,
-} from "@t3tools/shared/connectAuth";
+import { connectLoopbackRedirectUri, CONNECT_OAUTH_SCOPES } from "@t3tools/shared/connectAuth";
 import { clerkFrontendApiUrlFromPublishableKey } from "@t3tools/shared/relayAuth";
 import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
 import * as Config from "effect/Config";
@@ -14,12 +10,28 @@ import * as SchemaIssue from "effect/SchemaIssue";
 declare const __T3CODE_BUILD_RELAY_URL__: string | undefined;
 declare const __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: string | undefined;
 declare const __T3CODE_BUILD_CLERK_CLI_OAUTH_CLIENT_ID__: string | undefined;
-declare const __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_URL__: string | undefined;
-declare const __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_DATASET__: string | undefined;
-declare const __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_TOKEN__: string | undefined;
 
 const CLOUD_CLI_OAUTH_LOOPBACK_PORT = 34338;
 const CLOUD_CLI_OAUTH_SCOPES = CONNECT_OAUTH_SCOPES;
+
+export const cloudEnabledConfig = Config.boolean("T3CODE_CLOUD_ENABLED").pipe(
+  Config.withDefault(false),
+);
+
+export const requireCloudEnabled = cloudEnabledConfig.pipe(
+  Effect.flatMap((enabled) =>
+    enabled
+      ? Effect.void
+      : Effect.fail(
+          new Config.ConfigError(
+            new ConfigProvider.SourceError({
+              message:
+                "Cloud is disabled. Set T3CODE_CLOUD_ENABLED=true and configure your relay, hosted app, and Clerk endpoints.",
+            }),
+          ),
+        ),
+  ),
+);
 
 function validateRelayUrl(value: string) {
   const relayUrl = normalizeSecureRelayUrl(value);
@@ -40,15 +52,6 @@ function readBuildTimeValue(value: string | undefined): string {
   return typeof value === "undefined" ? "" : value.trim();
 }
 
-function normalizeSecureUrl(value: string): string | null {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 export const buildTimeRelayUrl =
   typeof __T3CODE_BUILD_RELAY_URL__ === "undefined"
     ? ""
@@ -63,37 +66,6 @@ export const buildTimeClerkCliOAuthClientId = readBuildTimeValue(
     ? undefined
     : __T3CODE_BUILD_CLERK_CLI_OAUTH_CLIENT_ID__,
 );
-export const buildTimeRelayClientTracing = {
-  tracesUrl: readBuildTimeValue(
-    typeof __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_URL__ === "undefined"
-      ? undefined
-      : __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_URL__,
-  ),
-  tracesDataset: readBuildTimeValue(
-    typeof __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_DATASET__ === "undefined"
-      ? undefined
-      : __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_DATASET__,
-  ),
-  tracesToken: readBuildTimeValue(
-    typeof __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_TOKEN__ === "undefined"
-      ? undefined
-      : __T3CODE_BUILD_RELAY_CLIENT_OTLP_TRACES_TOKEN__,
-  ),
-} as const;
-
-export function resolveRelayClientTracingConfig(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-  fallback = buildTimeRelayClientTracing,
-) {
-  const tracesUrl = env.T3CODE_RELAY_CLIENT_OTLP_TRACES_URL?.trim() || fallback.tracesUrl;
-  const tracesDataset =
-    env.T3CODE_RELAY_CLIENT_OTLP_TRACES_DATASET?.trim() || fallback.tracesDataset;
-  const tracesToken = env.T3CODE_RELAY_CLIENT_OTLP_TRACES_TOKEN?.trim() || fallback.tracesToken;
-  const normalizedTracesUrl = normalizeSecureUrl(tracesUrl);
-  return normalizedTracesUrl && tracesDataset && tracesToken
-    ? { tracesUrl: normalizedTracesUrl, tracesDataset, tracesToken }
-    : null;
-}
 
 export function makeRelayUrlConfig(fallback = buildTimeRelayUrl) {
   const runtimeConfig = Config.nonEmptyString("T3CODE_RELAY_URL");
@@ -102,17 +74,16 @@ export function makeRelayUrlConfig(fallback = buildTimeRelayUrl) {
   );
 }
 
-export const relayUrlConfig = makeRelayUrlConfig();
+export const relayUrlConfig = requireCloudEnabled.pipe(Effect.andThen(makeRelayUrlConfig()));
 
 /**
  * Hosted app origin used for out-of-band OAuth on headless
  * machines. Overridable so staging/nightly builds can point their CLIs at a
  * matching hosted deployment.
  */
-export const hostedAppUrlConfig = makePublicValueConfig(
-  "T3CODE_HOSTED_APP_URL",
-  DEFAULT_HOSTED_APP_URL,
-).pipe(Config.mapOrFail(validateHostedAppUrl));
+export const hostedAppUrlConfig = makePublicValueConfig("T3CODE_HOSTED_APP_URL", "").pipe(
+  Config.mapOrFail(validateHostedAppUrl),
+);
 
 function validateHostedAppUrl(value: string) {
   try {
@@ -206,9 +177,12 @@ export function makeCloudCliOAuthConfig({
   );
 }
 
-export const cloudCliOAuthConfig = makeCloudCliOAuthConfig();
+export const cloudCliOAuthConfig = requireCloudEnabled.pipe(
+  Effect.andThen(makeCloudCliOAuthConfig()),
+);
 
 export const hasCloudPublicConfig = Boolean(
+  process.env.T3CODE_CLOUD_ENABLED === "true" &&
   (normalizeSecureRelayUrl(process.env.T3CODE_RELAY_URL ?? "") ?? buildTimeRelayUrl) &&
   (process.env.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() || buildTimeClerkPublishableKey) &&
   (process.env.T3CODE_CLERK_CLI_OAUTH_CLIENT_ID?.trim() || buildTimeClerkCliOAuthClientId),

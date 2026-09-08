@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vite-plus/test";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -50,6 +51,13 @@ const buildCloudManagedEndpointRuntime = (
     const context = yield* Layer.build(
       ManagedEndpointRuntime.layer.pipe(
         Layer.provide(runtimeDependencies(spawner, relayClientLayer)),
+        Layer.provide(
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({
+              env: { T3CODE_CLOUD_ENABLED: "true" },
+            }),
+          ),
+        ),
       ),
     );
     return yield* Effect.service(ManagedEndpointRuntime.CloudManagedEndpointRuntime).pipe(
@@ -82,6 +90,40 @@ function makeHandle(input: {
 }
 
 describe("CloudManagedEndpointRuntime", () => {
+  it.effect("does not read stored tunnel credentials or spawn a connector by default", () =>
+    Effect.gen(function* () {
+      let reads = 0;
+      let spawns = 0;
+      const runtime = yield* ManagedEndpointRuntime.make.pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            relayClientAvailableLayer,
+            Layer.succeed(
+              ChildProcessSpawner.ChildProcessSpawner,
+              ChildProcessSpawner.make(() => {
+                spawns += 1;
+                return Effect.die("unexpected connector launch");
+              }),
+            ),
+            Layer.mock(ServerSecretStore.ServerSecretStore)({
+              get: () => {
+                reads += 1;
+                return Effect.die("unexpected stored tunnel read");
+              },
+            }),
+            ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })),
+          ),
+        ),
+      );
+      const status = yield* runtime.applyConfig({
+        providerKind: "cloudflare_tunnel",
+        connectorToken: "legacy-token",
+      });
+      expect(status.status).toBe("failed");
+      expect(reads).toBe(0);
+      expect(spawns).toBe(0);
+    }).pipe(Effect.scoped),
+  );
   it("classifies Cloudflare connection and warning output", () => {
     expect(
       ManagedEndpointRuntime.classifyRelayClientOutput(

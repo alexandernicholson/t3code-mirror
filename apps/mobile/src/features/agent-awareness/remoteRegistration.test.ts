@@ -206,7 +206,16 @@ function savedConnection(): SavedRemoteConnection {
 }
 
 const relayTestLayer = managedRelayClientLayer("https://relay.example.test").pipe(
-  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cryptoLayer)),
+  Layer.provide(
+    Layer.mergeAll(
+      FetchHttpClient.layer.pipe(
+        Layer.provide(
+          Layer.succeed(FetchHttpClient.Fetch, (input, init) => globalThis.fetch(input, init)),
+        ),
+      ),
+      cryptoLayer,
+    ),
+  ),
 );
 
 const runBackgroundOperations = Effect.fn("TestRemoteRegistration.runBackgroundOperations")(
@@ -237,20 +246,64 @@ describe("makeRelayDeviceRegistrationRequest", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     vi.stubGlobal("__DEV__", false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = input instanceof Request ? input.url : String(input);
+        return Promise.resolve(
+          Response.json(
+            url.endsWith("/v1/client/dpop-token")
+              ? {
+                  access_token: "relay-dpop-token",
+                  issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+                  token_type: "DPoP",
+                  expires_in: 300,
+                  scope: "mobile:registration",
+                }
+              : { ok: true },
+          ),
+        );
+      }),
+    );
     secureStore.clear();
     backgroundRuntime.pending.length = 0;
-    Constants.expoConfig!.extra = {};
+    Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
+      relay: { url: "https://relay.example.test/" },
+    };
     __resetAgentAwarenessRemoteRegistrationForTest();
     appStateMock.listeners.length = 0;
     registrationRecordStore.current = null;
     vi.mocked(saveAgentAwarenessRegistrationRecord).mockClear();
     vi.mocked(loadAgentAwarenessRegistrationRecord).mockClear();
     vi.mocked(clearAgentAwarenessRegistrationRecord).mockClear();
-    vi.mocked(loadOrCreateAgentAwarenessDeviceId).mockResolvedValue("device-1");
+    vi.mocked(loadOrCreateAgentAwarenessDeviceId).mockReset().mockResolvedValue("device-1");
     widgetMocks.getInstances.mockReset();
     widgetMocks.getInstances.mockReturnValue([]);
     widgetMocks.start.mockClear();
     environmentConfigsMock.configs.clear();
+  });
+
+  it.effect("does not acquire native push tokens or listeners when cloud is disabled", () => {
+    Constants.expoConfig!.extra!.cloudEnabled = false;
+    vi.mocked(Notifications.getDevicePushTokenAsync).mockClear();
+    vi.mocked(Notifications.addPushTokenListener).mockClear();
+    const activity = {
+      getPushToken: vi.fn(() => Promise.resolve("activity-token")),
+      addPushTokenListener: vi.fn(),
+    };
+    registerAgentAwarenessConnection(savedConnection());
+    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("legacy-clerk-token"));
+    return Effect.gen(function* () {
+      yield* runBackgroundOperations();
+      yield* refreshAgentAwarenessRegistration();
+      expect(yield* registerLiveActivityPushToken({ activity: activity as never })).toBe(false);
+      expect(Notifications.getDevicePushTokenAsync).not.toHaveBeenCalled();
+      expect(Notifications.addPushTokenListener).not.toHaveBeenCalled();
+      expect(activity.getPushToken).not.toHaveBeenCalled();
+      expect(activity.addPushTokenListener).not.toHaveBeenCalled();
+    }).pipe(Effect.provide(relayTestLayer));
   });
 
   it("preserves disabled Live Activity preferences in relay registrations", () => {
@@ -527,6 +580,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -568,6 +623,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
   it.effect("marks registration failed when device registration cannot complete", () => {
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -615,6 +672,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
   });
 
   it.effect("resets a pending status to unknown when relay config is missing", () => {
+    Constants.expoConfig!.extra = { cloudEnabled: true };
     // No relay url configured: registration can neither run nor ever succeed,
     // so the status must not stick at "pending".
     setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-a"));
@@ -627,6 +685,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
   it.effect("keeps a registered status when a later refresh fails", () => {
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -649,6 +709,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
   it.effect("does not re-register the same account when nothing has changed", () => {
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -693,6 +755,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -720,6 +784,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
   it.effect("re-registers when the stored account identity differs", () => {
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -752,6 +818,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -769,6 +837,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
   it.effect("continues queued device registration after a failed auth lookup", () => {
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -817,6 +887,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     Constants.expoConfig!.extra = {
+      cloudEnabled: true,
+      clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
       relay: {
         url: "https://relay.example.test/",
       },
@@ -856,6 +928,8 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       });
       vi.stubGlobal("fetch", fetchMock);
       Constants.expoConfig!.extra = {
+        cloudEnabled: true,
+        clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
         relay: {
           url: "https://relay.example.test/",
         },

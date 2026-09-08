@@ -5,6 +5,17 @@ When a server is behind your web or desktop app, an update notice appears in the
 conversation and **Settings → Connections**. Update the machine named in that
 notice.
 
+This fork does not check the upstream desktop feed or Expo OTA project by default.
+Install updates from your fork's releases. Running `npx t3` installs the original
+upstream package, not this fork, and can restore upstream telemetry defaults.
+The generic update commands below describe the upstream package name; substitute
+your fork's package or use your source-build workflow.
+
+Managed server installs require `T3CODE_SERVER_PACKAGE` to name your fork's npm
+package. Desktop automatic checks require an explicitly configured
+`T3CODE_DESKTOP_UPDATE_URL` or `T3CODE_ENABLE_UPSTREAM_UPDATES=true` for a packaged
+feed. Keep a manual security-update process if automatic checks remain disabled.
+
 ## Before you update
 
 Server updates restart the connection and can interrupt active agents and
@@ -58,8 +69,7 @@ update can roll back to the previous version. If the update still fails:
 
 ## Mobile updates
 
-Install App Store or Google Play releases as usual. The mobile app can also
-download updates in the background and apply them when you next leave the app.
-It saves drafts and queued messages before restarting. If you keep the app open
-for a long time, it may ask to install immediately; choosing **Later** leaves the
-update queued for the next suitable moment.
+Install mobile releases built for your fork. OTA updates are disabled unless the
+build explicitly configures `T3CODE_MOBILE_UPDATES_URL`. With your own OTA service
+configured, the app can download updates in the background and apply them after
+saving drafts and queued messages.

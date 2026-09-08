@@ -6,20 +6,22 @@ provisioning instructions.
 
 ## Public application configuration
 
-T3 Connect is disabled in a fresh clone. To build against the production deployment, copy the
-repository-root example:
+Cloud features are disabled by default in this fork, even when old service keys are present.
+Copy the repository-root example to start with privacy-preserving defaults:
 
 ```sh
 cp .env.example .env
 ```
 
-For another deployment, set these values in the repository-root `.env` or `.env.local`:
+To opt into a deployment you operate or trust, configure:
 
 ```dotenv
+T3CODE_CLOUD_ENABLED=true
 T3CODE_CLERK_PUBLISHABLE_KEY=<publishable key>
 T3CODE_CLERK_JWT_TEMPLATE=<JWT template name>
 T3CODE_CLERK_CLI_OAUTH_CLIENT_ID=<public OAuth application client ID>
 T3CODE_RELAY_URL=https://relay.example.com
+T3CODE_HOSTED_APP_URL=https://app.example.com
 ```
 
 Process variables take precedence over `.env.local`, then `.env`. Use these canonical names;
@@ -33,15 +35,18 @@ Bundled servers also accept runtime overrides for operator-managed deployments.
 Copy `infra/relay/.env.example` to `infra/relay/.env` for relay deployment settings.
 Deploy `prod` before personal stages because it owns the retained database that their branches
 depend on. The deploy wrapper writes the resulting relay URL back to the root `.env`.
+The wrapper does not enable cloud or install client tracing credentials. CI release,
+preview, relay, and EAS deployment jobs also require the repository variable
+`T3CODE_DEPLOYMENTS_ENABLED=true`.
 
 ## CLI OAuth application
 
 In Clerk's OAuth applications settings:
 
 1. Create a public OAuth application for the T3 CLI, using authorization-code exchange with PKCE.
-2. Allow both redirect URIs: `http://127.0.0.1:34338/callback` and
-   `https://app.t3.codes/connect/callback`. A custom `T3CODE_HOSTED_APP_URL` needs its own
-   `/connect/callback` URL. Headless and SSH authorization depend on the hosted redirect.
+2. Allow the local redirect `http://127.0.0.1:34338/callback` and your explicitly
+   configured hosted app's `/connect/callback` URL. There is no upstream hosted
+   app fallback. Headless and SSH authorization need the hosted redirect.
 3. Enable the `openid`, `profile`, and `email` scopes.
 4. Set `T3CODE_CLERK_CLI_OAUTH_CLIENT_ID` to the generated public client ID in local and release
    build environments.

@@ -15,6 +15,7 @@ import * as DesktopAppIdentity from "./DesktopAppIdentity.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
 declare const __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: string | undefined;
+declare const __T3CODE_BUILD_CLOUD_ENABLED__: boolean | undefined;
 
 export class DesktopClerkBridgeInitializationError extends Schema.TaggedErrorClass<DesktopClerkBridgeInitializationError>()(
   "DesktopClerkBridgeInitializationError",
@@ -57,7 +58,12 @@ function resolveDesktopClerkFrontendApiHostname(
   publishableKey: string | undefined,
 ): string | undefined {
   const normalizedKey = publishableKey?.trim();
-  if (!normalizedKey) return undefined;
+  if (
+    typeof __T3CODE_BUILD_CLOUD_ENABLED__ === "undefined" ||
+    !__T3CODE_BUILD_CLOUD_ENABLED__ ||
+    !normalizedKey
+  )
+    return undefined;
 
   try {
     return clerkFrontendApiHostnameFromPublishableKey(normalizedKey);
@@ -97,27 +103,31 @@ export const make = Effect.gen(function* () {
   const userDataPath = yield* DesktopAppIdentity.resolveUserDataPath;
   yield* electronApp.setPath("userData", userDataPath);
 
-  const bridge = yield* Effect.acquireRelease(
-    Effect.try({
-      try: () => createDesktopClerkBridge(environment.stateDir, environment.isDevelopment),
-      catch: (cause) =>
-        new DesktopClerkBridgeInitializationError({
-          stateDir: environment.stateDir,
-          isDevelopment: environment.isDevelopment,
-          cause,
+  const cloudEnabled =
+    typeof __T3CODE_BUILD_CLOUD_ENABLED__ !== "undefined" && __T3CODE_BUILD_CLOUD_ENABLED__;
+  const bridge = cloudEnabled
+    ? yield* Effect.acquireRelease(
+        Effect.try({
+          try: () => createDesktopClerkBridge(environment.stateDir, environment.isDevelopment),
+          catch: (cause) =>
+            new DesktopClerkBridgeInitializationError({
+              stateDir: environment.stateDir,
+              isDevelopment: environment.isDevelopment,
+              cause,
+            }),
         }),
-    }),
-    (bridge) =>
-      Effect.try({
-        try: () => bridge.cleanup(),
-        catch: (cause) =>
-          new DesktopClerkBridgeCleanupError({
-            stateDir: environment.stateDir,
-            isDevelopment: environment.isDevelopment,
-            cause,
-          }),
-      }).pipe(Effect.orDie),
-  );
+        (bridge) =>
+          Effect.try({
+            try: () => bridge.cleanup(),
+            catch: (cause) =>
+              new DesktopClerkBridgeCleanupError({
+                stateDir: environment.stateDir,
+                isDevelopment: environment.isDevelopment,
+                cause,
+              }),
+          }).pipe(Effect.orDie),
+      )
+    : { isPrimaryInstance: yield* electronApp.acquireSingleInstanceLock };
 
   return DesktopClerk.of({
     configure: Effect.gen(function* () {

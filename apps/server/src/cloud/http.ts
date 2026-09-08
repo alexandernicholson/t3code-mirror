@@ -76,7 +76,7 @@ import {
   RELAY_ISSUER_SECRET,
   RELAY_URL_SECRET,
 } from "./config.ts";
-import { relayUrlConfig } from "./publicConfig.ts";
+import { cloudEnabledConfig, relayUrlConfig, requireCloudEnabled } from "./publicConfig.ts";
 import {
   readCliDesiredCloudLink,
   readCliDesiredLinkMode,
@@ -455,6 +455,9 @@ const applyCloudRelayConfig = Effect.fn("environment.cloud.applyRelayConfig")(fu
   dependencies: CloudHttpDependencies,
   payload: RelayEnvironmentConfigRequest,
 ) {
+  yield* requireCloudEnabled.pipe(
+    Effect.mapError((cause) => new EnvironmentHttpBadRequestError({ message: cause.message })),
+  );
   yield* validateRelayConfigPayload(payload);
   yield* validateLinkedCloudUser({
     secrets: dependencies.secrets,
@@ -535,6 +538,9 @@ const relayClientRequest = <A>(
 
 const reconcileDesiredCloudLinkWith = Effect.fn("environment.cloud.reconcileDesiredLinkWith")(
   function* (dependencies: CloudHttpDependencies, localOrigin: string) {
+    yield* requireCloudEnabled.pipe(
+      Effect.mapError((cause) => new EnvironmentHttpBadRequestError({ message: cause.message })),
+    );
     const localUrl = yield* Effect.try({
       try: () => new URL(localOrigin),
       catch: () =>
@@ -670,6 +676,7 @@ const pendingUpdateHandoffExists = Effect.gen(function* () {
 export const releaseManagedTunnelOnShutdown = Effect.fn(
   "environment.cloud.releaseManagedTunnelOnShutdown",
 )(function* () {
+  if (!(yield* cloudEnabledConfig)) return false;
   const dependencies = yield* cloudHttpDependencies;
   // Only a managed link stores a runtime config; publish-only links have no
   // tunnel to release.
@@ -812,6 +819,11 @@ const cloudPreferencesHandler = Effect.fn("environment.cloud.preferences")(
     payload: { readonly publishAgentActivity: boolean },
   ) {
     yield* requireEnvironmentScope(AuthRelayWriteScope);
+    if (payload.publishAgentActivity) {
+      yield* requireCloudEnabled.pipe(
+        Effect.mapError((cause) => new EnvironmentHttpBadRequestError({ message: cause.message })),
+      );
+    }
     yield* dependencies.secrets.set(
       PUBLISH_AGENT_ACTIVITY_SECRET,
       stringToBytes(String(payload.publishAgentActivity)),

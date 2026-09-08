@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   buildConnectCliClerkAuthorizeUrl,
@@ -11,6 +11,10 @@ import {
 const TEST_PUBLISHABLE_KEY = `pk_test_${btoa("witty-mole-42.clerk.accounts.dev$")}`;
 
 describe("connectCliAuth", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_T3CODE_CLOUD_ENABLED", "true");
+    vi.stubEnv("VITE_HOSTED_APP_URL", "https://app.example.test");
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
   });

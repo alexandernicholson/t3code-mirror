@@ -52,6 +52,7 @@ export class ElectronApp extends Context.Service<
     readonly systemLocale: Effect.Effect<string>;
     readonly whenReady: Effect.Effect<void, ElectronAppWhenReadyError>;
     readonly quit: Effect.Effect<void>;
+    readonly acquireSingleInstanceLock: Effect.Effect<boolean, never, Scope.Scope>;
     readonly exit: (code: number) => Effect.Effect<void>;
     readonly relaunch: (options: Electron.RelaunchOptions) => Effect.Effect<void>;
     readonly setPath: (
@@ -141,6 +142,13 @@ export const make = ElectronApp.of({
   quit: Effect.sync(() => {
     Electron.app.quit();
   }),
+  acquireSingleInstanceLock: Effect.acquireRelease(
+    Effect.sync(() => Electron.app.requestSingleInstanceLock()),
+    (acquired) =>
+      Effect.sync(() => {
+        if (acquired) Electron.app.releaseSingleInstanceLock();
+      }),
+  ),
   exit: (code) =>
     Effect.sync(() => {
       Electron.app.exit(code);

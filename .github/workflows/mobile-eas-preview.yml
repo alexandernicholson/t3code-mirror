@@ -8,6 +8,7 @@ jobs:
   preview:
     name: EAS Preview
     if: |
+      vars.T3CODE_DEPLOYMENTS_ENABLED == 'true' &&
       contains(github.event.pull_request.labels.*.name, '🚀 Mobile Continuous Deployment') &&
       (github.event.action != 'labeled' || github.event.label.name == '🚀 Mobile Continuous Deployment')
     runs-on: blacksmith-8vcpu-ubuntu-2404

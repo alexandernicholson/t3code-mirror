@@ -46,6 +46,7 @@ import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as OrchestrationEngine from "../orchestration/Services/OrchestrationEngine.ts";
 import * as ProjectionSnapshotQuery from "../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { forkParked } from "../serverActivation.ts";
+import { cloudEnabledConfig } from "../cloud/publicConfig.ts";
 
 export class AgentAwarenessRelay extends Context.Service<
   AgentAwarenessRelay,
@@ -291,6 +292,12 @@ export function resolveAgentAwarenessRelayActiveThreadIds(input: {
 }
 
 export const make = Effect.gen(function* () {
+  if (!(yield* cloudEnabledConfig)) {
+    return AgentAwarenessRelay.of({
+      publishThread: () => Effect.void,
+      start: () => Effect.void,
+    });
+  }
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const serverEnvironment = yield* ServerEnvironment.ServerEnvironment;
   const snapshotQuery = yield* ProjectionSnapshotQuery.ProjectionSnapshotQuery;
@@ -320,8 +327,15 @@ export const make = Effect.gen(function* () {
       : null;
   });
 
-  const readPublishAgentActivityEnabled = readSecretString(PUBLISH_AGENT_ACTIVITY_SECRET).pipe(
-    Effect.map(isAgentActivityPublishingEnabledValue),
+  const readPublishAgentActivityEnabled = cloudEnabledConfig.pipe(
+    Effect.flatMap((enabled) =>
+      enabled
+        ? readSecretString(PUBLISH_AGENT_ACTIVITY_SECRET).pipe(
+            Effect.map(isAgentActivityPublishingEnabledValue),
+          )
+        : Effect.succeed(false),
+    ),
+    Effect.orElseSucceed(() => false),
   );
 
   const makeRelayClient = (relayConfig: {

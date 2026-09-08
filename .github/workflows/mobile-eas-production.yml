@@ -76,6 +76,7 @@ concurrency:
 jobs:
   production:
     name: EAS Production ${{ github.event_name == 'push' && 'auto' || inputs.mode }}
+    if: vars.T3CODE_DEPLOYMENTS_ENABLED == 'true'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     permissions:
       contents: read

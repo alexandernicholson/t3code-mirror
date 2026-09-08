@@ -1,5 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Layer from "effect/Layer";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -38,7 +40,42 @@ const successfulRunner = (fs: FileSystem.FileSystem, path: Path.Path) =>
       }),
   });
 
-it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
+it.layer(
+  Layer.merge(
+    NodeServices.layer,
+    ConfigProvider.layer(
+      ConfigProvider.fromEnv({
+        env: { T3CODE_SERVER_PACKAGE: "@example/fork" },
+      }),
+    ),
+  ),
+)("ensurePinnedRuntimeInstalled", (it) => {
+  it.effect("requires an explicit fork package before invoking an installer", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "fork-package-required-" });
+      let calls = 0;
+      const result = yield* ensurePinnedRuntimeInstalled({
+        baseDir,
+        version: "1.2.3",
+        fs,
+        path,
+        runner: ProcessRunner.ProcessRunner.of({
+          run: () => {
+            calls += 1;
+            return Effect.die("unexpected npm install");
+          },
+        }),
+        validate: () => Effect.void,
+      }).pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))),
+        Effect.flip,
+      );
+      assert.instanceOf(result, PinnedRuntimeInstallError);
+      assert.equal(calls, 0);
+    }),
+  );
   it.effect("installs through pnpm when its Node runtime has no npm executable", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

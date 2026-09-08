@@ -17,6 +17,7 @@ import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawne
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import { CLOUD_ENDPOINT_RUNTIME_CONFIG, decodeRuntimeConfig } from "./config.ts";
+import { cloudEnabledConfig } from "./publicConfig.ts";
 
 function bytesToString(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
@@ -112,6 +113,7 @@ const stopConnector = (connector: ActiveConnector | null) =>
     : Effect.void;
 
 export const make = Effect.gen(function* () {
+  const cloudEnabled = yield* cloudEnabledConfig;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const relayClient = yield* RelayClient.RelayClient;
   const activeRef = yield* Ref.make<ActiveConnector | null>(null);
@@ -231,6 +233,13 @@ export const make = Effect.gen(function* () {
     );
 
   reconcileConfig = Effect.fn("CloudManagedEndpointRuntime.reconcileConfig")(function* (config) {
+    if (config !== null && !cloudEnabled) {
+      return {
+        status: "failed",
+        providerKind: "cloudflare_tunnel",
+        reason: "Cloud is disabled. Set T3CODE_CLOUD_ENABLED=true to enable managed endpoints.",
+      } satisfies CloudManagedEndpointRuntimeStatus;
+    }
     if (!config || config.providerKind !== "cloudflare_tunnel") {
       yield* stopActive;
       return config
@@ -359,6 +368,8 @@ export const make = Effect.gen(function* () {
   });
 
   const initialConfig = yield* readRuntimeConfig.pipe(
+    Effect.when(Effect.succeed(cloudEnabled)),
+    Effect.map(Option.getOrNull),
     Effect.catch((cause) =>
       Effect.logWarning("Failed to read managed endpoint runtime config", { cause }).pipe(
         Effect.as(null),

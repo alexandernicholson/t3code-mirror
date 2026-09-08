@@ -3,6 +3,8 @@ import { expect, it } from "@effect/vitest";
 import { ServerSelfUpdateError, ThreadId } from "@t3tools/contracts";
 import { HostProcessExecutablePath } from "@t3tools/shared/hostProcess";
 import * as Cause from "effect/Cause";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Layer from "effect/Layer";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -105,7 +107,16 @@ const makeHarness = Effect.fn("test.make_self_update_harness")(function* (
   return { selfUpdate, order };
 });
 
-it.layer(NodeServices.layer)("server self update", (it) => {
+it.layer(
+  Layer.merge(
+    NodeServices.layer,
+    ConfigProvider.layer(
+      ConfigProvider.fromEnv({
+        env: { T3CODE_SERVER_PACKAGE: "@example/fork" },
+      }),
+    ),
+  ),
+)("server self update", (it) => {
   it.effect("marks running threads at the boot-service handoff", () =>
     Effect.gen(function* () {
       const events: string[] = [];

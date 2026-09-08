@@ -32,7 +32,7 @@ import {
   saveAgentAwarenessRegistrationRecord,
 } from "../../persistence/imperative";
 import AgentActivity, { type AgentActivityProps } from "../../widgets/AgentActivity";
-import { resolveCloudPublicConfig } from "../cloud/publicConfig";
+import { hasCloudPublicConfig, resolveCloudPublicConfig } from "../cloud/publicConfig";
 import { supportsAgentAwarenessPush } from "./capabilities";
 import { makeRelayDeviceRegistrationRequest, resolveApsEnvironment } from "./registrationPayload";
 
@@ -150,7 +150,7 @@ function readRelayConfig(): { readonly url: string } | null {
 }
 
 function canRegisterRemoteLiveActivities(): boolean {
-  return Platform.OS === "ios";
+  return Platform.OS === "ios" && hasCloudPublicConfig();
 }
 
 export function shouldRegisterAgentAwarenessDeviceForProvider(
@@ -685,6 +685,7 @@ function registerDevice(
 ): Effect.Effect<void, unknown, ManagedRelay.ManagedRelayClient> {
   return Effect.gen(function* () {
     if (!canRegisterRemoteLiveActivities()) {
+      setRegistrationStatus("unknown");
       logRegistrationDebug("device registration skipped; platform does not support it");
       return;
     }

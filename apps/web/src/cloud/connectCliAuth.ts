@@ -44,7 +44,11 @@ export function connectCliAuthRoutesEnabled(): boolean {
 export function buildConnectCliClerkAuthorizeUrl(request: ConnectAuthorizeRequest): string | null {
   const { clerkPublishableKey } = resolveCloudPublicConfig();
   const clientId = resolveConnectCliOAuthClientId();
-  if (!clerkPublishableKey || !clientId) {
+  if (
+    !clerkPublishableKey ||
+    !clientId ||
+    (request.loopbackPort === undefined && !configuredHostedAppUrl())
+  ) {
     return null;
   }
   return buildConnectClerkAuthorizeUrl({

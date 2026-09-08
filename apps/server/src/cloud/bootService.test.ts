@@ -200,7 +200,11 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
           Layer.succeed(HostProcessArguments, ["/usr/bin/node", path.join(home, "bin.mjs")]),
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
-              env: { HOME: home, ...(environmentPath === "" ? {} : { PATH: environmentPath }) },
+              env: {
+                HOME: home,
+                T3CODE_SERVER_PACKAGE: "@example/fork",
+                ...(environmentPath === "" ? {} : { PATH: environmentPath }),
+              },
             }),
           ),
         ),

@@ -19,6 +19,40 @@ import * as DesktopUpdates from "./DesktopUpdates.ts";
 import { flushCallbacks, makeHarness } from "./updatesTestHarness.ts";
 
 describe("DesktopUpdates", () => {
+  it.effect("does not check for updates unless a feed is explicitly selected", () => {
+    const harness = makeHarness({
+      env: {
+        T3CODE_DESKTOP_MOCK_UPDATES: "false",
+        T3CODE_DISABLE_AUTO_UPDATE: "false",
+      },
+    });
+    return Effect.gen(function* () {
+      const updates = yield* DesktopUpdates.DesktopUpdates;
+      yield* updates.configure;
+      assert.equal((yield* updates.getState).enabled, false);
+      yield* TestClock.adjust(Duration.minutes(5));
+      assert.equal(harness.checkCount(), 0);
+    }).pipe(Effect.scoped, Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("uses an explicitly configured custom feed without a packaged feed", () => {
+    const harness = makeHarness({
+      env: {
+        T3CODE_DESKTOP_MOCK_UPDATES: "false",
+        T3CODE_DESKTOP_UPDATE_URL: "https://updates.example.test/",
+      },
+    });
+    return Effect.gen(function* () {
+      const updates = yield* DesktopUpdates.DesktopUpdates;
+      yield* updates.configure;
+      assert.equal((yield* updates.getState).enabled, true);
+      yield* TestClock.adjust(Duration.seconds(15));
+      assert.equal(harness.checkCount(), 1);
+      assert.deepEqual(harness.feedUrls(), [
+        { provider: "generic", url: "https://updates.example.test/" },
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
   it("preserves complete causes for update poller and event failures", () => {
     const cause = Cause.combine(
       Cause.fail(new Error("updater failed")),

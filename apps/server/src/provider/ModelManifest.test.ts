@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { ProviderDriverKind, type ServerProviderModel } from "@t3tools/contracts";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -305,14 +306,45 @@ const serviceLayers = (input: {
   readonly prefix: string;
   readonly response: () => Response;
   readonly settings?: Parameters<typeof ServerSettings.layerTest>[0];
+  readonly manifestUrl?: string;
 }) =>
   ServerConfig.layerTest(process.cwd(), { prefix: input.prefix }).pipe(
     Layer.provideMerge(NodeServices.layer),
     Layer.provideMerge(ServerSettings.layerTest(input.settings ?? {})),
     Layer.provideMerge(httpClientLayer(input.response)),
+    Layer.provideMerge(
+      ConfigProvider.layer(
+        ConfigProvider.fromEnv({
+          env: {
+            T3CODE_MODEL_MANIFEST_URL:
+              input.manifestUrl ?? "https://catalog.example.test/models.json",
+          },
+        }),
+      ),
+    ),
   );
 
 describe("ModelManifest service", () => {
+  it.live("uses the bundled catalog without contacting a remote by default", () =>
+    Effect.gen(function* () {
+      let fetchCount = 0;
+      const service = yield* make.pipe(
+        Effect.provide(
+          serviceLayers({
+            prefix: "model-manifest-default-off",
+            manifestUrl: "",
+            response: () => {
+              fetchCount += 1;
+              return Response.json(REMOTE_MANIFEST);
+            },
+          }),
+        ),
+      );
+      assert.deepStrictEqual(yield* service.refresh, BUNDLED_MODEL_MANIFEST);
+      yield* service.refreshInBackground;
+      assert.strictEqual(fetchCount, 0);
+    }).pipe(Effect.scoped),
+  );
   it.live("prefers a fetched manifest over the bundle and caches it to disk", () =>
     Effect.gen(function* () {
       const service = yield* make;

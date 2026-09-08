@@ -1,3 +1,4 @@
+import * as Config from "effect/Config";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -10,10 +11,10 @@ import * as Semaphore from "effect/Semaphore";
 import * as ProcessRunner from "../processRunner.ts";
 
 /**
- * A pinned runtime is an exact `t3@<version>` npm-installed into
- * <baseDir>/runtime/versions/<version>. The boot service points its unit or
- * launch agent here, and server self-update installs the target version here before
- * switching over, never `npx t3`, whose cache is ephemeral and whose
+ * A pinned runtime installs the explicitly configured T3CODE_SERVER_PACKAGE
+ * under the local `t3` npm alias in <baseDir>/runtime/versions/<version>.
+ * The boot service points its unit or launch agent here, and server self-update
+ * installs the target version here before switching over, never `npx t3`, whose
  * registry fetch at boot would make startup depend on the network.
  */
 
@@ -109,6 +110,15 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
     yield* input.validate(paths);
     return paths;
   }
+  const packageName = yield* Config.nonEmptyString("T3CODE_SERVER_PACKAGE").pipe(
+    Effect.mapError(
+      (cause) =>
+        new PinnedRuntimeInstallError({
+          step: "reading T3CODE_SERVER_PACKAGE; configure your fork's npm package before installing a runtime",
+          cause,
+        }),
+    ),
+  );
   if (versionDirExists) {
     yield* fs.remove(paths.versionDir, { recursive: true, force: true }).pipe(
       Effect.mapError(
@@ -159,7 +169,7 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
       stagingDir,
       "--no-fund",
       "--no-audit",
-      `t3@${input.version}`,
+      `t3@npm:${packageName}@${input.version}`,
     ];
     yield* runner
       .run({

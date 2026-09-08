@@ -35,6 +35,7 @@ import * as ExternalLauncher from "../process/externalLauncher.ts";
 import {
   cloudCliOAuthConfig,
   hostedAppUrlConfig,
+  cloudEnabledConfig,
   type CloudCliOAuthConfig,
 } from "./publicConfig.ts";
 import { renderLoopbackAuthorizationCompleteHtml } from "./cliAuthHtml.ts";
@@ -348,6 +349,7 @@ export const make = Effect.gen(function* () {
     .pipe(Effect.mapError((cause) => new CloudCliCredentialRemovalError({ cause })));
 
   const read = Effect.fn("cloud.cli_token.read")(function* () {
+    if (!(yield* cloudEnabledConfig)) return Option.none<PersistedToken>();
     const encoded = yield* secrets.get(CLOUD_CLI_OAUTH_TOKEN_SECRET);
     if (Option.isNone(encoded)) return Option.none<PersistedToken>();
     return Option.some(yield* decodePersistedToken(bytesToString(encoded.value)));

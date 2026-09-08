@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { beforeEach, vi } from "vite-plus/test";
+import { afterEach, beforeEach, vi } from "vite-plus/test";
 
 const { createClerkBridgeMock, storageAdapter, storageMock } = vi.hoisted(() => ({
   createClerkBridgeMock: vi.fn(),
@@ -40,6 +40,10 @@ const makeDesktopClerkLayer = (isDevelopment = true, events: string[] = []) => {
   } as unknown as DesktopEnvironment.DesktopEnvironment["Service"]);
 
   const electronApp = {
+    acquireSingleInstanceLock: Effect.sync(() => {
+      events.push("local-single-instance-lock");
+      return true;
+    }),
     setPath: (name: string, value: string) =>
       Effect.sync(() => {
         events.push(`setPath:${name}:${value}`);
@@ -59,9 +63,22 @@ const makeDesktopClerkLayer = (isDevelopment = true, events: string[] = []) => {
 
 describe("DesktopClerk", () => {
   beforeEach(() => {
+    vi.stubGlobal("__T3CODE_BUILD_CLOUD_ENABLED__", true);
     createClerkBridgeMock.mockReset();
     storageMock.mockReset();
   });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.effect("does not initialize Clerk storage or the bridge in a default fork build", () =>
+    Effect.gen(function* () {
+      vi.stubGlobal("__T3CODE_BUILD_CLOUD_ENABLED__", undefined);
+      const events: string[] = [];
+      yield* Effect.scoped(Layer.build(makeDesktopClerkLayer(true, events)));
+      assert.equal(createClerkBridgeMock.mock.calls.length, 0);
+      assert.equal(storageMock.mock.calls.length, 0);
+      assert.include(events, "local-single-instance-lock");
+    }),
+  );
 
   it.effect("acquires and releases the SDK bridge with the layer", () => {
     const cleanup = vi.fn();

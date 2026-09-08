@@ -39,6 +39,7 @@ interface ElectronAppCalls {
 
 const makeElectronAppLayer = (calls: ElectronAppCalls) =>
   Layer.succeed(ElectronApp.ElectronApp, {
+    acquireSingleInstanceLock: Effect.succeed(true),
     metadata: Effect.die("unexpected metadata read"),
     name: Effect.succeed("T3 Code"),
     systemLocale: Effect.succeed("en-US"),

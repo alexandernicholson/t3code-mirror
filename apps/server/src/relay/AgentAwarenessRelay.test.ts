@@ -20,6 +20,7 @@ import { CommandId, ProviderInstanceId } from "@t3tools/contracts";
 import { RelayClientTracer } from "@t3tools/shared/relayTracing";
 import { RELAY_ACTIVITY_PUBLISH_TYP, verifyRelayJwt } from "@t3tools/shared/relayJwt";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -610,6 +611,13 @@ describe.sequential("signRelayAgentActivityPublishProof", () => {
         }).pipe(
           Effect.provide(
             AgentAwarenessRelay.layer.pipe(
+              Layer.provide(
+                ConfigProvider.layer(
+                  ConfigProvider.fromEnv({
+                    env: { T3CODE_CLOUD_ENABLED: "true" },
+                  }),
+                ),
+              ),
               Layer.provide(layer),
               Layer.provideMerge(NodeServices.layer),
             ),
@@ -784,6 +792,13 @@ describe.sequential("signRelayAgentActivityPublishProof", () => {
         }).pipe(
           Effect.provide(
             AgentAwarenessRelay.layer.pipe(
+              Layer.provide(
+                ConfigProvider.layer(
+                  ConfigProvider.fromEnv({
+                    env: { T3CODE_CLOUD_ENABLED: "true" },
+                  }),
+                ),
+              ),
               Layer.provide(layer),
               Layer.provideMerge(NodeServices.layer),
             ),

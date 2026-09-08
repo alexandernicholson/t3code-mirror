@@ -2,6 +2,7 @@ import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as HttpServer from "effect/unstable/http/HttpServer";
@@ -148,47 +149,40 @@ it.layer(NodeServices.layer)("AnalyticsService test", (it) => {
       );
     }),
   );
+});
 
-  it.effect("does not send batch requests when telemetry is disabled", () =>
+for (const [name, environment] of [
+  ["fresh launch", {}],
+  ["legacy enable flag alone", { T3CODE_TELEMETRY_ENABLED: true }],
+  [
+    "destination without opt-in",
+    { T3CODE_POSTHOG_KEY: "test", T3CODE_POSTHOG_HOST: "http://localhost" },
+  ],
+  [
+    "explicitly disabled",
+    {
+      T3CODE_TELEMETRY_ENABLED: false,
+      T3CODE_POSTHOG_KEY: "test",
+      T3CODE_POSTHOG_HOST: "http://localhost",
+    },
+  ],
+  ["missing destination", { T3CODE_TELEMETRY_ENABLED: true, T3CODE_POSTHOG_KEY: "test" }],
+  ["missing key", { T3CODE_TELEMETRY_ENABLED: true, T3CODE_POSTHOG_HOST: "http://localhost" }],
+] as const) {
+  it.effect(`does no identity or network work for ${name}`, () =>
     Effect.gen(function* () {
-      const capturedPaths: Array<string> = [];
-      const serverConfigLayer = ServerConfig.ServerConfig.layerTest(process.cwd(), {
-        prefix: "t3-telemetry-disabled-",
-      });
-      const telemetryLayer = AnalyticsService.layer.pipe(Layer.provideMerge(serverConfigLayer));
-      const configLayer = ConfigProvider.layer(
-        ConfigProvider.fromUnknown({
-          T3CODE_TELEMETRY_ENABLED: false,
-          T3CODE_POSTHOG_KEY: "phc_test_key",
-          T3CODE_POSTHOG_HOST: "http://localhost",
-        }),
-      );
-      const batchServerLayer = HttpServer.serve(
-        Effect.gen(function* () {
-          const request = yield* HttpServerRequest.HttpServerRequest;
-          capturedPaths.push(request.url);
-          return HttpServerResponse.jsonUnsafe({});
-        }),
-      );
-      const runtimeLayer = telemetryLayer.pipe(
-        Layer.provide(configLayer),
-        Layer.provide(
-          Layer.mergeAll(
-            Layer.succeed(HostProcessPlatform, "linux"),
-            Layer.succeed(HostProcessArchitecture, "arm64"),
-          ),
+      // Intentionally provide no filesystem, crypto, server config, HTTP client or host services.
+      // Accessing any of them fails this test rather than touching real user files or the network.
+      const analytics = yield* AnalyticsService.make.pipe(
+        Effect.provide(
+          Context.make(
+            ConfigProvider.ConfigProvider,
+            ConfigProvider.fromUnknown(environment),
+          ) as unknown as Context.Context<Effect.Services<typeof AnalyticsService.make>>,
         ),
-        Layer.provideMerge(NodeHttpServer.layerTest),
       );
-
-      yield* Effect.gen(function* () {
-        yield* Layer.launch(batchServerLayer).pipe(Effect.forkScoped);
-        const analytics = yield* AnalyticsService.AnalyticsService;
-        yield* analytics.record("test.disabled", { index: 1 });
-        yield* analytics.flush;
-      }).pipe(Effect.provide(runtimeLayer));
-
-      assert.deepEqual(capturedPaths, []);
+      yield* analytics.record("test.disabled", { index: 1 });
+      yield* analytics.flush;
     }),
   );
-});
+}
