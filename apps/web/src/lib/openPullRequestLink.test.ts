@@ -366,6 +366,12 @@ describe("resolveChangeRequestLink with project context", () => {
   const project = {
     id: projectId,
     environmentId,
+    title: "Repository",
+    workspaceRoot: "/repo",
+    defaultModelSelection: null,
+    scripts: [],
+    createdAt: "2026-09-08T00:00:00.000Z",
+    updatedAt: "2026-09-08T00:00:00.000Z",
     repositoryIdentity: {
       ...repositoryIdentity(
         "github",
@@ -374,8 +380,8 @@ describe("resolveChangeRequestLink with project context", () => {
       ),
       displayName: "Upstream/Repo",
     },
-  };
-  const projects = [project] as unknown as Parameters<typeof resolveChangeRequestLink>[0];
+  } satisfies Parameters<typeof resolveChangeRequestLink>[0][number];
+  const projects = [project];
   const forkUrl = "https://github.com/fork/repo/pull/42/files#diff-1";
 
   it("opens a trusted fork URL in its associated checkout without rewriting it to upstream", () => {
@@ -412,7 +418,7 @@ describe("resolveChangeRequestLink with project context", () => {
       }),
     ).toBeUndefined();
     const otherProject = { ...project, environmentId: otherEnvironmentId };
-    const bothProjects = [otherProject, ...projects] as typeof projects;
+    const bothProjects = [otherProject, ...projects];
     expect(resolveChangeRequestLink(bothProjects, forkUrl, projectRef)?.project).toBe(project);
   });
 
@@ -447,7 +453,7 @@ describe("resolveChangeRequestLink with project context", () => {
         displayName: "org/project/_git/repo",
       },
     };
-    const azureProjects = [azureProject] as typeof projects;
+    const azureProjects = [azureProject];
     expect(
       resolveChangeRequestLink(
         azureProjects,
