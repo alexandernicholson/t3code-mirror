@@ -1,3 +1,12 @@
+import {
+  SecretRevokeInput,
+  SecretWriteInput,
+  SecretUpdateInput,
+  SecretDeleteInput,
+  SecretApprovalInput,
+  SecretsSnapshot,
+  SecretsError,
+} from "./secrets.ts";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/unstable/rpc/Rpc";
 import * as RpcGroup from "effect/unstable/rpc/RpcGroup";
@@ -306,6 +315,12 @@ export const WS_METHODS = {
   previewClose: "preview.close",
   previewList: "preview.list",
   previewReportStatus: "preview.reportStatus",
+  secretsCreate: "secrets.create",
+  secretsUpdate: "secrets.update",
+  secretsDelete: "secrets.delete",
+  secretsRevoke: "secrets.revoke",
+  secretsRespond: "secrets.respond",
+  secretsSubscribe: "secrets.subscribe",
   previewAutomationConnect: "previewAutomation.connect",
   previewAutomationRespond: "previewAutomation.respond",
   previewAutomationFocusHost: "previewAutomation.focusHost",
@@ -1029,6 +1044,33 @@ const WsPreviewReportStatusRpc = Rpc.make(WS_METHODS.previewReportStatus, {
   error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
 });
 
+const WsSecretsCreateRpc = Rpc.make(WS_METHODS.secretsCreate, {
+  payload: SecretWriteInput,
+  error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
+});
+const WsSecretsUpdateRpc = Rpc.make(WS_METHODS.secretsUpdate, {
+  payload: SecretUpdateInput,
+  error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
+});
+const WsSecretsDeleteRpc = Rpc.make(WS_METHODS.secretsDelete, {
+  payload: SecretDeleteInput,
+  error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
+});
+const WsSecretsRevokeRpc = Rpc.make(WS_METHODS.secretsRevoke, {
+  payload: SecretRevokeInput,
+  error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
+});
+const WsSecretsRespondRpc = Rpc.make(WS_METHODS.secretsRespond, {
+  payload: SecretApprovalInput,
+  error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
+});
+const WsSecretsSubscribeRpc = Rpc.make(WS_METHODS.secretsSubscribe, {
+  payload: Schema.Struct({}),
+  success: SecretsSnapshot,
+  error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
 const WsPreviewAutomationConnectRpc = Rpc.make(WS_METHODS.previewAutomationConnect, {
   payload: PreviewAutomationHost,
   success: PreviewAutomationStreamEvent,
@@ -1285,6 +1327,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsPreviewCloseRpc,
   WsPreviewListRpc,
   WsPreviewReportStatusRpc,
+  WsSecretsCreateRpc,
+  WsSecretsUpdateRpc,
+  WsSecretsDeleteRpc,
+  WsSecretsRevokeRpc,
+  WsSecretsRespondRpc,
+  WsSecretsSubscribeRpc,
   WsPreviewAutomationConnectRpc,
   WsPreviewAutomationRespondRpc,
   WsPreviewAutomationFocusHostRpc,

@@ -1,3 +1,4 @@
+import { SecretAccessPanel } from "./SecretAccessPanel";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import type {
   ApprovalRequestId,
@@ -4861,6 +4862,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         : null}
       <ComposerBanner.Dock>
         <ComposerBanner.Column>
+          {activeThreadId && (
+            <SecretAccessPanel
+              key={activeThreadId}
+              environmentId={environmentId}
+              threadId={activeThreadId}
+            />
+          )}
           <ComposerBannerStack
             key={activeThreadId}
             className="relative z-0"
