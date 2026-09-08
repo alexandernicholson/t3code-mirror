@@ -7,9 +7,10 @@ import {
   matchesLinkedPullRequestUrl,
   parseChangeRequestUrl,
   pullRequestCandidateUrlFromReferenceAutolink,
+  resolveChangeRequestLink,
   shouldOpenPullRequestExternally,
 } from "./openPullRequestLink";
-import { ProjectId, type RepositoryIdentity } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, type RepositoryIdentity } from "@t3tools/contracts";
 
 function repositoryIdentity(
   provider: string,
@@ -354,5 +355,112 @@ describe("findProjectForChangeRequest", () => {
         number: 1,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("resolveChangeRequestLink with project context", () => {
+  const environmentId = EnvironmentId.make("local");
+  const otherEnvironmentId = EnvironmentId.make("remote");
+  const projectId = ProjectId.make("checkout");
+  const projectRef = { environmentId, projectId };
+  const project = {
+    id: projectId,
+    environmentId,
+    repositoryIdentity: {
+      ...repositoryIdentity(
+        "github",
+        "github.com/upstream/repo",
+        "https://github.com/upstream/repo.git",
+      ),
+      displayName: "Upstream/Repo",
+    },
+  };
+  const projects = [project] as unknown as Parameters<typeof resolveChangeRequestLink>[0];
+  const forkUrl = "https://github.com/fork/repo/pull/42/files#diff-1";
+
+  it("opens a trusted fork URL in its associated checkout without rewriting it to upstream", () => {
+    expect(resolveChangeRequestLink(projects, forkUrl, projectRef)).toEqual({
+      project,
+      repository: "fork/repo",
+      number: 42,
+      url: forkUrl,
+    });
+    const upstreamUrl = "https://github.com/upstream/repo/pull/42";
+    expect(resolveChangeRequestLink(projects, upstreamUrl, projectRef)).toEqual({
+      project,
+      repository: "Upstream/Repo",
+      number: 42,
+      url: upstreamUrl,
+    });
+  });
+
+  it("keeps generic links restricted to the canonical repository and preserves its spelling", () => {
+    expect(resolveChangeRequestLink(projects, forkUrl)).toBeUndefined();
+    expect(resolveChangeRequestLink(projects, "https://github.com/upstream/repo/pull/42")).toEqual({
+      project,
+      repository: "Upstream/Repo",
+      number: 42,
+      url: "https://github.com/upstream/repo/pull/42",
+    });
+  });
+
+  it("never substitutes a same-id project from another environment", () => {
+    expect(
+      resolveChangeRequestLink(projects, forkUrl, {
+        ...projectRef,
+        environmentId: otherEnvironmentId,
+      }),
+    ).toBeUndefined();
+    const otherProject = { ...project, environmentId: otherEnvironmentId };
+    const bothProjects = [otherProject, ...projects] as typeof projects;
+    expect(resolveChangeRequestLink(bothProjects, forkUrl, projectRef)?.project).toBe(project);
+  });
+
+  it("does not fall back to another canonical project when explicit context is unavailable", () => {
+    expect(
+      resolveChangeRequestLink(projects, "https://github.com/upstream/repo/pull/42", {
+        ...projectRef,
+        projectId: ProjectId.make("missing"),
+      }),
+    ).toBeUndefined();
+  });
+
+  it("does not let explicit context cross hosts", () => {
+    expect(
+      resolveChangeRequestLink(
+        projects,
+        "https://github.enterprise.test/fork/repo/pull/42",
+        projectRef,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("keeps Azure's full repository selector tied to its canonical identity", () => {
+    const azureProject = {
+      ...project,
+      repositoryIdentity: {
+        ...repositoryIdentity(
+          "azure-devops",
+          "dev.azure.com/org/project/_git/repo",
+          "https://dev.azure.com/org/project/_git/repo",
+        ),
+        displayName: "org/project/_git/repo",
+      },
+    };
+    const azureProjects = [azureProject] as typeof projects;
+    expect(
+      resolveChangeRequestLink(
+        azureProjects,
+        "https://dev.azure.com/org/other/_git/repo/pullrequest/42",
+        projectRef,
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveChangeRequestLink(
+        azureProjects,
+        "https://dev.azure.com/org/project/_git/repo/pullrequest/42",
+        projectRef,
+      )?.repository,
+    ).toBe("org/project/_git/repo");
   });
 });

@@ -2,6 +2,7 @@ import type {
   EnvironmentId,
   RepositoryIdentity,
   ScopedThreadRef,
+  ScopedProjectRef,
   ThreadLinkedPullRequest,
 } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
@@ -189,23 +190,25 @@ function claim(host: string, match: RegExpExecArray | null): ChangeRequestLink |
 }
 
 /**
- * Returns a click handler that opens a pull request URL in the system browser.
- *
- * Stops event propagation/default so activating the link does not also trigger
- * an enclosing row or trigger (e.g. opening the branch dropdown), and surfaces a
- * toast when the local API is unavailable or the open fails.
- */
-/**
  * The project a link belongs to, or nothing. Matched the way the server matches: the repository
  * identity is the full path below the host where one was recorded — which is what nested GitLab
  * groups and Azure project paths need — and the host is the first segment of the canonical
  * remote, so github.com and an Enterprise install stay apart.
+ * Explicit context is reserved for project-associated Git results. It may name a fork on the
+ * same host; the server still verifies that repository against the project's configured remotes.
  */
 export function findProjectForChangeRequest(
   projects: ReadonlyArray<EnvironmentProject>,
   link: ChangeRequestLink,
+  projectRef?: ScopedProjectRef,
 ): EnvironmentProject | undefined {
   return projects.find((project) => {
+    if (
+      projectRef &&
+      (project.id !== projectRef.projectId || project.environmentId !== projectRef.environmentId)
+    ) {
+      return false;
+    }
     const identity = project.repositoryIdentity;
     if (!identity) return false;
     const kind = identity.provider as SourceControlProviderKind | undefined;
@@ -215,10 +218,29 @@ export function findProjectForChangeRequest(
       (identity.owner && identity.name ? `${identity.owner}/${identity.name}` : null);
     return (
       repository !== null &&
-      repository.toLowerCase() === link.repository.toLowerCase() &&
+      ((projectRef !== undefined && kind !== "azure-devops") ||
+        repository.toLowerCase() === link.repository.toLowerCase()) &&
       pullRequestHostOf(identity, kind) === link.host.toLowerCase()
     );
   });
+}
+
+/** Resolve the URL without substituting the project's canonical (possibly upstream) repository. */
+export function resolveChangeRequestLink(
+  projects: ReadonlyArray<EnvironmentProject>,
+  targetUrl: string,
+  projectRef?: ScopedProjectRef,
+) {
+  const parsed = parseChangeRequestUrl(targetUrl);
+  if (!parsed) return undefined;
+  const project = findProjectForChangeRequest(projects, parsed, projectRef);
+  if (!project) return undefined;
+  const canonicalRepository = project.repositoryIdentity?.displayName;
+  const repository =
+    canonicalRepository?.toLowerCase() === parsed.repository
+      ? canonicalRepository
+      : parsed.repository;
+  return { project, repository, number: parsed.number, url: targetUrl };
 }
 
 /**
@@ -244,6 +266,7 @@ export function shouldOpenPullRequestExternally(
 export function useOpenChangeRequestLink(
   threadRef?: ScopedThreadRef,
   panelRef?: ScopedThreadRef,
+  projectRef?: ScopedProjectRef,
 ): (
   event: Pick<
     MouseEvent<HTMLElement>,
@@ -262,8 +285,6 @@ export function useOpenChangeRequestLink(
       if (shouldOpenPullRequestExternally(event)) return false;
       const resolvedThreadRef = targetThreadRef ?? threadRef;
       const resolvedPanelRef = panelRef ?? resolvedThreadRef;
-      const parsed = parseChangeRequestUrl(targetUrl);
-      if (parsed === null) return false;
       const reads = (environmentId: string) =>
         serverConfigs.get(environmentId as EnvironmentId)?.environment.capabilities.pullRequests ===
         true;
@@ -284,8 +305,9 @@ export function useOpenChangeRequestLink(
                   Number(right.environmentId === primaryEnvironmentId) -
                   Number(left.environmentId === primaryEnvironmentId),
               );
-      const project = findProjectForChangeRequest(projects, parsed);
-      if (project === undefined || !reads(project.environmentId)) return false;
+      const target = resolveChangeRequestLink(projects, targetUrl, projectRef);
+      if (target === undefined || !reads(target.project.environmentId)) return false;
+      const { project, repository, number, url } = target;
       event.preventDefault();
       event.stopPropagation();
       if (resolvedPanelRef) {
@@ -295,10 +317,9 @@ export function useOpenChangeRequestLink(
             ? {}
             : { environmentId: project.environmentId }),
           projectId: project.id,
-          // The identity's own spelling, not the one read out of the URL: the panel asks the
-          // provider for this repository, while matching a link only ever compares lower case.
-          repository: project.repositoryIdentity?.displayName ?? parsed.repository,
-          number: parsed.number,
+          repository,
+          number,
+          url,
         });
         if (!resolvedThreadRef) {
           void navigate({
@@ -307,8 +328,8 @@ export function useOpenChangeRequestLink(
               ...previous,
               involvement: previous.involvement ?? "all",
               state: previous.state ?? "all",
-              repository: project.repositoryIdentity?.displayName ?? parsed.repository,
-              number: parsed.number,
+              repository,
+              number,
               selectedProjectId: project.id,
               selectedEnvironmentId: project.environmentId,
             }),
@@ -324,8 +345,8 @@ export function useOpenChangeRequestLink(
           // Every state, so the pull request being opened is also in the list behind it whether
           // it is open, merged or closed.
           state: "all",
-          repository: parsed.repository,
-          number: parsed.number,
+          repository,
+          number,
           selectedProjectId: project.id,
           // Named so the page opens the right one of two servers holding this project.
           selectedEnvironmentId: project.environmentId,
@@ -333,12 +354,12 @@ export function useOpenChangeRequestLink(
       });
       return true;
     },
-    [allProjects, navigate, panelRef, primaryEnvironmentId, serverConfigs, threadRef],
+    [allProjects, navigate, panelRef, primaryEnvironmentId, projectRef, serverConfigs, threadRef],
   );
 }
 
-export function useOpenPrLink(threadRef?: ScopedThreadRef) {
-  const openChangeRequest = useOpenChangeRequestLink(threadRef);
+export function useOpenPrLink(threadRef?: ScopedThreadRef, projectRef?: ScopedProjectRef) {
+  const openChangeRequest = useOpenChangeRequestLink(threadRef, undefined, projectRef);
   const openLink = useOpenLink(threadRef);
   return useCallback(
     (event: MouseEvent<HTMLElement>, prUrl: string, targetThreadRef?: ScopedThreadRef) => {

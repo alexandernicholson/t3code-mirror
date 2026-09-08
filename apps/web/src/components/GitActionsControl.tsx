@@ -994,7 +994,6 @@ export default function GitActionsControl({
     () => (activeThreadRef ? { threadRef: activeThreadRef } : undefined),
     [activeThreadRef],
   );
-  const openPrLink = useOpenPrLink(activeThreadRef ?? undefined);
   const activeDraftThread = useComposerDraftStore((store) =>
     draftId
       ? store.getDraftSession(draftId)
@@ -1005,6 +1004,19 @@ export default function GitActionsControl({
   const activeServerThread = useThread(activeThreadRef, {
     waitForShell: activeDraftThread !== null,
   });
+  const activeProjectId =
+    activeServerThread?.projectId ??
+    (activeDraftThread?.environmentId === activeEnvironmentId
+      ? activeDraftThread?.projectId
+      : undefined);
+  const prProjectRef = useMemo(
+    () =>
+      activeEnvironmentId && activeProjectId
+        ? { environmentId: activeEnvironmentId, projectId: activeProjectId }
+        : undefined,
+    [activeEnvironmentId, activeProjectId],
+  );
+  const openPrLink = useOpenPrLink(activeThreadRef ?? undefined, prProjectRef);
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = useState(false);
   const [dialogCommitMessage, setDialogCommitMessage] = useState("");

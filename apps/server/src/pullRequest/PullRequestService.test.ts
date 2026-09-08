@@ -1,4 +1,5 @@
 import { assert, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -6,6 +7,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
+import { VcsRepositoryDetectionError } from "@t3tools/contracts";
 import type {
   OrchestrationProjectShell,
   ProjectId,
@@ -17,6 +19,8 @@ import type {
 import * as ProjectionSnapshotQuery from "../orchestration/Services/ProjectionSnapshotQuery.ts";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as SourceControlRateLimit from "../sourceControl/SourceControlRateLimit.ts";
+import type * as VcsDriver from "../vcs/VcsDriver.ts";
+import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import {
   PullRequestProviderError,
   type ProviderChangeRequest,
@@ -174,10 +178,28 @@ function fakeProvider(
   };
 }
 
+function configuredRemotes(urls: ReadonlyArray<string>) {
+  return {
+    remotes: urls.map((url, index) => ({
+      name: index === 0 ? "origin" : `remote-${index}`,
+      url,
+      pushUrl: Option.none<string>(),
+      isPrimary: index === 0,
+    })),
+    freshness: {
+      source: "live-local" as const,
+      observedAt: DateTime.makeUnsafe("2026-07-01T00:00:00Z"),
+      expiresAt: Option.none<DateTime.Utc>(),
+    },
+  };
+}
+
 function makeService(input: {
   readonly projects: ReadonlyArray<OrchestrationProjectShell>;
   readonly providers: ReadonlyArray<PullRequestProviderApi>;
   readonly resolveHandle?: SourceControlProviderRegistry.SourceControlProviderRegistry["Service"]["resolveHandle"];
+  readonly listRemotes?: VcsDriver.VcsDriver["Service"]["listRemotes"];
+  readonly resolveVcs?: VcsDriverRegistry.VcsDriverRegistry["Service"]["resolve"];
 }) {
   return PullRequestService.make.pipe(
     Effect.provide(
@@ -186,6 +208,23 @@ function makeService(input: {
         Layer.mock(SourceControlProviderRegistry.SourceControlProviderRegistry)({
           resolveHandle:
             input.resolveHandle ?? (() => Effect.die("Unexpected provider refinement")),
+        }),
+        Layer.mock(VcsDriverRegistry.VcsDriverRegistry)({
+          resolve:
+            input.resolveVcs ??
+            (({ cwd }) =>
+              Effect.succeed({
+                kind: "git",
+                repository: {
+                  kind: "git",
+                  rootPath: cwd,
+                  metadataPath: null,
+                  freshness: configuredRemotes([]).freshness,
+                },
+                driver: {
+                  listRemotes: input.listRemotes ?? (() => Effect.succeed(configuredRemotes([]))),
+                } as VcsDriver.VcsDriver["Service"],
+              })),
         }),
         Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
           getShellSnapshot: () =>
@@ -1546,20 +1585,194 @@ it.effect("flags a review request for the viewer but not on their own change req
   }),
 );
 
-it.effect("refuses a repository that does not belong to the requested project", () =>
+it.effect("reads and acts on a configured fork without targeting canonical upstream PR #1", () =>
+  Effect.gen(function* () {
+    const reference = { projectId: "p1" as ProjectId, repository: "alex/t3code", number: 1 };
+    const requireFork = (input: { repository: string; host?: string; number: number }) => {
+      assert.strictEqual(input.repository, "alex/t3code");
+      assert.strictEqual(input.host, "github.com");
+      assert.strictEqual(input.number, 1);
+    };
+    let closed = false;
+    const service = yield* makeService({
+      projects: [
+        project({ id: "p1", title: "t3code", workspaceRoot: "/a", repository: "pingdotgg/t3code" }),
+      ],
+      listRemotes: () =>
+        Effect.succeed(
+          configuredRemotes([
+            "git@github.com:Alex/t3code.git",
+            "https://github.com/pingdotgg/t3code.git",
+          ]),
+        ),
+      providers: [
+        fakeProvider("github", {
+          getChangeRequest: (input) => {
+            requireFork(input);
+            return Effect.succeed(hostedChangeRequest("Fork changes"));
+          },
+          getDiff: (input) => {
+            requireFork(input);
+            return Effect.succeed({ patch: "fork patch", truncated: false, nextCursor: null });
+          },
+          getViewerPermissions: (input) => {
+            requireFork(input);
+            return Effect.succeed({
+              actions: ["close"],
+              comment: false,
+              resolve: false,
+              verdicts: [],
+              requestReviewers: false,
+            });
+          },
+          runAction: (input) => {
+            requireFork(input);
+            assert.strictEqual(input.action, "close");
+            closed = true;
+            return Effect.void;
+          },
+        }),
+      ],
+    });
+
+    assert.strictEqual((yield* service.summary(reference)).repository, reference.repository);
+    const detail = yield* service.detail(reference);
+    assert.strictEqual(detail.repository, reference.repository);
+    assert.strictEqual(detail.body, "Fork changes");
+    assert.strictEqual((yield* service.diff(reference)).patch, "fork patch");
+    yield* service.runAction({ ...reference, action: "close" });
+    assert.strictEqual(closed, true);
+  }),
+);
+
+it.effect(
+  "rejects unrelated, suffix-only, and cross-host repositories before reads or actions",
+  () =>
+    Effect.gen(function* () {
+      const service = yield* makeService({
+        projects: [
+          project({
+            id: "p1",
+            title: "t3code",
+            workspaceRoot: "/a",
+            repository: "pingdotgg/t3code",
+          }),
+        ],
+        listRemotes: () =>
+          Effect.succeed(
+            configuredRemotes([
+              "https://github.com/alex/t3code.git",
+              "https://enterprise.example/other/t3code.git",
+              "https://github.com/group/nested/t3code.git",
+            ]),
+          ),
+        providers: [
+          fakeProvider("github", {
+            getViewerPermissions: () => Effect.die("Unverified repository reached authorization"),
+            runAction: () => Effect.die("Unverified repository reached mutation"),
+          }),
+        ],
+      });
+
+      for (const repository of ["alex/unrelated", "other/t3code", "nested/t3code"]) {
+        const reference = { projectId: "p1" as ProjectId, repository, number: 1 };
+        const readError = yield* Effect.flip(service.diff(reference));
+        const actionError = yield* Effect.flip(
+          service.runAction({ ...reference, action: "close" }),
+        );
+        assert.strictEqual(readError._tag, "PullRequestOperationError");
+        assert.strictEqual(actionError._tag, "PullRequestOperationError");
+      }
+    }),
+);
+
+it.effect("keeps canonical reads available without remote discovery", () =>
   Effect.gen(function* () {
     const service = yield* makeService({
       projects: [
         project({ id: "p1", title: "t3code", workspaceRoot: "/a", repository: "pingdotgg/t3code" }),
       ],
-      providers: [fakeProvider("github")],
+      resolveVcs: () => Effect.die("Canonical reads must not discover remotes"),
+      providers: [
+        fakeProvider("github", {
+          getChangeRequest: () => Effect.succeed(hostedChangeRequest("Upstream changes")),
+        }),
+      ],
     });
+    const summary = yield* service.summary({
+      projectId: "p1" as ProjectId,
+      repository: " PINGDOTGG/T3CODE ",
+      number: 1,
+    });
+    assert.strictEqual(summary.repository, "pingdotgg/t3code");
+  }),
+);
 
-    const error = yield* service
-      .diff({ projectId: "p1" as ProjectId, repository: "attacker/repo", number: 1 })
-      .pipe(Effect.flip);
+it.effect("preserves remote discovery failures when resolving a fork", () =>
+  Effect.gen(function* () {
+    const cause = new VcsRepositoryDetectionError({
+      operation: "listRemotes",
+      cwd: "/a",
+      detail: "Cannot read repository",
+    });
+    for (const failure of [
+      { resolveVcs: () => Effect.fail(cause) },
+      { listRemotes: () => Effect.fail(cause) },
+    ]) {
+      const service = yield* makeService({
+        projects: [
+          project({
+            id: "p1",
+            title: "t3code",
+            workspaceRoot: "/a",
+            repository: "pingdotgg/t3code",
+          }),
+        ],
+        providers: [fakeProvider("github")],
+        ...failure,
+      });
+      const error = yield* Effect.flip(
+        service.diff({ projectId: "p1" as ProjectId, repository: "alex/t3code", number: 1 }),
+      );
+      assert.strictEqual(error._tag, "PullRequestOperationError");
+      if (error._tag === "PullRequestOperationError") {
+        assert.strictEqual(error.operation, "resolveRepository");
+        assert.strictEqual(error.cause, cause);
+      }
+    }
+  }),
+);
 
-    assert.strictEqual(error._tag, "PullRequestOperationError");
+it.effect("does not resolve Azure repository names through a different remote context", () =>
+  Effect.gen(function* () {
+    const service = yield* makeService({
+      projects: [
+        project({
+          id: "p1",
+          title: "azure",
+          workspaceRoot: "/a",
+          repository: "org/project/_git/upstream",
+          provider: "azure-devops",
+          host: "dev.azure.com",
+        }),
+      ],
+      listRemotes: () =>
+        Effect.succeed(configuredRemotes(["https://dev.azure.com/org/other/_git/fork"])),
+      providers: [
+        fakeProvider("azure-devops", {
+          getChangeRequest: () => Effect.succeed(hostedChangeRequest("Canonical Azure PR")),
+          getViewerPermissions: () => Effect.die("Ambiguous repository reached authorization"),
+        }),
+      ],
+    });
+    const reference = { projectId: "p1" as ProjectId, repository: "upstream", number: 1 };
+    assert.strictEqual((yield* service.summary(reference)).repository, "upstream");
+    for (const repository of ["fork", "org/other/_git/fork"]) {
+      const error = yield* Effect.flip(
+        service.runAction({ ...reference, repository, action: "close" }),
+      );
+      assert.strictEqual(error._tag, "PullRequestOperationError");
+    }
   }),
 );
 
