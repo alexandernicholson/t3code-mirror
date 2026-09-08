@@ -80,6 +80,27 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["version changelog automatic install restart source branch experiments"],
   },
   {
+    id: "narration-engine",
+    title: "Narration engine",
+    to: "/settings/general",
+    targetId: "narration-engine",
+    searchTerms: ["kitten tts local offline model download voice speech"],
+  },
+  {
+    id: "narration-voice",
+    title: "Narration voice",
+    to: "/settings/general",
+    targetId: "narration-voice",
+    searchTerms: ["voice narration speech audio read aloud speak sound"],
+  },
+  {
+    id: "narration-speed",
+    title: "Narration speed",
+    to: "/settings/general",
+    targetId: "narration-speed",
+    searchTerms: ["voice narration speech rate playback speed"],
+  },
+  {
     id: "secrets",
     title: "Secrets",
     to: "/settings/secrets",

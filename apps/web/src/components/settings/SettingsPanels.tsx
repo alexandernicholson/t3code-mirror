@@ -1,3 +1,4 @@
+import { NarrationSettings } from "./NarrationSettings";
 import { Spinner } from "~/components/ui/spinner";
 import { ArchiveIcon, ArchiveX, ChevronRightIcon, SettingsIcon } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -2075,6 +2076,7 @@ export function GeneralSettingsPanel() {
   return (
     <SettingsPageContainer>
       <SharedSettingsMismatchAlert />
+      <NarrationSettings />
       <SettingsSection id="organization" title="Organization">
         <SettingsRow
           {...searchableSetting("project-grouping")}

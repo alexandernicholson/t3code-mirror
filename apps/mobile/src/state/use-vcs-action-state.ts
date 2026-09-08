@@ -55,6 +55,7 @@ export function useGitActionResultNotification(): {
 export type GitActionProgressPhase = "idle" | "running" | "success" | "error";
 
 export interface GitActionProgress {
+  readonly fraction?: number;
   readonly phase: GitActionProgressPhase;
   readonly label: string | null;
   readonly description: string | null;

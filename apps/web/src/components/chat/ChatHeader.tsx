@@ -19,6 +19,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
@@ -49,6 +50,7 @@ import {
 import { cn } from "~/lib/utils";
 
 interface ChatHeaderProps {
+  narrationControl?: ReactNode;
   activeThreadEnvironmentId: EnvironmentId;
   activeThreadId: ThreadId;
   draftId?: DraftId;
@@ -118,6 +120,7 @@ export function shouldShowOpenInPicker(input: {
 }
 
 export const ChatHeader = memo(function ChatHeader({
+  narrationControl,
   activeThreadEnvironmentId,
   activeThreadId,
   draftId,
@@ -398,6 +401,7 @@ export const ChatHeader = memo(function ChatHeader({
           )}
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
+      {narrationControl}
       <div
         ref={headerActionsRef}
         data-chat-header-actions

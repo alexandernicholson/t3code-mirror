@@ -1,3 +1,4 @@
+import { KITTEN_VOICES, type KittenVoice } from "@t3tools/client-runtime/narration/kitten";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,6 +17,8 @@ const PREFERENCES_KEY = "t3code.preferences";
 const PREFERENCES_FALLBACK_KEY = "t3code.preferences.fallback";
 
 export interface Preferences {
+  readonly narrationVoice?: KittenVoice;
+  readonly narrationRate?: number;
   readonly liveActivitiesEnabled?: boolean;
   readonly themeId?: MobileThemeId;
   readonly lightThemeId?: MobileThemeId;
@@ -86,6 +89,8 @@ export class MobilePreferencesStore extends Context.Service<
 
 function sanitizePreferences(parsed: Preferences): Preferences {
   const preferences: {
+    narrationVoice?: KittenVoice;
+    narrationRate?: number;
     liveActivitiesEnabled?: boolean;
     themeId?: MobileThemeId;
     lightThemeId?: MobileThemeId;
@@ -107,6 +112,15 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     threadListSnoozedShelfExpanded?: boolean;
   } = {};
 
+  const narrationVoice = KITTEN_VOICES.find((voice) => voice === parsed.narrationVoice);
+  if (narrationVoice) preferences.narrationVoice = narrationVoice;
+  if (
+    typeof parsed.narrationRate === "number" &&
+    Number.isFinite(parsed.narrationRate) &&
+    parsed.narrationRate >= 0.5 &&
+    parsed.narrationRate <= 2
+  )
+    preferences.narrationRate = parsed.narrationRate;
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
     preferences.liveActivitiesEnabled = parsed.liveActivitiesEnabled;
   }

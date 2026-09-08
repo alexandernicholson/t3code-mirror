@@ -50,6 +50,7 @@
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo/metro-runtime": "~57.0.14",
     "@expo/ui": "~57.0.14",
+    "@kittentts/react-native": "1.2.0",
     "@legendapp/list": "catalog:",
     "@material/material-color-utilities": "0.3.0",
     "@noble/curves": "catalog:",

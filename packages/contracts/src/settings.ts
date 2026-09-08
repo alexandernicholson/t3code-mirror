@@ -274,6 +274,23 @@ export const LoadBalancingWeights = Schema.Record(
 );
 
 export const ClientSettingsSchema = Schema.Struct({
+  narrationEngine: Schema.Literals(["kitten", "system"]).pipe(
+    Schema.withDecodingDefault(Effect.succeed("kitten")),
+  ),
+  narrationKittenVoice: Schema.Literals([
+    "Bella",
+    "Jasper",
+    "Luna",
+    "Bruno",
+    "Rosie",
+    "Hugo",
+    "Kiki",
+    "Leo",
+  ]).pipe(Schema.withDecodingDefault(Effect.succeed("Jasper"))),
+  narrationVoice: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  narrationRate: Schema.Number.check(Schema.isBetween({ minimum: 0.5, maximum: 2 })).pipe(
+    Schema.withDecodingDefault(Effect.succeed(1)),
+  ),
   loadBalancingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   loadBalancingWeights: LoadBalancingWeights.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   appearanceContrast: AppearanceContrast.pipe(
@@ -1303,6 +1320,14 @@ export const ServerSettingsPatch = Schema.Struct({
 export type ServerSettingsPatch = typeof ServerSettingsPatch.Type;
 
 export const ClientSettingsPatch = Schema.Struct({
+  narrationEngine: Schema.optionalKey(Schema.Literals(["kitten", "system"])),
+  narrationKittenVoice: Schema.optionalKey(
+    Schema.Literals(["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"]),
+  ),
+  narrationVoice: Schema.optionalKey(Schema.String),
+  narrationRate: Schema.optionalKey(
+    Schema.Number.check(Schema.isBetween({ minimum: 0.5, maximum: 2 })),
+  ),
   loadBalancingEnabled: Schema.optionalKey(Schema.Boolean),
   loadBalancingWeights: Schema.optionalKey(LoadBalancingWeights),
   appearanceContrast: Schema.optionalKey(AppearanceContrast),
