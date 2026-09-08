@@ -106,6 +106,7 @@ import * as ProviderSessionDirectory from "./provider/Services/ProviderSessionDi
 import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
 import { ProviderAuthService } from "./provider/Services/ProviderAuthService.ts";
 import { ProviderInstanceRegistry } from "./provider/Services/ProviderInstanceRegistry.ts";
+import { providerGlobalSettings } from "./provider/ProviderGlobalSettings.ts";
 import { makeProviderInstallation } from "./provider/providerInstallation.ts";
 import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
@@ -1843,6 +1844,22 @@ const makeWsRpcLayer = (
             {
               "rpc.aggregate": "server",
             },
+          ),
+        [WS_METHODS.providerReadGlobalSettings]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.providerReadGlobalSettings,
+            providerGlobalSettings(providerInstances, input.instanceId).pipe(
+              Effect.flatMap((settings) => settings.read),
+            ),
+            { "rpc.aggregate": "provider" },
+          ),
+        [WS_METHODS.providerWriteGlobalSettings]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.providerWriteGlobalSettings,
+            providerGlobalSettings(providerInstances, input.instanceId).pipe(
+              Effect.flatMap((settings) => settings.write(input)),
+            ),
+            { "rpc.aggregate": "provider" },
           ),
         [WS_METHODS.providerConsumeResetCredit]: (input) =>
           observeRpcEffect(

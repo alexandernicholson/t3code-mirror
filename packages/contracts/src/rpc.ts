@@ -224,6 +224,12 @@ import {
 import { UsagePricing, UsageReadError, UsageSummary, UsageSummaryInput } from "./usage.ts";
 import { ServerSettings, ServerSettingsError, ServerSettingsPatch } from "./settings.ts";
 import {
+  ProviderGlobalSettings,
+  ProviderGlobalSettingsError,
+  ProviderGlobalSettingsReadInput,
+  ProviderGlobalSettingsWriteInput,
+} from "./providerGlobalSettings.ts";
+import {
   SourceControlCloneRepositoryInput,
   SourceControlCloneRepositoryResult,
   SourceControlDiscoveryResult,
@@ -261,6 +267,8 @@ export const WS_METHODS = {
   providerUploadFeedback: "provider.uploadFeedback",
   providerAuthStart: "provider.auth.start",
   providerConsumeResetCredit: "provider.consumeResetCredit",
+  providerReadGlobalSettings: "provider.readGlobalSettings",
+  providerWriteGlobalSettings: "provider.writeGlobalSettings",
   providerAuthComplete: "provider.auth.complete",
   providerAuthCancel: "provider.auth.cancel",
   providerAuthLogout: "provider.auth.logout",
@@ -429,6 +437,18 @@ const WsServerUpdateProviderRpc = Rpc.make(WS_METHODS.serverUpdateProvider, {
 });
 
 const ProviderSetupRpcError = Schema.Union([ProviderSetupError, EnvironmentAuthorizationError]);
+
+const WsProviderReadGlobalSettingsRpc = Rpc.make(WS_METHODS.providerReadGlobalSettings, {
+  payload: ProviderGlobalSettingsReadInput,
+  success: ProviderGlobalSettings,
+  error: Schema.Union([ProviderGlobalSettingsError, EnvironmentAuthorizationError]),
+});
+
+const WsProviderWriteGlobalSettingsRpc = Rpc.make(WS_METHODS.providerWriteGlobalSettings, {
+  payload: ProviderGlobalSettingsWriteInput,
+  success: ProviderGlobalSettings,
+  error: Schema.Union([ProviderGlobalSettingsError, EnvironmentAuthorizationError]),
+});
 
 const WsProviderConsumeResetCreditRpc = Rpc.make(WS_METHODS.providerConsumeResetCredit, {
   payload: ProviderConsumeResetCreditInput,
@@ -1187,6 +1207,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerRefreshProvidersRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,
+  WsProviderReadGlobalSettingsRpc,
+  WsProviderWriteGlobalSettingsRpc,
   WsProviderAuthStartRpc,
   WsProviderAuthCompleteRpc,
   WsProviderAuthCancelRpc,

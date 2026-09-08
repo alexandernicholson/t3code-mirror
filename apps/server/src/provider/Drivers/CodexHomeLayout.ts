@@ -371,6 +371,8 @@ export const materializeCodexShadowHome = Effect.fn("materializeCodexShadowHome"
     }),
   );
   const entries = new Set<string>(KNOWN_SHARED_DIRECTORIES);
+  // Keep every account attached when the shared config is first created later.
+  entries.add("config.toml");
   for (const entryName of sharedEntryNames) {
     if (!PRIVATE_ENTRY_NAMES.has(entryName) && !SHADOW_LOCAL_ENTRY_NAMES.has(entryName)) {
       entries.add(entryName);

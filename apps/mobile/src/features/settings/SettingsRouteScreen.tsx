@@ -137,6 +137,7 @@ function LocalSettingsRouteScreen() {
             value={`${environmentCount}`}
             target="SettingsEnvironments"
           />
+          <SettingsRow icon="slider.horizontal.3" label="Providers" target="SettingsProviders" />
         </SettingsSection>
 
         <GeneralSettingsSection />

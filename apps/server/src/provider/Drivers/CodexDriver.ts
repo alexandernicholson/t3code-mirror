@@ -21,7 +21,12 @@
  *
  * @module provider/Drivers/CodexDriver
  */
-import { CodexSettings, ProviderDriverKind } from "@t3tools/contracts";
+import {
+  CodexSettings,
+  ProviderDriverKind,
+  ProviderGlobalSettingsError,
+  type ProviderGlobalSettingsWriteInput,
+} from "@t3tools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -53,6 +58,7 @@ import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import * as ModelManifest from "../ModelManifest.ts";
 import type { ProviderDriver, ProviderInstance } from "../ProviderDriver.ts";
 import { withInstanceIdentity } from "./instanceIdentity.ts";
+import { readCodexGlobalSettings, writeCodexGlobalSettings } from "./CodexGlobalSettings.ts";
 import { mergeProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
 import {
   enrichProviderSnapshotWithVersionAdvisory,
@@ -137,12 +143,16 @@ export const CodexDriver: ProviderDriver<CodexSettings, CodexDriverEnv> = {
       const processEnv = mergeProviderInstanceEnvironment(environment);
       const homeLayout = yield* resolveCodexHomeLayout(config);
       const continuationIdentity = codexContinuationIdentity(homeLayout);
-      const stampIdentity = withInstanceIdentity({
+      const withIdentity = withInstanceIdentity({
         instanceId,
         driverKind: DRIVER_KIND,
         displayName,
         accentColor,
         continuationGroupKey: continuationIdentity.continuationKey,
+      });
+      const stampIdentity: typeof withIdentity = (snapshot) => ({
+        ...withIdentity(snapshot),
+        supportsGlobalSettings: true,
       });
       yield* materializeCodexShadowHome(homeLayout).pipe(
         Effect.mapError(
@@ -161,6 +171,44 @@ export const CodexDriver: ProviderDriver<CodexSettings, CodexDriverEnv> = {
         binaryPath: expandHomePath(config.binaryPath),
         homePath: homeLayout.effectiveHomePath ?? "",
       } satisfies CodexSettings;
+      // Write the shared file directly: atomic replacement through a shadow-home
+      // symlink could detach that account's config from the other instances.
+      const configHome = pathService.resolve(
+        expandHomePath(
+          homeLayout.mode === "authOverlay"
+            ? homeLayout.sharedHomePath
+            : effectiveConfig.homePath || processEnv.CODEX_HOME || homeLayout.sharedHomePath,
+        ),
+      );
+      const runGlobalSettings = Effect.fn("CodexDriver.globalSettings")(
+        function* (write?: ProviderGlobalSettingsWriteInput) {
+          yield* fileSystem.makeDirectory(configHome, { recursive: true });
+          const { client } = yield* withCodexAppServerClient({
+            binaryPath: effectiveConfig.binaryPath,
+            homePath: configHome,
+            launchArgs: resolveCodexLaunchArgs(effectiveConfig.launchArgs, processEnv),
+            cwd: expandHomePath(configHome),
+            environment: processEnv,
+          });
+          if (!write) return yield* readCodexGlobalSettings(client, instanceId);
+          return yield* writeCodexGlobalSettings(client, write);
+        },
+        Effect.scoped,
+        Effect.timeout("20 seconds"),
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, pathService),
+        Effect.mapError(
+          (cause) =>
+            new ProviderGlobalSettingsError({
+              instanceId,
+              detail:
+                cause instanceof Error
+                  ? cause.message
+                  : "Codex could not read or save its configuration.",
+            }),
+        ),
+      );
       const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
         resolveProviderMaintenanceCapabilitiesEffect(
           makeCodexMaintenanceResolver(homeLayout.sharedHomePath),
@@ -345,6 +393,7 @@ export const CodexDriver: ProviderDriver<CodexSettings, CodexDriverEnv> = {
         snapshot,
         snapshotForCwd,
         consumeResetCredit,
+        globalSettings: { read: runGlobalSettings(), write: runGlobalSettings },
         adapter,
         textGeneration,
       } satisfies ProviderInstance;
