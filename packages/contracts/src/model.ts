@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { PositiveInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { ProviderDriverKind } from "./providerInstance.ts";
 
 export const ProviderOptionDescriptorType = Schema.Literals(["select", "boolean"]);
@@ -21,12 +21,24 @@ const ProviderOptionDescriptorBase = {
   description: Schema.optional(TrimmedNonEmptyString),
 } as const;
 
+export const ContextWindowOption = Schema.Struct({
+  defaultTokens: Schema.optional(PositiveInt),
+  maxTokens: Schema.optional(PositiveInt),
+  configuredTokens: Schema.optional(PositiveInt),
+  effectivePercent: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
+  ),
+});
+export type ContextWindowOption = typeof ContextWindowOption.Type;
+
 export const SelectProviderOptionDescriptor = Schema.Struct({
   ...ProviderOptionDescriptorBase,
   type: Schema.Literal("select"),
   options: Schema.Array(ProviderOptionChoice),
   currentValue: Schema.optional(TrimmedNonEmptyString),
   promptInjectedValues: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
+  // Numeric strings are custom token limits alongside the named choices.
+  contextWindow: Schema.optional(ContextWindowOption),
 });
 export type SelectProviderOptionDescriptor = typeof SelectProviderOptionDescriptor.Type;
 

@@ -5,6 +5,7 @@ import type {
   ProviderOptionDescriptor,
   ProviderOptionSelection,
   RuntimeMode,
+  SelectProviderOptionDescriptor,
 } from "@t3tools/contracts";
 import type { LegendListRenderItemProps } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
@@ -14,6 +15,12 @@ import {
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
 } from "@t3tools/shared/model";
+import {
+  contextWindowTokens,
+  contextWindowValidationMessage,
+  formatContextTokens,
+  parseContextWindowTokens,
+} from "@t3tools/shared/contextWindow";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
@@ -254,16 +261,19 @@ function ChoiceRow(props: {
   readonly selected: boolean;
   readonly onPress: () => void;
   readonly isLast: boolean;
+  readonly disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityLabel={props.description ? `${props.label}. ${props.description}` : props.label}
       accessibilityRole="radio"
-      accessibilityState={{ checked: props.selected }}
+      accessibilityState={{ checked: props.selected, disabled: props.disabled ?? false }}
+      disabled={props.disabled}
       onPress={props.onPress}
       className={cn(
         "min-h-14 flex-row items-center gap-3 bg-card px-4 py-3 active:bg-subtle",
         !props.isLast && "border-b border-border-subtle",
+        props.disabled && "opacity-50",
       )}
     >
       <View className="min-w-0 flex-1 gap-0.5">
@@ -282,6 +292,98 @@ function ChoiceRow(props: {
         />
       ) : null}
     </Pressable>
+  );
+}
+
+function ContextWindowChoices({
+  descriptor,
+  onChange,
+  onSelected,
+}: {
+  descriptor: SelectProviderOptionDescriptor;
+  onChange: (value: string) => void;
+  onSelected: () => void;
+}) {
+  const context = descriptor.contextWindow!;
+  const value = String(getProviderOptionCurrentValue(descriptor) ?? "default");
+  const tokens = contextWindowTokens(context, value);
+  const [custom, setCustom] = useState(parseContextWindowTokens(value) !== undefined);
+  const [draft, setDraft] = useState(String(tokens ?? ""));
+  const [submitted, setSubmitted] = useState(false);
+  const error = contextWindowValidationMessage(draft, context.maxTokens);
+  const apply = () => {
+    setSubmitted(true);
+    if (!error) {
+      onChange(draft);
+      onSelected();
+    }
+  };
+  return (
+    <View className="overflow-hidden rounded-2xl bg-card">
+      <View className="flex-row items-center justify-between gap-2 px-4 py-3">
+        <Text className="flex-1 text-sm text-foreground-muted">
+          Currently set: {formatContextTokens(tokens)}
+        </Text>
+        <Pressable
+          accessibilityLabel="Context window details"
+          accessibilityRole="button"
+          className="min-h-11 min-w-11 items-center justify-center"
+          onPress={() =>
+            Alert.alert(
+              "Context Window",
+              `Default uses Codex’s shipped limit. Highest available uses the maximum Codex reports for this model. Changes apply on your next turn.${context.effectivePercent !== undefined ? ` Codex makes ${context.effectivePercent}% available to the conversation.` : ""}`,
+            )
+          }
+        >
+          <SymbolView name="info.circle" size={18} tintColorClassName="accent-icon-subtle" />
+        </Pressable>
+      </View>
+      {descriptor.options.map((option) => (
+        <ChoiceRow
+          key={option.id}
+          label={option.label}
+          description={option.description}
+          isLast={false}
+          selected={!custom && value === option.id}
+          disabled={contextWindowTokens(context, option.id) === undefined}
+          onPress={() => {
+            onChange(option.id);
+            onSelected();
+          }}
+        />
+      ))}
+      <ChoiceRow
+        label="Custom"
+        selected={custom}
+        isLast={!custom}
+        onPress={() => setCustom(true)}
+      />
+      {custom ? (
+        <View className="gap-3 p-4">
+          <Text className="text-sm text-foreground-muted">Tokens</Text>
+          <TextInput
+            accessibilityLabel="Context window tokens"
+            keyboardType="number-pad"
+            value={draft}
+            onChangeText={setDraft}
+            className="min-h-11 rounded-lg border border-border-subtle px-3 text-base text-foreground"
+            onSubmitEditing={apply}
+          />
+          {submitted && error ? (
+            <Text accessibilityRole="alert" className="text-sm text-foreground">
+              {error}
+            </Text>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={apply}
+            className="min-h-11 items-center justify-center rounded-lg bg-subtle"
+          >
+            <Text className="font-t3-medium text-foreground">Apply</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -949,18 +1051,27 @@ function ThreadSettingsChoiceContent(props: {
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
     >
-      <View className="overflow-hidden rounded-2xl bg-card">
-        {submenuContent.rows.map((row, index) => (
-          <ChoiceRow
-            key={row.id}
-            description={row.description}
-            isLast={index === submenuContent.rows.length - 1}
-            label={row.label}
-            selected={row.selected}
-            onPress={row.onPress}
-          />
-        ))}
-      </View>
+      {activeDescriptor?.type === "select" && activeDescriptor.contextWindow ? (
+        <ContextWindowChoices
+          key={activeDescriptor.id + session.pendingModel?.key}
+          descriptor={activeDescriptor}
+          onChange={(value) => session.applyOptionChange(activeDescriptor.id, value)}
+          onSelected={props.onSelected}
+        />
+      ) : (
+        <View className="overflow-hidden rounded-2xl bg-card">
+          {submenuContent.rows.map((row, index) => (
+            <ChoiceRow
+              key={row.id}
+              description={row.description}
+              isLast={index === submenuContent.rows.length - 1}
+              label={row.label}
+              selected={row.selected}
+              onPress={row.onPress}
+            />
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }

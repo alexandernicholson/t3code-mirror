@@ -178,12 +178,13 @@ export function draftFromDefinition(entry: CustomModelDefinition): CustomModelDr
   };
 }
 
-/** Claude context choices require runtime suffix mappings that custom entries do not carry. */
+/** Context metadata stays provider-owned; Claude choices also need runtime suffix mappings. */
 export function descriptorsFromCapabilities(
   capabilities: ModelCapabilities | null | undefined,
   driverKind: ProviderDriverKind | null,
 ): EditorDescriptor[] {
   return (capabilities?.optionDescriptors ?? [])
+    .filter((descriptor) => descriptor.type !== "select" || descriptor.contextWindow === undefined)
     .filter((descriptor) => driverKind !== "claudeAgent" || descriptor.id !== "contextWindow")
     .map(descriptorToEditor);
 }

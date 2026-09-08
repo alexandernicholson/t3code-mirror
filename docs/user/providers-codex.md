@@ -49,6 +49,17 @@ reported accounts, refresh provider status, and confirm the second instance has
 its own shadow path and login. A shadow-home conflict usually means the directory
 contains a copied Codex setup. Use a fresh shadow directory and sign in again.
 
+## Choose a context window
+
+Open the model options beside the composer and choose **Default**, **Highest
+available**, or **Custom** under **Context Window**. T3 Code shows the current
+setting, Codex's shipped default, and the maximum reported by your Codex installation.
+Custom limits cannot exceed that reported maximum. If Codex has not reported a
+limit, it appears as unavailable; refresh models to check again.
+
+Changes apply on your next turn and preserve the conversation. Codex reserves part
+of the configured window, so the context meter can show a smaller usable capacity.
+
 ## Answer questions while Codex works
 
 Codex can ask a question and keep working. Answer it in the thread's question

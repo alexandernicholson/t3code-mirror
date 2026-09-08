@@ -1,6 +1,8 @@
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -26,6 +28,8 @@ import type {
 import { PREFERRED_DEFAULT_CODEX_MODELS, ServerSettingsError } from "@t3tools/contracts";
 
 import { createModelCapabilities, readCustomModelEntries } from "@t3tools/shared/model";
+import { buildContextWindowDescriptor } from "@t3tools/shared/contextWindow";
+import { readCodexContextWindows } from "../CodexContextWindow.ts";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import { codexAppServerArgs, resolveCodexLaunchArgs } from "./codexLaunchArgs.ts";
 import {
@@ -457,13 +461,33 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
     { concurrency: "unbounded" },
   );
 
+  const config = yield* client.request("config/read", { includeLayers: false }).pipe(
+    Effect.map((response) => response.config),
+    Effect.orElseSucceed(() => ({})),
+  );
+  const allModels = appendCustomCodexModels(models, input.customModels ?? []);
+  const contextWindows = yield* readCodexContextWindows({
+    ...input,
+    config,
+    modelSlugs: allModels.map((model) => model.slug),
+  });
+  const modelsWithContext = allModels.map((model) => ({
+    ...model,
+    capabilities: createModelCapabilities({
+      optionDescriptors: [
+        ...(model.capabilities?.optionDescriptors ?? []).filter(
+          (descriptor) => descriptor.id !== "contextWindow",
+        ),
+        buildContextWindowDescriptor(contextWindows.get(model.slug) ?? {}),
+      ],
+    }),
+  }));
+
   return {
     account: accountResponse,
     rateLimits,
     version,
-    models: applyPreferredCodexDefaultModel(
-      appendCustomCodexModels(models, input.customModels ?? []),
-    ),
+    models: applyPreferredCodexDefaultModel(modelsWithContext),
     skills: parseCodexSkillsListResponse(skillsResponse, input.cwd),
   } satisfies CodexAppServerProviderSnapshot;
 });
@@ -564,13 +588,13 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   }) => Effect.Effect<
     CodexAppServerProviderSnapshot,
     CodexErrors.CodexAppServerError,
-    ChildProcessSpawner.ChildProcessSpawner | Scope.Scope
+    ChildProcessSpawner.ChildProcessSpawner | Scope.Scope | FileSystem.FileSystem | Path.Path
   > = probeCodexAppServerProvider,
   environment?: NodeJS.ProcessEnv,
 ): Effect.fn.Return<
   ServerProviderDraft,
   ServerSettingsError,
-  ChildProcessSpawner.ChildProcessSpawner
+  ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
 > {
   const resolvedEnvironment = environment ?? process.env;
   const checkedAt = DateTime.formatIso(yield* DateTime.now);

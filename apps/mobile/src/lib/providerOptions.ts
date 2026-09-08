@@ -7,6 +7,7 @@ import {
   buildProviderOptionSelectionsFromDescriptors,
   getProviderOptionDescriptors,
 } from "@t3tools/shared/model";
+import { contextWindowValidationMessage } from "@t3tools/shared/contextWindow";
 
 export function resolveProviderOptionDescriptors(input: {
   readonly capabilities: ModelCapabilities | null | undefined;
@@ -38,7 +39,12 @@ export function applyProviderOptionSelection(
     (descriptor.type === "boolean" && typeof change.value !== "boolean") ||
     (descriptor.type === "select" &&
       (typeof change.value !== "string" ||
-        !descriptor.options.some((option) => option.id === change.value)))
+        (!descriptor.options.some((option) => option.id === change.value) &&
+          !(
+            descriptor.contextWindow &&
+            contextWindowValidationMessage(change.value, descriptor.contextWindow.maxTokens) ===
+              undefined
+          ))))
   ) {
     return null;
   }
