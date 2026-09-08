@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
   enumerateHourStarts,
+  formatCacheHitRate,
   formatDateTimeShort,
   formatHourShort,
   formatRelativeHourShort,
@@ -69,5 +70,13 @@ describe("hourly usage formatting", () => {
     } finally {
       resolvedOptions.mockRestore();
     }
+  });
+});
+
+describe("cache hit rate formatting", () => {
+  it("shows no input separately from zero cache hits", () => {
+    expect(formatCacheHitRate({ inputTokens: 0, cachedInputTokens: 0 })).toBe("—");
+    expect(formatCacheHitRate({ inputTokens: 100, cachedInputTokens: 0 })).toBe("0.0%");
+    expect(formatCacheHitRate({ inputTokens: 300, cachedInputTokens: 100 })).toBe("33.3%");
   });
 });

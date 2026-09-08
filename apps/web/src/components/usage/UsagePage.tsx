@@ -28,6 +28,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import {
   enumerateDays,
   enumerateHourStarts,
+  formatCacheHitRate,
   formatCount,
   formatDateTimeShort,
   formatDayShort,
@@ -409,6 +410,10 @@ export function UsagePage() {
                               ? `${formatPercent(share)} of cost · ${formatTokens(totals?.totalTokens ?? 0)} tokens`
                               : `${formatPercent(share)} of tokens · ${formatUsd(totals?.costUsd ?? 0)}`}
                           </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatTokens(totals?.cachedInputTokens ?? 0)} cached input ·{" "}
+                            {totals ? formatCacheHitRate(totals) : "—"} cache hit rate
+                          </span>
                         </div>
                       );
                     })}
@@ -435,9 +440,20 @@ export function UsagePage() {
 
                 <section className="flex flex-col gap-2">
                   <h2 className="text-sm font-medium text-foreground">Totals</h2>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-1 md:grid-cols-5">
+                  <p className="text-xs text-muted-foreground">
+                    Cache hit rate is cached reads divided by all input tokens, including cache
+                    writes. Coverage: Claude, Codex, and Grok.
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-1 md:grid-cols-3">
                     <Metric label="Processed tokens" value={formatTokens(merged.totalTokens)} />
                     <Metric label="Cached input" value={formatTokens(merged.cachedInputTokens)} />
+                    <Metric
+                      label="Cache hit rate"
+                      value={formatCacheHitRate({
+                        inputTokens: merged.totalTokens - merged.outputTokens,
+                        cachedInputTokens: merged.cachedInputTokens,
+                      })}
+                    />
                     <Metric
                       label="Uncached input"
                       value={formatTokens(merged.uncachedInputTokens)}
@@ -518,6 +534,10 @@ export function UsagePage() {
                               </td>
                               <td className="py-2 text-right text-muted-foreground tabular-nums">
                                 {formatTokens(model.totalTokens)}
+                                <div className="text-xs">
+                                  {formatTokens(model.cachedInputTokens)} cached
+                                </div>
+                                <div className="text-xs">{formatCacheHitRate(model)} cache hit</div>
                               </td>
                             </tr>
                           ))
