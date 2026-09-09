@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.3] - 2026-09-09
+
+- Web and desktop narration now use a configurable model and custom instructions to turn agent updates into brief spoken summaries. Summaries require a connection to the environment’s model provider. Mobile narration delivery is unchanged.
+
+---
+
 ## [0.2.2] - 2026-09-09
 
 - Show models discovered by Claude gateways across web, desktop, and mobile, preserving custom model settings and removing retired gateway entries after successful refreshes.

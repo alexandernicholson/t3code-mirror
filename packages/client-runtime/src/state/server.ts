@@ -1073,6 +1073,10 @@ export function createServerEnvironmentAtoms<R, E>(
       scheduler: configScheduler,
       concurrency: configConcurrency,
     }),
+    summarizeNarration: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:narration:summarize",
+      tag: WS_METHODS.narrationSummarize,
+    }),
     refreshProviders: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:refresh-providers",
       tag: WS_METHODS.serverRefreshProviders,

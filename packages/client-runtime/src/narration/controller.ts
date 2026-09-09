@@ -7,8 +7,8 @@ export interface NarrationMessage {
   readonly createdAt?: string;
 }
 
-export function narrationExcerpt(text: string): string {
-  const prose = text
+export function narrationText(text: string): string {
+  return text
     .replace(/```[\s\S]*?(?:```|$)/g, " ")
     .replace(/~~~[\s\S]*?(?:~~~|$)/g, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
@@ -19,6 +19,10 @@ export function narrationExcerpt(text: string): string {
     .replace(/[`*_]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function narrationExcerpt(text: string): string {
+  const prose = narrationText(text);
   const sentences = prose.match(/.+?(?:[.!?](?:\s+|$)|$)/g);
   const excerpt =
     sentences
@@ -34,7 +38,9 @@ export class NarrationCursor {
   private seen: Set<string>;
   private lastExcerpt: string | undefined;
   private readonly baselineCreatedAt: string;
-  constructor(messages: readonly NarrationMessage[]) {
+  private readonly fullText: boolean;
+  constructor(messages: readonly NarrationMessage[], fullText = false) {
+    this.fullText = fullText;
     this.seen = new Set(messages.map((message) => message.id));
     this.baselineCreatedAt = messages.reduce(
       (latest, message) =>
@@ -49,7 +55,9 @@ export class NarrationCursor {
       this.seen.add(message.id);
       if (message.createdAt && message.createdAt < this.baselineCreatedAt) continue;
       if (message.role === "assistant") {
-        const excerpt = narrationExcerpt(message.text);
+        const excerpt = this.fullText
+          ? narrationText(message.text).slice(0, 12000)
+          : narrationExcerpt(message.text);
         if (excerpt) latest = excerpt;
       }
     }
@@ -72,31 +80,66 @@ export class NarrationQueue {
   private readonly speaker: NarrationSpeaker;
   private readonly onError: (message?: string) => void;
   private readonly now: () => number;
+  private readonly summarize: ((text: string) => Promise<string>) | undefined;
   constructor(
     speaker: NarrationSpeaker,
     onError: (message?: string) => void,
     now: () => number = Date.now,
+    summarize?: (text: string) => Promise<string>,
   ) {
     this.speaker = speaker;
     this.onError = onError;
     this.now = now;
+    this.summarize = summarize;
   }
-  enqueue(text: string) {
+  enqueue(text: string, summarize = true) {
     if (this.stopped) return;
     if (this.playing) {
       this.pending = { text, at: this.now() };
       return;
     }
     this.playing = true;
+    if (summarize && this.summarize) {
+      void this.summarize(text).then(
+        (summary) => {
+          if (this.stopped) return;
+          // A newer update arrived during inference: summarize that instead of speaking stale work.
+          if (this.pending) {
+            this.advance();
+            return;
+          }
+          const spoken = narrationExcerpt(summary).split(/\s+/).slice(0, 40).join(" ");
+          if (!spoken) {
+            this.advance();
+            return;
+          }
+          this.play(spoken);
+        },
+        () => {
+          if (this.stopped) return;
+          this.stop();
+          this.onError(
+            "Could not summarize this update. Check the narration model in Settings and try again.",
+          );
+        },
+      );
+      return;
+    }
+    this.play(text);
+  }
+  private advance() {
+    if (this.stopped) return;
+    this.playing = false;
+    const next = this.pending;
+    this.pending = undefined;
+    if (next && this.now() - next.at < 20_000) this.enqueue(next.text);
+  }
+  private play(text: string) {
     try {
       this.speaker.speak(
         text,
         () => {
-          if (this.stopped) return;
-          this.playing = false;
-          const next = this.pending;
-          this.pending = undefined;
-          if (next && this.now() - next.at < 20_000) this.enqueue(next.text);
+          this.advance();
         },
         (message) => {
           if (this.stopped) return;

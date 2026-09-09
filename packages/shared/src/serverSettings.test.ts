@@ -349,6 +349,29 @@ describe("serverSettings helpers", () => {
     });
   });
 
+  it("replaces narration model options across providers and resets to the default", () => {
+    const current = {
+      ...DEFAULT_SERVER_SETTINGS,
+      narrationModelSelection: createModelSelection(
+        ProviderInstanceId.make("codex"),
+        "gpt-5.4-mini",
+        [{ id: "reasoningEffort", value: "high" }],
+      ),
+    };
+    const next = applyServerSettingsPatch(current, {
+      narrationModelSelection: {
+        instanceId: ProviderInstanceId.make("claudeAgent"),
+        model: "sonnet",
+      },
+      narrationInstructions: "Only mention blockers.",
+    });
+    expect(next.narrationModelSelection).toEqual({ instanceId: "claudeAgent", model: "sonnet" });
+    expect(next.narrationInstructions).toBe("Only mention blockers.");
+    expect(
+      applyServerSettingsPatch(next, { narrationModelSelection: null }).narrationModelSelection,
+    ).toBeNull();
+  });
+
   it("clears source control writer selection with null", () => {
     const current = {
       ...DEFAULT_SERVER_SETTINGS,

@@ -300,6 +300,7 @@ function createTextGeneration(
       Effect.succeed({
         branch: "update-workflow",
       }),
+    generateNarration: () => Effect.succeed({ text: "Progress update." }),
     generateThreadTitle: () =>
       Effect.succeed({
         title: "Update workflow",
@@ -341,6 +342,7 @@ function createTextGeneration(
             }),
         ),
       ),
+    generateNarration: () => Effect.succeed({ text: "Progress update." }),
     generateThreadTitle: (input) =>
       implementation.generateThreadTitle(input).pipe(
         Effect.mapError(

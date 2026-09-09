@@ -286,6 +286,9 @@ export function applyServerSettingsPatch(
           ),
         }
       : {}),
+    ...(patch.narrationModelSelection !== undefined
+      ? { narrationModelSelection: patch.narrationModelSelection }
+      : {}),
     ...(patch.sourceControlWriterModelSelection !== undefined
       ? { sourceControlWriterModelSelection: patch.sourceControlWriterModelSelection }
       : {}),

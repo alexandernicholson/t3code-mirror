@@ -1,3 +1,5 @@
+import { makeSummarizeNarration } from "./textGeneration/Narration.ts";
+import { makeTextGenerationFromRegistry } from "./textGeneration/TextGeneration.ts";
 import { SourceUpdates } from "./sourceUpdates/controller.ts";
 import * as Secrets from "./secrets/Secrets.ts";
 import {
@@ -540,6 +542,8 @@ const makeWsRpcLayer = (
       const config = yield* ServerConfig.ServerConfig;
       const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
+      const textGeneration = makeTextGenerationFromRegistry(providerInstances);
+      const summarizeNarration = makeSummarizeNarration(serverSettings.getSettings, textGeneration);
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
       const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
@@ -1776,6 +1780,8 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.serverProbe, Effect.succeed({}), {
             "rpc.aggregate": "server",
           }),
+        [WS_METHODS.narrationSummarize]: (input) =>
+          observeRpcEffect(WS_METHODS.narrationSummarize, summarizeNarration(input)),
         [WS_METHODS.serverGetConfig]: (_input) =>
           observeRpcEffect(
             WS_METHODS.serverGetConfig,

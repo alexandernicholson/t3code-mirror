@@ -69,6 +69,13 @@ export interface ThreadTitleGenerationInput {
   modelSelection: ModelSelection;
 }
 
+export interface NarrationGenerationInput {
+  cwd: string;
+  message: string;
+  instructions: string;
+  modelSelection: ModelSelection;
+}
+
 export interface ThreadTitleGenerationResult {
   title: string;
 }
@@ -100,6 +107,10 @@ export class TextGeneration extends Context.Service<
       input: BranchNameGenerationInput,
     ) => Effect.Effect<BranchNameGenerationResult, TextGenerationError>;
 
+    readonly generateNarration: (
+      input: NarrationGenerationInput,
+    ) => Effect.Effect<{ text: string }, TextGenerationError>;
+
     /** Generate a concise thread title from a first message or thread history. */
     readonly generateThreadTitle: (
       input: ThreadTitleGenerationInput,
@@ -111,7 +122,8 @@ type TextGenerationOp =
   | "generateCommitMessage"
   | "generatePrContent"
   | "generateBranchName"
-  | "generateThreadTitle";
+  | "generateThreadTitle"
+  | "generateNarration";
 
 const resolveInstance = (
   registry: ProviderInstanceRegistry.ProviderInstanceRegistry["Service"],
@@ -146,6 +158,10 @@ export const makeTextGenerationFromRegistry = (
     generateBranchName: (input) =>
       resolveInstance(registry, "generateBranchName", input.modelSelection.instanceId).pipe(
         Effect.flatMap((textGeneration) => textGeneration.generateBranchName(input)),
+      ),
+    generateNarration: (input) =>
+      resolveInstance(registry, "generateNarration", input.modelSelection.instanceId).pipe(
+        Effect.flatMap((textGeneration) => textGeneration.generateNarration(input)),
       ),
     generateThreadTitle: (input) =>
       resolveInstance(registry, "generateThreadTitle", input.modelSelection.instanceId).pipe(

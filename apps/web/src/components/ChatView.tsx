@@ -8279,6 +8279,8 @@ export default function ChatView(props: ChatViewProps) {
               isServerThread ? (
                 <ThreadNarration
                   key={`${activeThread.environmentId}:${activeThread.id}`}
+                  environmentId={activeThread.environmentId}
+                  cwd={activeWorkspaceRoot ?? activeProject?.workspaceRoot ?? ""}
                   messages={activeThread.messages}
                 />
               ) : null

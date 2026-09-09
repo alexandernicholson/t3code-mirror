@@ -74,6 +74,20 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
  */
 export const SETTINGS_SEARCH_ITEMS = [
   {
+    id: "narration-summary-model",
+    title: "Narration summary model",
+    to: "/settings/general",
+    targetId: "narration-summary-model",
+    searchTerms: ["voice narration summarize shorter speech provider model"],
+  },
+  {
+    id: "narration-instructions",
+    title: "Narration instructions",
+    to: "/settings/general",
+    targetId: "narration-instructions",
+    searchTerms: ["voice narration summary prompt custom human concise words"],
+  },
+  {
     id: "source-updates",
     title: "Updates",
     to: "/settings/updates",

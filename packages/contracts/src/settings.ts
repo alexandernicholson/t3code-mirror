@@ -1048,6 +1048,16 @@ export const ServerSettings = Schema.Struct({
   sourceControlWritingStyle: SourceControlWritingStyleSettings.pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
+  narrationModelSelection: Schema.NullOr(ModelSelection).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
+  narrationInstructions: Schema.String.check(Schema.isMaxLength(4000)).pipe(
+    Schema.withDecodingDefault(
+      Effect.succeed(
+        "Summarize the agent update for a person listening while doing something else. Say the most useful progress, result, blocker, or decision in one natural sentence of at most 20 words. Use everyday language. Leave out file paths, code, commands, lists, and implementation details unless essential to a decision. Be accurate about what is done versus planned. Do not add an introduction or repeat that you are summarizing.",
+      ),
+    ),
+  ),
   sourceControlWriterModelSelection: Schema.NullOr(ModelSelection).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
@@ -1284,6 +1294,8 @@ export const ServerSettingsPatch = Schema.Struct({
       followChangeRequestTemplates: Schema.optionalKey(Schema.Boolean),
     }),
   ),
+  narrationModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  narrationInstructions: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(4000))),
   sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   observability: Schema.optionalKey(
     Schema.Struct({
