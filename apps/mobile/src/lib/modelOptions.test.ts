@@ -13,6 +13,49 @@ import {
 } from "./modelOptions";
 
 describe("mobile model options", () => {
+  it("shows discovered Claude gateway models with exact IDs and provider routing", () => {
+    const slug = "anthropic/gateway-code-advisor[1m]";
+    const config = {
+      providers: [
+        {
+          instanceId: "claude_gateway",
+          driver: "claudeAgent",
+          displayName: "Gateway",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [
+            {
+              slug,
+              name: "Gateway Advisor",
+              isCustom: false,
+              capabilities: { optionDescriptors: [] },
+            },
+          ],
+        },
+        {
+          instanceId: "claudeAgent",
+          driver: "claudeAgent",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [],
+        },
+      ],
+    } as unknown as ServerConfig;
+    const options = buildModelOptions(config, null);
+    expect(options).toHaveLength(1);
+    expect(options[0]).toMatchObject({
+      label: "Gateway Advisor",
+      isLegacy: false,
+      selection: { instanceId: "claude_gateway", model: slug },
+    });
+    expect(resolveDefaultableModelSelection(config, options[0]!.selection)).toEqual(
+      options[0]!.selection,
+    );
+    expect(groupByProvider(options)[0]?.providerKey).toBe("claude_gateway");
+  });
+
   it("groups models by provider and flags legacy entries", () => {
     const config = {
       providers: [
