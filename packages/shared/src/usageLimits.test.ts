@@ -22,6 +22,7 @@ import {
   elapsedShare,
   formatResetsIn,
   limitsNotice,
+  limitRecovery,
   paceOf,
   providersWithLimits,
   remainingPercent,
@@ -37,6 +38,63 @@ const window = {
   windowDurationMins: 300,
   resetsAt: "2026-09-03T14:00:00.000Z",
 } as const;
+
+describe("scheduled quota recovery", () => {
+  it("combines simultaneous resets and keeps staggered resets in time order", () => {
+    const points = limitRecovery(
+      [
+        { ...window, usedPercent: 60, resetsAt: "2026-09-03T15:00:00.000Z" },
+        { ...window, usedPercent: 90 },
+        { ...window, usedPercent: 30 },
+      ],
+      now,
+    );
+    expect(points).toEqual([
+      { at: now, remainingPercent: 40 },
+      { at: Date.parse(window.resetsAt), remainingPercent: 80 },
+      { at: Date.parse("2026-09-03T15:00:00.000Z"), remainingPercent: 100 },
+    ]);
+  });
+
+  it("does not infer recovery for missing, invalid, or overdue reset times", () => {
+    const points = limitRecovery(
+      [
+        { ...window, usedPercent: 100, resetsAt: undefined },
+        { ...window, usedPercent: 100, resetsAt: "invalid" },
+        { ...window, usedPercent: 100, resetsAt: new Date(now).toISOString() },
+        { ...window, usedPercent: 100, resetsAt: new Date(now - 1).toISOString() },
+        { ...window, usedPercent: 100 },
+      ],
+      now,
+    );
+    expect(points).toEqual([
+      { at: now, remainingPercent: 0 },
+      { at: Date.parse(window.resetsAt), remainingPercent: 20 },
+    ]);
+  });
+
+  it("preserves fractional account shares until presentation", () => {
+    const points = limitRecovery(
+      [
+        { ...window, usedPercent: 1 },
+        { ...window, usedPercent: 1 },
+        { ...window, usedPercent: 1 },
+      ],
+      now,
+    );
+    expect(points).toEqual([
+      { at: now, remainingPercent: 99 },
+      { at: Date.parse(window.resetsAt), remainingPercent: 100 },
+    ]);
+  });
+
+  it("omits resets that restore nothing and handles empty pools", () => {
+    expect(limitRecovery([], now)).toEqual([]);
+    expect(limitRecovery([{ ...window, usedPercent: 0 }], now)).toEqual([
+      { at: now, remainingPercent: 100 },
+    ]);
+  });
+});
 
 function provider(overrides: Partial<ServerProvider>): ServerProvider {
   return {

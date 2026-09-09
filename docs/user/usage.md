@@ -56,6 +56,11 @@ Filter with the environment dropdown to see what a single machine has.
 
 If a window looks stale, refresh Limits to re-check every provider and hub.
 
+Scheduled recovery charts show how much quota upcoming resets would restore if you stop using
+that provider. Accounts contribute equally, regardless of plan size. Missing or overdue reset
+times are excluded from the projection; refresh to check whether a reset has landed. On web,
+hover or focus a chart point for its quota and time. On mobile, expand the reset schedule.
+
 Pick `/usage-limits` from the composer's command menu, or send it as a message, to check the
 current model's limits without leaving the conversation. The result opens above the composer and
 closes when you dismiss it or send your next message. It uses the same snapshot as **Usage → Limits**, so it does not run the agent or refresh

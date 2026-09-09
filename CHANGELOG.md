@@ -1,8 +1,20 @@
 # Changelog
 
-## [0.1.3] - 2026-09-09
+## [0.1.5] - 2026-09-09
 
 - Add repeatable web development screenshots and browser checks with a managed Chromium setup and reusable authentication.
+
+---
+
+## [0.1.4] - 2026-09-09
+
+- Require PR evidence to be attached directly to pull requests; prohibit releases, release assets, and tags as evidence hosting.
+
+---
+
+## [0.1.3] - 2026-09-09
+
+- Add scheduled quota recovery charts to Usage Limits on web, desktop, and mobile, showing when provider account resets restore headroom without repeating cost details.
 
 ---
 

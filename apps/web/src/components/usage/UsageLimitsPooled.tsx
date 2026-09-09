@@ -21,6 +21,7 @@ import { getDriverOption } from "../settings/providerDriverMeta";
 import { RedactedSensitiveText } from "../settings/RedactedSensitiveText";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import { UsageRecoveryChart } from "./UsageRecoveryChart";
 import {
   PaceIcon,
   ResetCreditDialog,
@@ -503,6 +504,7 @@ function PoolWindowCard({
         ) : null}
       </div>
       <PoolBar pool={pool} color={color} now={now} />
+      <UsageRecoveryChart pool={pool} color={color} now={now} />
     </div>
   );
 }
