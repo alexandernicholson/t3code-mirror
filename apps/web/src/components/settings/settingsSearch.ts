@@ -176,6 +176,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/appearance",
   },
   {
+    id: "sidebar-title",
+    title: "Sidebar title",
+    to: "/settings/appearance",
+    searchTerms: ["brand wordmark logo name t3 code markdown emoji custom text rename"],
+  },
+  {
     id: "environment-identification",
     title: "Environment identification",
     to: "/settings/appearance",

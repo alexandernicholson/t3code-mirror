@@ -146,6 +146,17 @@ export const TerminalFontSize = Schema.Int.check(
 export type TerminalFontSize = typeof TerminalFontSize.Type;
 const DEFAULT_TERMINAL_FONT_SIZE: TerminalFontSize = 12;
 
+/**
+ * Replacement for the sidebar's "T3 Code" wordmark. Inline Markdown (bold,
+ * italics, strikethrough, `<u>` underline, code) and emoji render; block
+ * syntax is flattened to text. Empty restores the default wordmark.
+ */
+export const MAX_SIDEBAR_BRAND_TEXT_LENGTH = 120;
+export const SidebarBrandText = Schema.String.check(
+  Schema.isMaxLength(MAX_SIDEBAR_BRAND_TEXT_LENGTH),
+);
+export type SidebarBrandText = typeof SidebarBrandText.Type;
+
 export const EnvironmentIdentificationMode = Schema.Literals(["artwork", "pill", "none"]);
 export type EnvironmentIdentificationMode = typeof EnvironmentIdentificationMode.Type;
 export const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "artwork";
@@ -357,6 +368,7 @@ export const ClientSettingsSchema = Schema.Struct({
   environmentIdentificationMode: EnvironmentIdentificationMode.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE)),
   ),
+  sidebarBrandText: SidebarBrandText.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   glassOpacity: GlassOpacity.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_GLASS_OPACITY)),
   ),
@@ -1359,6 +1371,7 @@ export const ClientSettingsPatch = Schema.Struct({
   diffIgnoreWhitespace: Schema.optionalKey(Schema.Boolean),
   diffLayout: Schema.optionalKey(DiffLayout),
   environmentIdentificationMode: Schema.optionalKey(EnvironmentIdentificationMode),
+  sidebarBrandText: Schema.optionalKey(SidebarBrandText),
   glassOpacity: Schema.optionalKey(GlassOpacity),
   onboardingCompletedAt: Schema.optionalKey(Schema.NullOr(Schema.String)),
   fontSizeInterface: Schema.optionalKey(InterfaceFontSize),

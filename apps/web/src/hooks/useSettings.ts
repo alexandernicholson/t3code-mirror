@@ -347,6 +347,16 @@ export function resolveEnvironmentIdentificationMode(input: {
     : input.mode;
 }
 
+/**
+ * Custom sidebar title, or `""` for the default wordmark. `null` until client
+ * settings hydrate so the wordmark never flashes before a saved title loads.
+ */
+export function useSidebarBrandText(): string | null {
+  const settingsHydrated = useClientSettingsHydrated();
+  const text = useClientSettingsValue().sidebarBrandText;
+  return settingsHydrated ? text : null;
+}
+
 export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
   const settingsHydrated = useClientSettingsHydrated();
   const mode = useClientSettingsValue().environmentIdentificationMode;

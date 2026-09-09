@@ -27,6 +27,9 @@ This fork currently adds or changes the following:
   See [Source control integrations](./docs/user/source-control.md).
 - Renders Mermaid code fences as diagrams on web and mobile, with source and
   invalid-diagram fallbacks.
+- Lets each web or desktop client replace the sidebar's T3 Code wordmark with
+  custom text, including inline Markdown and emoji. See
+  [Sidebar title](./docs/user/appearance.md#sidebar-title).
 - Reports cached input and cache hit rates overall, by provider, and by model.
 - Lets users choose whether a mid-turn message should steer current work or enter
   a durable environment-side queue. Queued messages survive disconnects and can
