@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-09-09
+
+- Listen to concise agent progress updates with on-device voice narration across web, desktop, and mobile. The Kitten TTS model downloads on first use, shows progress, and remains cached for offline playback.
+
+---
+
 ## [0.1.1] - 2026-09-09
 
 - Choose Steer or Queue across web, desktop, and mobile. Queued follow-ups persist on the environment, pause when stopped, and can be restored with attachments to the editor.
