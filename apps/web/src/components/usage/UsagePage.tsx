@@ -246,13 +246,11 @@ export function UsagePage() {
             </Toggle>
           ))}
         </ToggleGroup>
-        {/* The period does not apply to Limits, so it stays in place but
-            disabled; unmounting it shifted the metric toggle ~300px. */}
+        {/* The same period selects transcript usage and persisted limit history. */}
         <ToggleGroup
           aria-label="Usage period"
           variant="segmented"
           value={[String(windowDays)]}
-          disabled={showingLimits}
           onValueChange={(next) => {
             const value = next[0];
             if (value) selectWindow(Number(value));
@@ -300,11 +298,7 @@ export function UsagePage() {
             ))}
           </SelectPopup>
         </Select>
-        <Select
-          value={String(windowDays)}
-          disabled={showingLimits}
-          onValueChange={(value) => selectWindow(Number(value))}
-        >
+        <Select value={String(windowDays)} onValueChange={(value) => selectWindow(Number(value))}>
           <SelectTrigger
             aria-label="Usage period"
             size="compact"
@@ -353,7 +347,11 @@ export function UsagePage() {
                   : `Select an environment to see ${showingLimits ? "limits" : "usage"}.`}
               </p>
             ) : showingLimits ? (
-              <UsageLimitsSection selectedEnvironmentIds={selectedEnvironmentIds} now={limitsNow} />
+              <UsageLimitsSection
+                selectedEnvironmentIds={selectedEnvironmentIds}
+                now={limitsNow}
+                historyDays={windowDays}
+              />
             ) : isPending ? (
               <UsageSkeleton />
             ) : (

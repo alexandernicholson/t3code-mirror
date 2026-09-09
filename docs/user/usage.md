@@ -54,12 +54,14 @@ the bar show each account's quota, countdown, and credits. Tap a row to open its
 The same account signed in on more than one environment, or reported by a hub as well, counts once.
 Filter with the environment dropdown to see what a single machine has.
 
-If a window looks stale, refresh Limits to re-check every provider and hub.
+Choose 24 hours, 7 days, 30 days, or 90 days to chart the percentage used by each account over
+that period. T3 records successful provider and hub checks in five-minute buckets and keeps them
+on the environment for 90 days. Collection starts after installing this version; earlier limits
+cannot be reconstructed. Offline time and failed checks are not inferred. On web, hover or focus
+a point for its account, percentage, and observation time.
 
-Scheduled recovery charts show how much quota upcoming resets would restore if you stop using
-that provider. Accounts contribute equally, regardless of plan size. Missing or overdue reset
-times are excluded from the projection; refresh to check whether a reset has landed. On web,
-hover or focus a chart point for its quota and time. On mobile, expand the reset schedule.
+If a window looks stale, refresh Limits to re-check every provider and hub. The new observation
+also becomes the latest history point.
 
 Pick `/usage-limits` from the composer's command menu, or send it as a message, to check the
 current model's limits without leaving the conversation. The result opens above the composer and

@@ -36,6 +36,7 @@ import {
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
+import { useUsageLimitHistory } from "../../state/usageLimitHistory";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
 const PACE: Record<LimitPace, { readonly label: string; readonly icon: typeof GaugeIcon }> = {
@@ -322,14 +323,27 @@ export function ResetCredits({
 export function UsageLimitsSection({
   selectedEnvironmentIds,
   now,
+  historyDays,
 }: {
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly now: number;
+  readonly historyDays: number;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
   const selected =
     selectedEnvironmentIds === null
       ? presentations
       : new Map([...presentations].filter(([id]) => selectedEnvironmentIds.has(id)));
-  return <UsageLimitsPooled presentations={selected} now={now} />;
+  const since = now - historyDays * 24 * 60 * 60_000;
+  const histories = useUsageLimitHistory(
+    {
+      since: new Date(since).toISOString(),
+      until: new Date(now + 1).toISOString(),
+      bucketMinutes: historyDays <= 1 ? 5 : historyDays <= 7 ? 30 : historyDays <= 30 ? 120 : 360,
+    },
+    selectedEnvironmentIds,
+  );
+  return (
+    <UsageLimitsPooled presentations={selected} now={now} since={since} histories={histories} />
+  );
 }

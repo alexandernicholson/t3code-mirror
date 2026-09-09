@@ -1052,6 +1052,11 @@ export function createServerEnvironmentAtoms<R, E>(
       staleTimeMs: 60_000,
       refreshTrigger: ({ environmentId }) => usagePricesAtom(environmentId),
     }),
+    usageLimitHistory: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:usage-limit-history",
+      tag: WS_METHODS.serverGetUsageLimitHistory,
+      staleTimeMs: 60_000,
+    }),
     configProjection,
     welcome,
     consumeResetCredit: createEnvironmentRpcCommand(runtime, {

@@ -17,12 +17,12 @@ import {
   collectLimitAccounts,
   collectLimitNotices,
   collectLimitPools,
+  collectLimitHistoryLines,
   collectLimitSources,
   collectLimitsGroups,
   elapsedShare,
   formatResetsIn,
   limitsNotice,
-  limitRecovery,
   paceOf,
   providersWithLimits,
   remainingPercent,
@@ -39,60 +39,56 @@ const window = {
   resetsAt: "2026-09-03T14:00:00.000Z",
 } as const;
 
-describe("scheduled quota recovery", () => {
-  it("combines simultaneous resets and keeps staggered resets in time order", () => {
-    const points = limitRecovery(
+describe("limit usage history", () => {
+  it("matches server-local origins to accounts and appends the current snapshot", () => {
+    const environmentId = EnvironmentId.make("01990a00-0000-7000-8000-000000000001");
+    const account: LimitAccount = {
+      key: "account",
+      driver: ProviderDriverKind.make("codex"),
+      displayName: "Personal",
+      email: "person@example.com",
+      plan: undefined,
+      accentColor: undefined,
+      environments: [{ environmentId, label: "Laptop" }],
+      sourceLabel: null,
+      redeem: null,
+      historyKeys: [{ environmentId, key: "provider:codex" }],
+      limits: {
+        checkedAt: "2026-09-03T12:00:00.000Z",
+        windows: [window],
+      },
+    };
+    const pool = collectLimitPools([account], now)[0]!.windows[0]!;
+    const lines = collectLimitHistoryLines(
+      pool,
       [
-        { ...window, usedPercent: 60, resetsAt: "2026-09-03T15:00:00.000Z" },
-        { ...window, usedPercent: 90 },
-        { ...window, usedPercent: 30 },
+        {
+          environmentId,
+          history: {
+            readAt: "2026-09-03T12:00:00.000Z",
+            since: "2026-09-03T10:00:00.000Z",
+            until: "2026-09-03T12:00:00.001Z",
+            series: [
+              {
+                origin: { kind: "provider", instanceId: ProviderInstanceId.make("codex") },
+                driver: ProviderDriverKind.make("codex"),
+                windowId: "five_hour",
+                windowKind: "session",
+                label: "Session",
+                points: [
+                  { observedAt: "2026-09-03T11:00:00.000Z", usedPercent: 20 },
+                  { observedAt: "2026-09-03T12:00:00.000Z", usedPercent: 39 },
+                ],
+              },
+            ],
+          },
+        },
       ],
+      Date.parse("2026-09-03T10:00:00.000Z"),
       now,
     );
-    expect(points).toEqual([
-      { at: now, remainingPercent: 40 },
-      { at: Date.parse(window.resetsAt), remainingPercent: 80 },
-      { at: Date.parse("2026-09-03T15:00:00.000Z"), remainingPercent: 100 },
-    ]);
-  });
 
-  it("does not infer recovery for missing, invalid, or overdue reset times", () => {
-    const points = limitRecovery(
-      [
-        { ...window, usedPercent: 100, resetsAt: undefined },
-        { ...window, usedPercent: 100, resetsAt: "invalid" },
-        { ...window, usedPercent: 100, resetsAt: new Date(now).toISOString() },
-        { ...window, usedPercent: 100, resetsAt: new Date(now - 1).toISOString() },
-        { ...window, usedPercent: 100 },
-      ],
-      now,
-    );
-    expect(points).toEqual([
-      { at: now, remainingPercent: 0 },
-      { at: Date.parse(window.resetsAt), remainingPercent: 20 },
-    ]);
-  });
-
-  it("preserves fractional account shares until presentation", () => {
-    const points = limitRecovery(
-      [
-        { ...window, usedPercent: 1 },
-        { ...window, usedPercent: 1 },
-        { ...window, usedPercent: 1 },
-      ],
-      now,
-    );
-    expect(points).toEqual([
-      { at: now, remainingPercent: 99 },
-      { at: Date.parse(window.resetsAt), remainingPercent: 100 },
-    ]);
-  });
-
-  it("omits resets that restore nothing and handles empty pools", () => {
-    expect(limitRecovery([], now)).toEqual([]);
-    expect(limitRecovery([{ ...window, usedPercent: 0 }], now)).toEqual([
-      { at: now, remainingPercent: 100 },
-    ]);
+    expect(lines[0]?.points.map((point) => point.usedPercent)).toEqual([20, 40]);
   });
 });
 

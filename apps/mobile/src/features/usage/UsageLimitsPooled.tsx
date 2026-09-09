@@ -22,8 +22,9 @@ import { AppText as Text } from "../../components/AppText";
 import { ProviderIcon } from "../../components/ProviderIcon";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { environmentPresentations } from "../../state/presentation";
+import { useUsageLimitHistory } from "../../state/usageLimitHistory";
 import { ResetCredits } from "./UsageLimitsSection";
-import { UsageRecoveryChart } from "./UsageRecoveryChart";
+import { UsageHistoryChart } from "./UsageRecoveryChart";
 import { useProviderColors } from "./usageProviders";
 
 const DRIVER_LABEL: Partial<Record<string, string>> = { codex: "Codex", claudeAgent: "Claude" };
@@ -72,11 +73,15 @@ function PoolWindowCard({
   color,
   now,
   environmentIds,
+  since,
+  histories,
 }: {
   readonly pool: LimitPoolWindow;
   readonly color: string;
   readonly now: number;
   readonly environmentIds: readonly string[] | null;
+  readonly since: number;
+  readonly histories: ReturnType<typeof useUsageLimitHistory>;
 }) {
   const navigation = useNavigation();
   const nextRefill = pool.resets.find((reset) => reset.restoresPercent > 0);
@@ -190,7 +195,7 @@ function PoolWindowCard({
           );
         })}
       </View>
-      <UsageRecoveryChart pool={pool} color={color} now={now} />
+      <UsageHistoryChart pool={pool} color={color} now={now} since={since} histories={histories} />
     </View>
   );
 }
@@ -199,10 +204,12 @@ export function UsageLimitsSection({
   now,
   failedLabels,
   selectedEnvironmentIds,
+  historyDays,
 }: {
   readonly now: number;
   readonly failedLabels: readonly string[];
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
+  readonly historyDays: number;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
   const selected =
@@ -210,6 +217,15 @@ export function UsageLimitsSection({
       ? presentations
       : new Map([...presentations].filter(([id]) => selectedEnvironmentIds.has(id)));
   const pools = collectLimitPools(collectLimitAccounts(selected), now);
+  const since = now - historyDays * 24 * 60 * 60_000;
+  const histories = useUsageLimitHistory(
+    {
+      since: new Date(since).toISOString(),
+      until: new Date(now + 1).toISOString(),
+      bucketMinutes: historyDays <= 1 ? 5 : historyDays <= 7 ? 30 : historyDays <= 30 ? 120 : 360,
+    },
+    selectedEnvironmentIds,
+  );
   const notices = collectLimitNotices(selected);
   const colors = useProviderColors();
   return (
@@ -241,6 +257,8 @@ export function UsageLimitsSection({
               color={pool.driver === "claudeAgent" ? colors.claude : colors.codex}
               now={now}
               environmentIds={selectedEnvironmentIds === null ? null : [...selectedEnvironmentIds]}
+              since={since}
+              histories={histories}
             />
           ))}
         </View>

@@ -60,8 +60,8 @@ const METRIC_OPTIONS = [
 const CHART_HEIGHT = 180;
 
 /**
- * Two tabs over one screen. Usage is the transcript-derived spend for a
- * period; Limits is the live subscription quota, which has no period. Both
+ * Two tabs over one screen. Usage is transcript-derived spend; Limits combines
+ * live subscription quota with observations from the selected period. Both
  * pull to refresh, each refreshing its own data.
  */
 export function UsageRouteScreen() {
@@ -253,15 +253,23 @@ export function UsageRouteScreen() {
           className="gap-6"
         >
           {showingLimits ? (
-            <UsageLimitsSection
-              now={limits.now}
-              failedLabels={limits.failedLabels}
-              selectedEnvironmentIds={selectedEnvironmentIds}
-            />
+            <>
+              <SegmentedControl
+                options={WINDOW_OPTIONS}
+                selected={windowDays}
+                onSelect={selectWindow}
+                size="compact"
+              />
+              <UsageLimitsSection
+                now={limits.now}
+                failedLabels={limits.failedLabels}
+                selectedEnvironmentIds={selectedEnvironmentIds}
+                historyDays={windowDays}
+              />
+            </>
           ) : (
             <>
-              {/* Period and metric together: neither applies to Limits, and
-                both change every number below, so they share one bar. */}
+              {/* Period and metric change every usage number, so they share one bar. */}
               <View className="flex-row items-center gap-3">
                 <SegmentedControl
                   options={WINDOW_OPTIONS}

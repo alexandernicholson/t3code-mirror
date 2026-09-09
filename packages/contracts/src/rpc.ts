@@ -245,9 +245,12 @@ import {
   ResourceTelemetrySnapshot,
 } from "./resourceTelemetry.ts";
 import {
-  UsageLimitSourceError,
   ProviderConsumeResetCreditInput,
   ProviderConsumeResetCreditResult,
+  UsageLimitHistory,
+  UsageLimitHistoryError,
+  UsageLimitHistoryInput,
+  UsageLimitSourceError,
 } from "./providerUsageLimits.ts";
 import { UsagePricing, UsageReadError, UsageSummary, UsageSummaryInput } from "./usage.ts";
 import { ServerSettings, ServerSettingsError, ServerSettingsPatch } from "./settings.ts";
@@ -387,6 +390,7 @@ export const WS_METHODS = {
   serverReportHostPowerState: "server.reportHostPowerState",
   serverGetBackgroundPolicy: "server.getBackgroundPolicy",
   serverGetUsageSummary: "server.getUsageSummary",
+  serverGetUsageLimitHistory: "server.getUsageLimitHistory",
   serverRefreshUsageRates: "server.refreshUsageRates",
 
   // Cloud environment methods
@@ -643,6 +647,12 @@ const WsServerGetUsageSummaryRpc = Rpc.make(WS_METHODS.serverGetUsageSummary, {
   payload: UsageSummaryInput,
   success: UsageSummary,
   error: Schema.Union([EnvironmentAuthorizationError, UsageReadError]),
+});
+
+const WsServerGetUsageLimitHistoryRpc = Rpc.make(WS_METHODS.serverGetUsageLimitHistory, {
+  payload: UsageLimitHistoryInput,
+  success: UsageLimitHistory,
+  error: Schema.Union([EnvironmentAuthorizationError, UsageLimitHistoryError]),
 });
 
 /**
@@ -1362,6 +1372,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetResourceTelemetryHistoryRpc,
   WsServerRetryResourceTelemetryRpc,
   WsServerGetUsageSummaryRpc,
+  WsServerGetUsageLimitHistoryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,
   WsServerReportClientActivityRpc,
