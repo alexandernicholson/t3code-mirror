@@ -1,5 +1,6 @@
 import type { ProjectReadFileResult } from "@t3tools/contracts";
 import { EnvironmentId } from "@t3tools/contracts";
+import { fileContentRevision } from "@t3tools/shared/fileRevision";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -42,6 +43,7 @@ describe("project files queries", () => {
       contents: '{"nodeVersion":"22"}',
       byteLength: 20,
       truncated: false,
+      revision: fileContentRevision('{"nodeVersion":"22"}'),
     });
 
     expect(

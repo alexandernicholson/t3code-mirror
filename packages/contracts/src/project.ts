@@ -204,6 +204,11 @@ export const ProjectReadFileResult = Schema.Struct({
   contents: Schema.String,
   byteLength: NonNegativeInt,
   truncated: Schema.Boolean,
+  // Content hash of the full file on disk (see @t3tools/shared/fileRevision).
+  // Optional: older servers omit it and clients recompute it from `contents`.
+  // Always omitted for truncated reads so a client can never echo a hash of
+  // bytes it did not receive.
+  revision: Schema.optional(TrimmedNonEmptyString),
 });
 export type ProjectReadFileResult = typeof ProjectReadFileResult.Type;
 
@@ -213,6 +218,10 @@ export const ProjectFileFailure = Schema.Literals([
   "path_not_file",
   "binary_file",
   "operation_failed",
+  // The write carried an expectedRevision that no longer matches the file on
+  // disk. Old clients never send expectedRevision, so they can never receive
+  // this literal from a newer server.
+  "revision_conflict",
 ]);
 export type ProjectFileFailure = typeof ProjectFileFailure.Type;
 
@@ -236,6 +245,7 @@ type ProjectFileFailureContext = {
   readonly resolvedWorkspaceRoot?: string;
   readonly operation?: ProjectFileOperation;
   readonly operationPath?: string;
+  readonly currentRevision?: string;
   readonly cause?: unknown;
 };
 
@@ -268,11 +278,17 @@ export const ProjectWriteFileInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_WRITE_FILE_PATH_MAX_LENGTH)),
   contents: Schema.String,
+  // When present, the write is rejected with "revision_conflict" unless the
+  // file on disk still hashes to this. Absent = legacy last-writer-wins.
+  expectedRevision: Schema.optional(TrimmedNonEmptyString),
 });
 export type ProjectWriteFileInput = typeof ProjectWriteFileInput.Type;
 
 export const ProjectWriteFileResult = Schema.Struct({
   relativePath: TrimmedNonEmptyString,
+  // Hash of what was just written, so the writer can adopt it as its new
+  // baseline without a follow-up read.
+  revision: Schema.optional(TrimmedNonEmptyString),
 });
 export type ProjectWriteFileResult = typeof ProjectWriteFileResult.Type;
 
@@ -286,6 +302,9 @@ export class ProjectWriteFileError extends Schema.TaggedError<ProjectWriteFileEr
     resolvedWorkspaceRoot: Schema.optional(TrimmedNonEmptyString),
     operation: Schema.optional(ProjectFileOperation),
     operationPath: Schema.optional(TrimmedNonEmptyString),
+    // Revision of the file currently on disk when the write was rejected for a
+    // revision conflict, so the client can rebase without a second read.
+    currentRevision: Schema.optional(TrimmedNonEmptyString),
     message: TrimmedNonEmptyString,
     cause: Schema.optional(Schema.Defect()),
   },

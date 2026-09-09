@@ -32,6 +32,7 @@ export interface ShortcutMatchContext {
   terminalOpen: boolean;
   previewFocus: boolean;
   previewOpen: boolean;
+  ideFocus: boolean;
   [key: string]: boolean;
 }
 
@@ -137,6 +138,7 @@ function resolveContext(options: ShortcutMatchOptions | undefined): ShortcutMatc
     terminalOpen: false,
     previewFocus: false,
     previewOpen: false,
+    ideFocus: false,
     ...options?.context,
   };
 }

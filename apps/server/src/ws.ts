@@ -281,10 +281,17 @@ function projectFileFailureContext(
   readonly resolvedWorkspaceRoot?: string;
   readonly operation?: ProjectFileOperation;
   readonly operationPath?: string;
+  readonly currentRevision?: string;
 } {
   switch (error._tag) {
     case "WorkspacePathOutsideRootError":
       return { failure: "workspace_path_outside_root" };
+    case "WorkspaceFileRevisionConflictError":
+      return {
+        failure: "revision_conflict",
+        resolvedPath: error.resolvedPath,
+        currentRevision: error.currentRevision,
+      };
     case "WorkspaceFileSystemOperationError":
       return {
         failure: "operation_failed",

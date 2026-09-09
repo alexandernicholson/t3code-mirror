@@ -33,6 +33,13 @@ export class FileSaveCoordinator<A = unknown, E = unknown> {
     if (this.latestRevision > 0) void this.persistLatest();
   }
 
+  /** Persist pending edits immediately instead of waiting out the debounce. */
+  flush(): void {
+    if (this.disposed) return;
+    this.clearTimer();
+    void this.persistLatest();
+  }
+
   private schedule(delay: number): void {
     this.clearTimer();
     this.timer = setTimeout(() => {

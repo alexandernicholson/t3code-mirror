@@ -11,7 +11,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, SquareCodeIcon } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -23,6 +23,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { useRightPanelStore } from "../../rightPanelStore";
+import { shortcutLabelForCommand } from "../../keybindings";
+import { Button } from "../ui/button";
 import GitActionsControl from "../GitActionsControl";
 import { isTrailingDoubleClick } from "../Sidebar.logic";
 import { type DraftId } from "~/composerDraftStore";
@@ -185,6 +188,7 @@ export const ChatHeader = memo(function ChatHeader({
     setRenaming(null);
   }
   const renamingTitle = renaming?.threadId === activeThreadId ? renaming.title : null;
+  const ideShortcutLabel = shortcutLabelForCommand(keybindings, "ide.toggle");
   const renameCommittedRef = useRef(false);
   const startRename = useCallback(() => {
     renameCommittedRef.current = false;
@@ -422,6 +426,29 @@ export const ChatHeader = memo(function ChatHeader({
             onUpdateScript={onUpdateProjectScript}
             onDeleteScript={onDeleteProjectScript}
           />
+        )}
+        {isServerThread && activeProjectName && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Open IDE"
+                  size="icon-xs"
+                  variant="outline"
+                  onClick={() => {
+                    useRightPanelStore
+                      .getState()
+                      .toggle(scopeThreadRef(activeThreadEnvironmentId, activeThreadId), "ide");
+                  }}
+                />
+              }
+            >
+              <SquareCodeIcon aria-hidden="true" className="size-4" />
+            </TooltipTrigger>
+            <TooltipPopup side="bottom">
+              Open IDE{ideShortcutLabel ? ` (${ideShortcutLabel})` : ""}
+            </TooltipPopup>
+          </Tooltip>
         )}
         {showOpenInPicker && (
           <OpenInPicker

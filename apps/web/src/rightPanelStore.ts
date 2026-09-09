@@ -30,6 +30,7 @@ const RIGHT_PANEL_KINDS = [
   "todos",
   "advisors",
   "reviewers",
+  "ide",
 ] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
@@ -78,7 +79,8 @@ export type RightPanelSurface =
   | { id: "agents"; kind: "agents" }
   | { id: "todos"; kind: "todos" }
   | { id: "advisors"; kind: "advisors" }
-  | { id: "reviewers"; kind: "reviewers" };
+  | { id: "reviewers"; kind: "reviewers" }
+  | { id: "ide"; kind: "ide" };
 
 const RIGHT_PANEL_STORAGE_KEY = "t3code:right-panel-state:v2";
 // v9 removed the "plan" surface kind (plans render inline in the transcript).
@@ -183,6 +185,8 @@ const singletonSurface = (
       return { id: "todos", kind };
     case "agents":
       return { id: "agents", kind };
+    case "ide":
+      return { id: "ide", kind };
   }
 };
 
@@ -705,6 +709,7 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             const surfaces = current.surfaces.filter(
               (surface) =>
                 surface.kind !== "files" &&
+                surface.kind !== "ide" &&
                 (surface.kind !== "file" || surface.attachment !== undefined),
             );
             if (surfaces.length === current.surfaces.length) return current;

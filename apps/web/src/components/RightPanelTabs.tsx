@@ -10,6 +10,7 @@ import {
   Bot,
   ClipboardCheck,
   Eye,
+  SquareCode,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -653,6 +654,8 @@ function surfaceTitle(
       return "TODOs";
     case "agents":
       return "Agents";
+    case "ide":
+      return "IDE";
     case "preview": {
       const snapshot = surface.resourceId ? sessions[surface.resourceId] : null;
       if (!snapshot || snapshot.navStatus._tag === "Idle") return "Browser";
@@ -740,6 +743,8 @@ function SurfaceIcon({
       return <ListTodo className="size-3 shrink-0" />;
     case "agents":
       return <Bot className="size-3 shrink-0" />;
+    case "ide":
+      return <SquareCode className="size-3 shrink-0" />;
   }
 }
 

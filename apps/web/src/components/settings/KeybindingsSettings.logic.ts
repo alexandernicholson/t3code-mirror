@@ -282,11 +282,18 @@ export function commandLabel(command: KeybindingCommand): string {
   return raw.split(".").map(titleCaseCommandSegment).join(": ");
 }
 
+const COMMAND_SEGMENT_ACRONYMS: Readonly<Record<string, string>> = {
+  ide: "IDE",
+};
+
 function titleCaseCommandSegment(segment: string): string {
   const words: Array<string> = [];
   for (const part of segment.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[-_\s]+/)) {
     if (part.length > 0) {
-      words.push(part.slice(0, 1).toUpperCase() + part.slice(1));
+      words.push(
+        COMMAND_SEGMENT_ACRONYMS[part.toLowerCase()] ??
+          part.slice(0, 1).toUpperCase() + part.slice(1),
+      );
     }
   }
   return words.join(" ");

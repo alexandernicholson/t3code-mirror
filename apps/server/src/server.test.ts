@@ -4,6 +4,7 @@ import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeSocket from "@effect/platform-node/NodeSocket";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeCrypto from "node:crypto";
+import { fileContentRevision } from "@t3tools/shared/fileRevision";
 import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hostProcess";
 
 import {
@@ -6934,6 +6935,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         contents: "export const answer = 42;\n",
         byteLength: 26,
         truncated: false,
+        revision: fileContentRevision("export const answer = 42;\n"),
       });
     }).pipe(Effect.provide(NodeHttpServer.layerTest), TestClock.withLive),
   );
@@ -7136,6 +7138,38 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.equal(error.failure, "workspace_root_stat_failed");
       assert.equal(error.normalizedCwd, workspaceRoot);
       assert.equal(error.detail, "validate-existing");
+    }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
+  it.effect("routes websocket rpc projects.writeFile revision conflicts", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const workspaceDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-ws-project-write-" });
+      yield* fs.writeFileString(path.join(workspaceDir, "changed.txt"), "agent version\n");
+
+      yield* buildAppUnderTest();
+
+      const wsUrl = yield* getWsServerUrl("/ws");
+      const result = yield* Effect.scoped(
+        withWsRpcClient(wsUrl, (client) =>
+          client[WS_METHODS.projectsWriteFile]({
+            cwd: workspaceDir,
+            relativePath: "changed.txt",
+            contents: "user version\n",
+            expectedRevision: fileContentRevision("stale version\n"),
+          }),
+        ).pipe(Effect.result),
+      );
+
+      if (result._tag !== "Failure" || result.failure._tag !== "ProjectWriteFileError") {
+        assert.fail("Expected a ProjectWriteFileError");
+      }
+      const writeError = result.failure;
+      assert.equal(writeError.failure, "revision_conflict");
+      assert.equal(writeError.currentRevision, fileContentRevision("agent version\n"));
+      const persisted = yield* fs.readFileString(path.join(workspaceDir, "changed.txt"));
+      assert.equal(persisted, "agent version\n");
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 

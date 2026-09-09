@@ -47,6 +47,7 @@ import {
   MessageSquareIcon,
   PaletteIcon,
   SettingsIcon,
+  SquareCodeIcon,
   SquarePenIcon,
   TextSearchIcon,
 } from "lucide-react";
@@ -95,6 +96,7 @@ import {
   resolveProjectPathForDispatch,
 } from "../lib/projectPaths";
 import { onOpenCommandPalette } from "../commandPaletteBus";
+import { isIdeFocused } from "../lib/ideFocus";
 import { isPreviewFocused } from "../lib/previewFocus";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
@@ -447,8 +449,14 @@ export function CommandPalette({ children }: { children: ReactNode }) {
           terminalOpen,
           previewFocus: isPreviewFocused(),
           previewOpen,
+          ideFocus: isIdeFocused(),
         },
       });
+      if (command === "ide.toggle") {
+        event.preventDefault();
+        if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "ide");
+        return;
+      }
       if (command === "advisors.toggle") {
         event.preventDefault();
         if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "advisors");
@@ -1708,6 +1716,21 @@ function OpenCommandPaletteDialog(props: {
             { environmentId: activeThread.environmentId, threadId: activeThread.id },
             "todos",
           );
+      },
+    });
+
+  if (activeThread)
+    actionItems.push({
+      kind: "action",
+      value: "action:ide",
+      searchTerms: ["ide", "editor", "code", "edit files"],
+      title: "Open IDE",
+      icon: <SquareCodeIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "ide.toggle",
+      run: async () => {
+        useRightPanelStore
+          .getState()
+          .open({ environmentId: activeThread.environmentId, threadId: activeThread.id }, "ide");
       },
     });
 

@@ -76,6 +76,8 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "advisors.toggle",
   "reviewers.toggle",
   "composer.stash",
+  "ide.toggle",
+  "ide.save",
   "chat.new",
   "chat.newLocal",
   "editor.openFavorite",

@@ -37,7 +37,8 @@ Join modifiers and a key with `+`, such as `mod+shift+d` or `ctrl+l`.
 ## When conditions
 
 Available context keys are `terminalFocus`, `terminalOpen`, `previewFocus`,
-`previewOpen`, and `modelPickerOpen`. Unknown keys evaluate to `false`.
+`previewOpen`, `ideFocus`, and `modelPickerOpen`. Unknown keys evaluate to
+`false`. `ideFocus` is true while keyboard focus is inside the IDE panel.
 
 Combine keys with `!` for not, `&&` for and, `||` for or, and parentheses:
 

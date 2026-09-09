@@ -8,6 +8,7 @@ import {
   isWorkspaceImagePreviewPath,
   isWorkspaceVideoPreviewPath,
 } from "@t3tools/shared/filePreview";
+import { fileContentRevision } from "@t3tools/shared/fileRevision";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
@@ -61,8 +62,18 @@ export function setProjectFileQueryData(
       contents,
       byteLength: new TextEncoder().encode(contents).byteLength,
       truncated: false,
+      revision: fileContentRevision(contents),
     },
   });
+}
+
+/**
+ * Revision to use for a conflict-checked write against this read. Falls back
+ * to hashing the contents for servers that predate the wire field; a
+ * truncated read has no usable revision and returns null.
+ */
+export function resolveFileRevision(data: ProjectReadFileResult): string | null {
+  return data.revision ?? (data.truncated ? null : fileContentRevision(data.contents));
 }
 
 export function getOptimisticProjectFileQueryData(

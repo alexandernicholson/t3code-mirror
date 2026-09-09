@@ -1,5 +1,6 @@
 import type { EnvironmentId } from "@t3tools/contracts";
-import { createRef, useEffect, useMemo } from "react";
+import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { createRef, useEffect, useMemo, useRef } from "react";
 
 import { projectEnvironment } from "~/state/projects";
 import { useAtomCommand } from "~/state/use-atom-command";
@@ -14,6 +15,15 @@ interface FileSaveOptions {
   cwd: string;
   relativePath: string;
   onPendingChange: (relativePath: string, pending: boolean) => void;
+  /**
+   * Revision the writer last saw on disk. When provided, writes become
+   * conflict-checked: the server rejects them with "revision_conflict" if the
+   * file changed in the meantime. Callers without conflict UI should omit it.
+   */
+  expectedRevision?: (contents: string) => string | undefined;
+  onWriteConflict?: (error: unknown) => void;
+  /** Fired after the server confirms a write, with the accepted contents. */
+  onSaved?: (contents: string) => void;
 }
 
 export function useFileSaveCoordinator({
@@ -21,22 +31,51 @@ export function useFileSaveCoordinator({
   cwd,
   relativePath,
   onPendingChange,
-}: FileSaveOptions): Pick<FileSaveCoordinator, "change"> {
+  expectedRevision,
+  onWriteConflict,
+  onSaved,
+}: FileSaveOptions): Pick<FileSaveCoordinator, "change" | "flush"> {
   const writeFile = useAtomCommand(projectEnvironment.writeFile);
+  // Callbacks live behind refs so an inline prop does not tear down and
+  // rebuild the debounce session on every render.
+  const expectedRevisionRef = useRef(expectedRevision);
+  const onWriteConflictRef = useRef(onWriteConflict);
+  const onSavedRef = useRef(onSaved);
+  useEffect(() => {
+    expectedRevisionRef.current = expectedRevision;
+    onWriteConflictRef.current = onWriteConflict;
+    onSavedRef.current = onSaved;
+  });
   const session = useMemo(() => {
     const coordinatorRef = createRef<FileSaveCoordinator>();
     return {
       change: (contents: string) => coordinatorRef.current?.change(contents),
+      flush: () => coordinatorRef.current?.flush(),
       setup: () => {
         const coordinator = new FileSaveCoordinator({
           debounceMs: FILE_SAVE_DEBOUNCE_MS,
           onPendingChange: (pending) => onPendingChange(relativePath, pending),
-          persist: (nextContents) =>
-            writeFile({
+          persist: (nextContents) => {
+            const revision = expectedRevisionRef.current?.(nextContents);
+            const request = writeFile({
               environmentId,
-              input: { cwd, relativePath, contents: nextContents },
-            }),
+              input: {
+                cwd,
+                relativePath,
+                contents: nextContents,
+                ...(revision !== undefined ? { expectedRevision: revision } : {}),
+              },
+            });
+            const onConflict = onWriteConflictRef.current;
+            if (onConflict) {
+              void request.then((result) => {
+                if (result._tag === "Failure") onConflict(squashAtomCommandFailure(result));
+              });
+            }
+            return request;
+          },
           onConfirmed: (confirmedContents) => {
+            onSavedRef.current?.(confirmedContents);
             confirmProjectFileQueryData(environmentId, cwd, relativePath, confirmedContents);
           },
         });

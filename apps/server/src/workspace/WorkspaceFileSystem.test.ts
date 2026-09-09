@@ -14,6 +14,7 @@ import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as WorkspaceEntries from "./WorkspaceEntries.ts";
 import * as WorkspaceFileSystem from "./WorkspaceFileSystem.ts";
 import * as WorkspacePaths from "./WorkspacePaths.ts";
+import { fileContentRevision } from "@t3tools/shared/fileRevision";
 import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
 import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
 
@@ -74,6 +75,7 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
           contents: "export const answer = 42;\n",
           byteLength: 26,
           truncated: false,
+          revision: fileContentRevision("export const answer = 42;\n"),
         });
       }),
     );
@@ -97,6 +99,7 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
           contents: "# Report\n",
           byteLength: 9,
           truncated: false,
+          revision: fileContentRevision("# Report\n"),
         });
       }),
     );
@@ -264,7 +267,10 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
           .readFileString(path.join(cwd, "plans/effect-rpc.md"))
           .pipe(Effect.orDie);
 
-        expect(result).toEqual({ relativePath: "plans/effect-rpc.md" });
+        expect(result).toEqual({
+          relativePath: "plans/effect-rpc.md",
+          revision: fileContentRevision("# Plan\n"),
+        });
         expect(saved).toBe("# Plan\n");
       }),
     );
@@ -282,6 +288,117 @@ it.layer(TestLayer, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
           .pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(WorkspacePaths.WorkspacePathOutsideRootError);
+      }),
+    );
+
+    it.effect("writes when expectedRevision matches the file on disk", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        yield* writeTextFile(cwd, "src/index.ts", "before\n");
+
+        const result = yield* workspaceFileSystem.writeFile({
+          cwd,
+          relativePath: "src/index.ts",
+          contents: "after\n",
+          expectedRevision: fileContentRevision("before\n"),
+        });
+        const saved = yield* fileSystem
+          .readFileString(path.join(cwd, "src/index.ts"))
+          .pipe(Effect.orDie);
+
+        expect(result).toEqual({
+          relativePath: "src/index.ts",
+          revision: fileContentRevision("after\n"),
+        });
+        expect(saved).toBe("after\n");
+      }),
+    );
+
+    it.effect("rejects a stale expectedRevision without touching the file", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        yield* writeTextFile(cwd, "src/index.ts", "agent edit\n");
+
+        const error = yield* workspaceFileSystem
+          .writeFile({
+            cwd,
+            relativePath: "src/index.ts",
+            contents: "user edit\n",
+            expectedRevision: fileContentRevision("before\n"),
+          })
+          .pipe(Effect.flip);
+        const saved = yield* fileSystem
+          .readFileString(path.join(cwd, "src/index.ts"))
+          .pipe(Effect.orDie);
+
+        expect(error._tag).toBe("WorkspaceFileRevisionConflictError");
+        if (error._tag === "WorkspaceFileRevisionConflictError") {
+          expect(error.expectedRevision).toBe(fileContentRevision("before\n"));
+          expect(error.currentRevision).toBe(fileContentRevision("agent edit\n"));
+        }
+        expect(saved).toBe("agent edit\n");
+      }),
+    );
+
+    it.effect("conflicts when expectedRevision targets a file deleted on disk", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+
+        const error = yield* workspaceFileSystem
+          .writeFile({
+            cwd,
+            relativePath: "src/gone.ts",
+            contents: "user edit\n",
+            expectedRevision: fileContentRevision("existed when read\n"),
+          })
+          .pipe(Effect.flip);
+
+        expect(error._tag).toBe("WorkspaceFileRevisionConflictError");
+        if (error._tag === "WorkspaceFileRevisionConflictError") {
+          expect(error.currentRevision).toBe(fileContentRevision(""));
+        }
+      }),
+    );
+
+    it.effect("creates a new file when expectedRevision matches the empty document", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+
+        const result = yield* workspaceFileSystem.writeFile({
+          cwd,
+          relativePath: "src/new.ts",
+          contents: "fresh\n",
+          expectedRevision: fileContentRevision(""),
+        });
+
+        expect(result).toEqual({
+          relativePath: "src/new.ts",
+          revision: fileContentRevision("fresh\n"),
+        });
+      }),
+    );
+
+    it.effect("omits the revision from truncated reads", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "big.txt", "x".repeat(1024 * 1024 + 16));
+
+        const result = yield* workspaceFileSystem.readFile({
+          cwd,
+          relativePath: "big.txt",
+        });
+
+        expect(result.truncated).toBe(true);
+        expect(result.revision).toBeUndefined();
       }),
     );
 

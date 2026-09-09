@@ -257,6 +257,8 @@ import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl"
 import { useThreadActions } from "../hooks/useThreadActions";
 import { resolveAppModelSelectionForInstance } from "../modelSelection";
 import { confirmTerminalClose, isTerminalCloseConfirmPending } from "../lib/terminalCloseConfirm";
+import { flushIdeSave } from "./ide/ideSaveBus";
+import { isIdeFocused } from "../lib/ideFocus";
 import { isPreviewFocused } from "../lib/previewFocus";
 import { getTerminalFocusOwner } from "../lib/terminalFocus";
 import {
@@ -564,6 +566,7 @@ const PreviewPanel = lazy(() =>
 );
 const DiffPanel = lazy(() => import("./DiffPanel"));
 const FilePreviewPanel = lazy(() => import("./files/FilePreviewPanel"));
+const IdePanel = lazy(() => import("./ide/IdePanel"));
 const EMPTY_PENDING_FILE_SURFACE_IDS: ReadonlySet<string> = new Set();
 const TYPE_TO_FOCUS_EDITABLE_SELECTOR = [
   "input",
@@ -3408,6 +3411,11 @@ export default function ChatView(props: ChatViewProps) {
     }
   }, [activeThreadRef, diffOpen, isServerThread, onDiffPanelOpen]);
 
+  const toggleIdeSurface = useCallback(() => {
+    if (!activeThreadRef || !isServerThread) return;
+    useRightPanelStore.getState().toggle(activeThreadRef, "ide");
+  }, [activeThreadRef, isServerThread]);
+
   const needsLoadBalancing = automaticEnvironment && !draftThread?.loadBalancedEnvironmentId;
   const loadBalancingCandidates = useMemo(
     () =>
@@ -6068,6 +6076,7 @@ export default function ChatView(props: ChatViewProps) {
         terminalOpen: Boolean(terminalUiState.terminalOpen),
         previewFocus: isPreviewFocused(),
         previewOpen: previewPanelOpen,
+        ideFocus: isIdeFocused(),
         modelPickerOpen: composerRef.current?.isModelPickerOpen() ?? false,
       };
 
@@ -6157,6 +6166,21 @@ export default function ChatView(props: ChatViewProps) {
         event.preventDefault();
         event.stopPropagation();
         toggleRightPanelMaximized();
+        return;
+      }
+
+      if (command === "ide.toggle") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!activeThreadRef) return;
+        toggleIdeSurface();
+        return;
+      }
+
+      if (command === "ide.save") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (activeThreadKey !== null) flushIdeSave(activeThreadKey);
         return;
       }
 
@@ -8357,6 +8381,21 @@ export default function ChatView(props: ChatViewProps) {
         activities={threadActivities}
         onSendMessage={onSendAgentMessage}
       />
+    ) : renderedRightPanelSurface?.kind === "ide" && activeProject && activeWorkspaceRoot ? (
+      <Suspense fallback={null}>
+        <IdePanel
+          key={`${activeThread.environmentId}:${activeWorkspaceRoot}`}
+          environmentId={activeThread.environmentId}
+          cwd={activeWorkspaceRoot}
+          projectName={activeProject.title}
+          threadRef={activeThreadRef}
+          threadKey={activeThreadKey ?? ""}
+          workspaceMutationId={workspaceMutationId}
+          checkpoints={activeThread.checkpoints}
+          activities={threadActivities}
+          isAgentRunning={activeLatestTurn?.state === "running"}
+        />
+      </Suspense>
     ) : (renderedRightPanelSurface?.kind === "files" ||
         renderedRightPanelSurface?.kind === "file") &&
       ((activeProject && activeWorkspaceRoot) ||

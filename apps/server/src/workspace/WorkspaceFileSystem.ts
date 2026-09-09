@@ -18,6 +18,7 @@ import type {
   ProjectWriteFileInput,
   ProjectWriteFileResult,
 } from "@t3tools/contracts";
+import { fileContentRevision } from "@t3tools/shared/fileRevision";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -95,11 +96,27 @@ export class WorkspaceBinaryFileError extends Schema.TaggedError<WorkspaceBinary
   }
 }
 
+export class WorkspaceFileRevisionConflictError extends Schema.TaggedError<WorkspaceFileRevisionConflictError>()(
+  "WorkspaceFileRevisionConflictError",
+  {
+    workspaceRoot: Schema.String,
+    relativePath: Schema.String,
+    resolvedPath: Schema.String,
+    expectedRevision: Schema.String,
+    currentRevision: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `Workspace file '${this.relativePath}' in '${this.workspaceRoot}' changed on disk since it was read (expected revision ${this.expectedRevision}, found ${this.currentRevision}).`;
+  }
+}
+
 export const WorkspaceFileSystemError = Schema.Union([
   WorkspaceFileSystemOperationError,
   WorkspaceFilePathEscapeError,
   WorkspacePathNotFileError,
   WorkspaceBinaryFileError,
+  WorkspaceFileRevisionConflictError,
 ]);
 export type WorkspaceFileSystemError = typeof WorkspaceFileSystemError.Type;
 
@@ -279,11 +296,16 @@ export const make = Effect.gen(function* () {
             });
           }
 
+          const contents = new TextDecoder("utf-8").decode(fileBytes);
+          const truncated = stat.size > PROJECT_READ_FILE_MAX_BYTES;
           return {
             relativePath: target.relativePath,
-            contents: new TextDecoder("utf-8").decode(fileBytes),
+            contents,
             byteLength: stat.size,
-            truncated: stat.size > PROJECT_READ_FILE_MAX_BYTES,
+            truncated,
+            // A truncated read must not carry a revision: a client could
+            // otherwise echo back a hash of bytes it never saw.
+            ...(truncated ? {} : { revision: fileContentRevision(contents) }),
           };
         }),
       (handle) =>
@@ -302,6 +324,44 @@ export const make = Effect.gen(function* () {
     );
   });
 
+  /**
+   * Reads the current contents of a write target for revision comparison, or
+   * null when the file does not exist. Goes through resolveReadTarget so the
+   * check keeps the read path's symlink/escape guarantees.
+   */
+  const readCurrentContentsForRevision = Effect.fn(
+    "WorkspaceFileSystem.readCurrentContentsForRevision",
+  )(function* (input: ProjectWriteFileInput) {
+    const isMissingTarget = (
+      error:
+        | WorkspaceFileSystemOperationError
+        | WorkspaceFilePathEscapeError
+        | WorkspacePaths.WorkspacePathOutsideRootError,
+    ) =>
+      error._tag === "WorkspaceFileSystemOperationError" &&
+      (error.cause as { code?: unknown }).code === "ENOENT";
+
+    const target = yield* resolveReadTarget({
+      cwd: input.cwd,
+      relativePath: input.relativePath,
+    }).pipe(Effect.catchIf(isMissingTarget, () => Effect.succeed(null)));
+    if (target === null) {
+      return null;
+    }
+    return yield* Effect.tryPromise({
+      try: () => NodeFSP.readFile(target.realTargetPath, "utf8"),
+      catch: (cause) =>
+        new WorkspaceFileSystemOperationError({
+          workspaceRoot: input.cwd,
+          relativePath: input.relativePath,
+          resolvedPath: target.realTargetPath,
+          operationPath: target.realTargetPath,
+          operation: "read",
+          cause,
+        }),
+    });
+  });
+
   const writeFile: WorkspaceFileSystem["Service"]["writeFile"] = Effect.fn(
     "WorkspaceFileSystem.writeFile",
   )(function* (input) {
@@ -309,6 +369,22 @@ export const make = Effect.gen(function* () {
       workspaceRoot: input.cwd,
       relativePath: input.relativePath,
     });
+
+    if (input.expectedRevision !== undefined) {
+      const currentContents = yield* readCurrentContentsForRevision(input);
+      // A missing file hashes as the empty document, so "the agent deleted it
+      // while I was editing" conflicts instead of silently recreating.
+      const currentRevision = fileContentRevision(currentContents ?? "");
+      if (currentRevision !== input.expectedRevision) {
+        return yield* new WorkspaceFileRevisionConflictError({
+          workspaceRoot: input.cwd,
+          relativePath: input.relativePath,
+          resolvedPath: target.absolutePath,
+          expectedRevision: input.expectedRevision,
+          currentRevision,
+        });
+      }
+    }
 
     yield* fileSystem.makeDirectory(path.dirname(target.absolutePath), { recursive: true }).pipe(
       Effect.mapError(
@@ -337,7 +413,7 @@ export const make = Effect.gen(function* () {
       ),
     );
     yield* workspaceEntries.refresh(input.cwd);
-    return { relativePath: target.relativePath };
+    return { relativePath: target.relativePath, revision: fileContentRevision(input.contents) };
   });
 
   return WorkspaceFileSystem.of({ readFile, writeFile });
