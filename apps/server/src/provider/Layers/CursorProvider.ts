@@ -542,7 +542,9 @@ export function resolveCursorAcpConfigUpdates(
   const thinkingOption = configOptions.find(
     (option) => option.category === "model_config" && isCursorThinkingConfigOption(option),
   );
-  const requestedThinking = getProviderOptionBooleanSelectionValue(selections, "thinking");
+  const requestedThinking =
+    getProviderOptionBooleanSelectionValue(selections, "thinking") ??
+    (thinkingOption ? true : undefined);
   if (thinkingOption && typeof requestedThinking === "boolean") {
     const value = findCursorBooleanConfigValue(thinkingOption, requestedThinking);
     if (value !== undefined) {

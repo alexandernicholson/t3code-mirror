@@ -12,6 +12,7 @@ import {
   getProviderOptionDescriptors,
   readCustomModelEntries,
   toCustomModelSetting,
+  withImplicitThinkingDefault,
   getProviderOptionBooleanSelectionValue,
   getProviderOptionStringSelectionValue,
 } from "./model.ts";
@@ -128,6 +129,19 @@ describe("descriptor helpers", () => {
         { id: "fastMode", value: true },
       ]),
     ).toEqual([{ id: "fastMode", value: true }]);
+  });
+
+  it("defaults thinking on only when supported and preserves an explicit off", () => {
+    const thinkingCaps = createModelCapabilities({
+      optionDescriptors: [{ id: "thinking", label: "Thinking", type: "boolean" }],
+    });
+    expect(withImplicitThinkingDefault(thinkingCaps, undefined)).toEqual([
+      { id: "thinking", value: true },
+    ]);
+    expect(withImplicitThinkingDefault(thinkingCaps, [{ id: "thinking", value: false }])).toEqual([
+      { id: "thinking", value: false },
+    ]);
+    expect(withImplicitThinkingDefault(codexCaps, undefined)).toBeUndefined();
   });
 
   it("stores option selection arrays in model selections", () => {

@@ -4617,7 +4617,10 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           }
         : undefined;
       const caps = getClaudeCatalogModelCapabilities(modelCatalog, modelSelection?.model);
-      const descriptors = getProviderOptionDescriptors({ caps });
+      const descriptors = getProviderOptionDescriptors({
+        caps,
+        selections: modelSelection?.options,
+      });
       const apiModelId = modelSelection
         ? resolveClaudeCatalogApiModelId(modelCatalog, modelSelection)
         : undefined;
@@ -4634,8 +4637,13 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       const fastMode =
         getModelSelectionBooleanOptionValue(modelSelection, "fastMode") === true &&
         fastModeSupported;
+      const thinkingDescriptor = descriptors.find(
+        (descriptor) => descriptor.type === "boolean" && descriptor.id === "thinking",
+      );
       const thinking = thinkingSupported
-        ? getModelSelectionBooleanOptionValue(modelSelection, "thinking")
+        ? (getModelSelectionBooleanOptionValue(modelSelection, "thinking") ??
+          (thinkingDescriptor?.type === "boolean" ? thinkingDescriptor.currentValue : undefined) ??
+          true)
         : undefined;
       const ultracode = isClaudeCatalogUltracodeEffort(effort);
       const effectiveEffort = getEffectiveClaudeAgentEffort(

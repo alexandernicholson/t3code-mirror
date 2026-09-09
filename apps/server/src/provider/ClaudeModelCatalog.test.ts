@@ -76,6 +76,16 @@ describe("Claude model catalog", () => {
       resolveClaudeModelsForVersion(catalog, "3.2.0").map((model) => model.slug),
       ["claude-synthetic-next"],
     );
+    assert.deepStrictEqual(
+      getClaudeCatalogModelCapabilities(catalog, "claude-synthetic-next").optionDescriptors?.map(
+        (descriptor) => [descriptor.id, descriptor.currentValue],
+      ),
+      [
+        ["effort", undefined],
+        ["contextWindow", undefined],
+        ["thinking", true],
+      ],
+    );
     assert.strictEqual(
       formatClaudeVersionUpgradeMessage(catalog, "3.1.9"),
       "Claude Code v3.1.9 is too old for Claude Synthetic Next. Upgrade to v3.2.0 or newer to access it.",
@@ -163,12 +173,12 @@ describe("Claude model catalog", () => {
 
     // The bare custom slug shadows the built-in alias, so it no longer resolves to it.
     assert.strictEqual(resolveClaudeModelSlug(catalog, "synthetic"), "synthetic");
-    assert.strictEqual(resolveClaudeCatalogEffort(catalog, "synthetic", "extreme"), undefined);
+    assert.strictEqual(resolveClaudeCatalogEffort(catalog, "synthetic", "extreme"), "high");
     assert.deepStrictEqual(
       getClaudeCatalogModelCapabilities(catalog, "synthetic").optionDescriptors?.map(
         (descriptor) => descriptor.id,
       ),
-      ["thinking", "contextWindow"],
+      ["effort", "fastMode", "thinking", "contextWindow"],
     );
     const bareCustomSelection = {
       instanceId: ProviderInstanceId.make("claudeAgent"),

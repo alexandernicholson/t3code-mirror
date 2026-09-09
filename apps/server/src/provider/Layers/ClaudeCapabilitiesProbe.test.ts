@@ -15,13 +15,59 @@ import * as Schema from "effect/Schema";
 
 import {
   buildClaudeCapabilitiesProbeQueryOptions,
+  capabilitiesFromClaudeModelInfo,
   CLAUDE_CAPABILITIES_PROBE_SETTING_SOURCES,
+  mergeClaudeDiscoveredModels,
   probeClaudeCapabilities,
 } from "./ClaudeProvider.ts";
 
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
 const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
+
+it("maps live Claude model capabilities and enriches bare custom entries", () => {
+  const discovered: ClaudeSdk.ModelInfo = {
+    value: "gateway-opus",
+    displayName: "Gateway Opus",
+    description: "Gateway model",
+    supportsEffort: true,
+    supportedEffortLevels: ["low", "high", "xhigh", "max"],
+    supportsAdaptiveThinking: true,
+    supportsFastMode: true,
+  };
+  assert.deepStrictEqual(
+    capabilitiesFromClaudeModelInfo(discovered).optionDescriptors?.map((descriptor) => ({
+      id: descriptor.id,
+      currentValue: descriptor.currentValue,
+      ...(descriptor.type === "select"
+        ? { choices: descriptor.options.map((option) => option.id) }
+        : {}),
+    })),
+    [
+      { id: "effort", currentValue: "high", choices: ["low", "high", "xhigh", "max"] },
+      { id: "fastMode", currentValue: undefined },
+      { id: "thinking", currentValue: true },
+      { id: "contextWindow", currentValue: "200k", choices: ["200k", "1m"] },
+    ],
+  );
+
+  const [enriched] = mergeClaudeDiscoveredModels(
+    [
+      {
+        slug: discovered.value,
+        name: discovered.value,
+        isCustom: true,
+        capabilities: { optionDescriptors: [] },
+      },
+    ],
+    [discovered],
+    [discovered.value],
+  );
+  assert.deepStrictEqual(
+    enriched?.capabilities?.optionDescriptors?.map((descriptor) => descriptor.id),
+    ["effort", "fastMode", "thinking", "contextWindow"],
+  );
+});
 
 it("isolates Claude capability probes without dropping workspace setting sources", () => {
   const abortController = new AbortController();

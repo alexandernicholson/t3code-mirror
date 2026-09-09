@@ -35,7 +35,13 @@ export interface DescriptorPreset {
   readonly id: string;
   readonly label: string;
   readonly type: "select" | "boolean";
-  readonly choices?: ReadonlyArray<{ id: string; label: string; isDefault?: boolean }>;
+  readonly choices?: ReadonlyArray<{
+    id: string;
+    label: string;
+    isDefault?: boolean;
+    description?: string;
+  }>;
+  readonly currentBooleanValue?: boolean;
 }
 
 const EFFORT_CHOICES = [
@@ -76,10 +82,15 @@ export const DESCRIPTOR_PRESETS_BY_KIND: Partial<
         { id: "high", label: "High", isDefault: true },
         { id: "xhigh", label: "Extra High" },
         { id: "max", label: "Max" },
+        {
+          id: "ultracode",
+          label: "Ultracode",
+          description: "xhigh effort plus multi-agent workflow orchestration",
+        },
       ],
     },
     { id: "fastMode", label: "Fast Mode", type: "boolean" },
-    { id: "thinking", label: "Thinking", type: "boolean" },
+    { id: "thinking", label: "Thinking", type: "boolean", currentBooleanValue: true },
     {
       id: "contextWindow",
       label: "Context Window",
@@ -93,7 +104,7 @@ export const DESCRIPTOR_PRESETS_BY_KIND: Partial<
   [ProviderDriverKind.make("cursor")]: [
     { id: "reasoning", label: "Reasoning", type: "select", choices: EFFORT_CHOICES },
     { id: "fastMode", label: "Fast Mode", type: "boolean" },
-    { id: "thinking", label: "Thinking", type: "boolean" },
+    { id: "thinking", label: "Thinking", type: "boolean", currentBooleanValue: true },
   ],
   [ProviderDriverKind.make("grok")]: [
     { id: "reasoningEffort", label: "Reasoning", type: "select", choices: EFFORT_CHOICES },
@@ -122,8 +133,15 @@ export function choiceFromPreset(choice: {
   id: string;
   label: string;
   isDefault?: boolean;
+  description?: string;
 }): EditorChoice {
-  return { key: newEditorKey(), id: choice.id, label: choice.label, isDefault: !!choice.isDefault };
+  return {
+    key: newEditorKey(),
+    id: choice.id,
+    label: choice.label,
+    isDefault: !!choice.isDefault,
+    ...(choice.description ? { description: choice.description } : {}),
+  };
 }
 
 export function descriptorFromPreset(preset: DescriptorPreset): EditorDescriptor {
@@ -133,6 +151,9 @@ export function descriptorFromPreset(preset: DescriptorPreset): EditorDescriptor
     id: preset.id,
     label: preset.label,
     choices: (preset.choices ?? []).map(choiceFromPreset),
+    ...(preset.currentBooleanValue !== undefined
+      ? { currentBooleanValue: preset.currentBooleanValue }
+      : {}),
   };
 }
 

@@ -455,6 +455,26 @@ describe("withImplicitFastModeDefault", () => {
   });
 });
 
+describe("thinking defaults", () => {
+  it("dispatches thinking on by default and preserves an explicit off", () => {
+    const input = {
+      provider: ProviderDriverKind.make("claudeAgent"),
+      model: MODEL,
+      models: modelWith([booleanDescriptor("thinking")]),
+      planModeEnabled: true,
+    } as const;
+    expect(
+      getComposerProviderState({ ...input, modelOptions: undefined }).modelOptionsForDispatch,
+    ).toEqual(selections(["thinking", true]));
+    expect(
+      getComposerProviderState({
+        ...input,
+        modelOptions: selections(["thinking", false]),
+      }).modelOptionsForDispatch,
+    ).toEqual(selections(["thinking", false]));
+  });
+});
+
 describe("trait controls fastMode display", () => {
   it("resolves traits fastMode to Normal when the provider defaults to true without a user selection", () => {
     const models = modelWith([booleanDescriptor("fastMode", true)]);

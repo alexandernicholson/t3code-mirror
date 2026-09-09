@@ -606,6 +606,29 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
+  it.effect("defaults Claude thinking on for models that support it", () => {
+    const harness = makeHarness();
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: THREAD_ID,
+        provider: ProviderDriverKind.make("claudeAgent"),
+        modelSelection: createModelSelection(
+          ProviderInstanceId.make("claudeAgent"),
+          SYNTHETIC_CLAUDE_THINKING_MODEL,
+        ),
+        runtimeMode: "full-access",
+      });
+
+      assert.deepEqual(harness.getLastCreateQueryInput()?.options.settings, {
+        alwaysThinkingEnabled: true,
+      });
+    }).pipe(
+      Effect.provideService(Random.Random, makeDeterministicRandomService()),
+      Effect.provide(harness.layer),
+    );
+  });
+
   it.effect("ignores Claude thinking toggle for models without it", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
@@ -753,13 +776,16 @@ describe("ClaudeAdapterLive", () => {
       return Effect.gen(function* () {
         const { options: customOptions, prompt: customPrompt } = yield* runCustomFlow;
         assert.equal(customOptions.model, `${SYNTHETIC_CLAUDE_COLLIDING_ALIAS}[1m]`);
-        assert.equal(customOptions.effort, undefined);
-        assert.deepEqual(customOptions.settings, { alwaysThinkingEnabled: false });
+        assert.equal(customOptions.effort, "max");
+        assert.deepEqual(customOptions.settings, {
+          alwaysThinkingEnabled: false,
+          fastMode: true,
+        });
         assert.deepEqual(customHarness.query.setModelCalls, [
           `${SYNTHETIC_CLAUDE_CAPABLE_MODEL}[expanded]`,
           SYNTHETIC_CLAUDE_COLLIDING_ALIAS,
         ]);
-        assert.equal(customPrompt, "keep this prompt literal");
+        assert.equal(customPrompt, "Ultrathink:\nkeep this prompt literal");
 
         const builtInOptions = yield* start(builtInHarness, SYNTHETIC_CLAUDE_CAPABLE_MODEL);
         assert.equal(builtInOptions.model, `${SYNTHETIC_CLAUDE_CAPABLE_MODEL}[expanded]`);

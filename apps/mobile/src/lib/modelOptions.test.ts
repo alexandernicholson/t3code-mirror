@@ -13,6 +13,41 @@ import {
 } from "./modelOptions";
 
 describe("mobile model options", () => {
+  it("defaults thinking on for capable models and preserves an explicit off", () => {
+    const config = {
+      providers: [
+        {
+          instanceId: "claudeAgent",
+          driver: "claudeAgent",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [
+            {
+              slug: "custom-thinking",
+              name: "Custom Thinking",
+              isCustom: true,
+              capabilities: {
+                optionDescriptors: [{ id: "thinking", label: "Thinking", type: "boolean" }],
+              },
+            },
+          ],
+        },
+      ],
+    } as unknown as ServerConfig;
+    expect(buildModelOptions(config, null)[0]?.selection.options).toEqual([
+      { id: "thinking", value: true },
+    ]);
+    const explicitOff = {
+      instanceId: ProviderInstanceId.make("claudeAgent"),
+      model: "custom-thinking",
+      options: [{ id: "thinking", value: false }],
+    } satisfies ModelSelection;
+    expect(buildModelOptions(config, explicitOff)[0]?.selection.options).toEqual([
+      { id: "thinking", value: false },
+    ]);
+  });
+
   it("shows discovered Claude gateway models with exact IDs and provider routing", () => {
     const slug = "anthropic/gateway-code-advisor[1m]";
     const config = {
