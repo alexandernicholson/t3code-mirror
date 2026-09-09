@@ -1,9 +1,14 @@
 # Changelog
 
+## [0.5.4] - 2026-09-09
+
+- Add an in-browser IDE linked to agent threads with live changed files, approval controls, conflict-safe saves, and CodeMirror editing.
+
+---
+
 ## [0.5.3] - 2026-09-09
 
 - Default Thinking to on for every model that exposes it, preserve explicit opt-outs, and surface Claude custom-model Reasoning, Ultracode, Fast Mode, Thinking, and context controls using live SDK capabilities where available.
-- Add an in-browser IDE linked to agent threads, with live changed files, approval controls, conflict-safe saves, and CodeMirror editing.
 
 ---
 
