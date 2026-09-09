@@ -202,7 +202,7 @@ export function FloatingWorkingControl(props: {
             style={[arrowTransformStyle, arrowContentStyle]}
           >
             <ControlPill
-              accessibilityLabel="Scroll to end"
+              accessibilityLabel="Jump to bottom"
               activateOnPressIn
               className="h-11 w-11 border border-border bg-card shadow-md shadow-black/10"
               disabled={!props.showScrollToEnd}
@@ -222,7 +222,7 @@ export function FloatingWorkingControl(props: {
         </UniwindGlassView>
       ) : (
         <ControlPill
-          accessibilityLabel="Scroll to end"
+          accessibilityLabel="Jump to bottom"
           activateOnPressIn
           className="h-11 w-11 border border-border bg-card shadow-md shadow-black/10"
           icon={{ ios: "chevron.down", android: "keyboard_arrow_down" }}
@@ -411,7 +411,7 @@ function formatWorkingDuration(startedAt: string, nowMs: number): string {
 function ScrollToEndButton(props: { readonly disabled?: boolean; readonly onPress: () => void }) {
   return (
     <ControlPill
-      accessibilityLabel="Scroll to end"
+      accessibilityLabel="Jump to bottom"
       activateOnPressIn
       className="h-11 w-11 bg-transparent"
       disabled={props.disabled}
