@@ -1,10 +1,12 @@
 import type { MessageId, QueuedTurn, TurnDelivery, TurnQueue } from "@t3tools/contracts";
 import { useRef, useState } from "react";
+import { CornerUpRightIcon, ListPlusIcon, EllipsisIcon } from "lucide-react";
+import { Menu, MenuItem, MenuPopup, MenuTrigger, MenuRadioGroup, MenuRadioItem } from "../ui/menu";
+import { composerFloatingLayerProps } from "./composerEventScope";
 import { Button } from "../ui/button";
+import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 
 export function TurnQueueControls(props: {
-  delivery: TurnDelivery;
-  onDeliveryChange: (delivery: TurnDelivery) => void;
   queue: TurnQueue | undefined;
   disabled: boolean;
   onAction: (action: "cancel" | "steer" | "resume", messageId?: MessageId) => Promise<boolean>;
@@ -24,81 +26,112 @@ export function TurnQueueControls(props: {
     }
   };
   const items = props.queue?.items ?? [];
+  if (items.length === 0) return null;
   return (
-    <div className="space-y-2 px-3 pt-2 sm:px-4" data-testid="turn-queue-controls">
-      <div className="flex items-center gap-2">
-        <div
-          className="inline-flex rounded-lg border border-border p-0.5"
-          role="group"
-          aria-label="Message delivery"
+    <div className="px-3 pt-2 sm:px-4" data-testid="turn-queue-controls">
+      {props.queue?.paused && (
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={busy || props.disabled}
+          onClick={() => void run(() => props.onAction("resume"))}
         >
-          {(["steer", "queue"] as const).map((delivery) => (
-            <Button
-              key={delivery}
-              size="xs"
-              variant={props.delivery === delivery ? "secondary" : "ghost"}
-              aria-pressed={props.delivery === delivery}
-              onClick={() => props.onDeliveryChange(delivery)}
-            >
-              {delivery === "steer" ? "Steer" : "Queue"}
-            </Button>
-          ))}
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {props.delivery === "queue" ? "After the current turn" : "Send into current work"}
-        </span>
-      </div>
-      {items.length > 0 && (
-        <details className="rounded-lg border border-border bg-muted/30" open>
-          <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
-            {props.queue?.paused ? "Queue paused" : "Next up"} · {items.length}
-          </summary>
-          {props.queue?.paused && (
-            <Button
-              size="xs"
-              variant="ghost"
-              disabled={busy || props.disabled}
-              onClick={() => void run(() => props.onAction("resume"))}
-            >
-              Resume queue
-            </Button>
-          )}
-          <ol className="max-h-40 overflow-y-auto px-3 pb-2">
-            {items.map((item, index) => (
-              <li key={item.messageId} className="flex items-center gap-2 py-1">
-                <span className="min-w-0 flex-1 truncate text-xs">
-                  {index + 1}. {item.text || "Attachment"}
-                  {item.attachments.length > 0 ? ` · ${item.attachments.length} attachment(s)` : ""}
-                </span>
-                <Button
-                  size="xs"
-                  variant="ghost"
+          Resume queue
+        </Button>
+      )}
+      <ol aria-label="Queued messages" className="max-h-40 overflow-y-auto">
+        {items.map((item, index) => (
+          <li
+            key={item.messageId}
+            className="flex min-w-0 items-center gap-2 border-b border-border/50 py-0.5"
+          >
+            <ListPlusIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {item.text.replace(/\s+/g, " ").trim() || "Attachment"}
+              {item.attachments.length > 0 ? ` · ${item.attachments.length} attachment(s)` : ""}
+            </span>
+            <Menu>
+              <MenuTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label={`Actions for queued message ${index + 1}`}
+                    disabled={busy || props.disabled}
+                  />
+                }
+              >
+                <EllipsisIcon className="size-3.5" />
+              </MenuTrigger>
+              <MenuPopup align="end" side="top" {...composerFloatingLayerProps}>
+                <MenuItem
                   disabled={busy || props.disabled}
                   onClick={() => void run(() => props.onEdit(item))}
                 >
                   Edit
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
+                </MenuItem>
+                <MenuItem
                   disabled={busy || props.disabled}
                   onClick={() => void run(() => props.onAction("steer", item.messageId))}
                 >
                   Send now
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
+                </MenuItem>
+                <MenuItem
                   disabled={busy || props.disabled}
                   onClick={() => void run(() => props.onAction("cancel", item.messageId))}
                 >
                   Remove
-                </Button>
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
+          </li>
+        ))}
+      </ol>
     </div>
+  );
+}
+
+export function TurnDeliverySelector(props: {
+  delivery: TurnDelivery;
+  onDeliveryChange: (delivery: TurnDelivery) => void;
+}) {
+  const Icon = props.delivery === "queue" ? ListPlusIcon : CornerUpRightIcon;
+  const label = props.delivery === "queue" ? "Queue" : "Steer";
+  return (
+    <Menu>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label={`Message delivery: ${label}`} />
+              }
+            />
+          }
+        >
+          <Icon className="size-4" />
+        </TooltipTrigger>
+        <TooltipPopup side="top">
+          {label === "Queue" ? "Queue after this turn" : "Steer current work"}
+        </TooltipPopup>
+      </Tooltip>
+      <MenuPopup align="end" side="top" {...composerFloatingLayerProps}>
+        <MenuRadioGroup
+          value={props.delivery}
+          onValueChange={(value) => {
+            if (value === "steer" || value === "queue") props.onDeliveryChange(value);
+          }}
+        >
+          <MenuRadioItem value="steer">
+            <CornerUpRightIcon className="size-4" />
+            Steer
+          </MenuRadioItem>
+          <MenuRadioItem value="queue">
+            <ListPlusIcon className="size-4" />
+            Queue
+          </MenuRadioItem>
+        </MenuRadioGroup>
+      </MenuPopup>
+    </Menu>
   );
 }

@@ -1,6 +1,6 @@
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAtomValue } from "@effect/atom-react";
-import { TurnQueueControls } from "./TurnQueueControls";
+import { TurnDeliverySelector, TurnQueueControls } from "./TurnQueueControls";
 import { useComposerDraft } from "../../state/use-composer-drafts";
 import type {
   EnvironmentId,
@@ -261,6 +261,14 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const [previewFile, setPreviewFile] = useState<FilePreviewSource | null>(null);
   const [previewVideo, setPreviewVideo] = useState<VideoPreviewSource | null>(null);
   const hasContent = props.draftMessage.trim().length > 0 || props.draftAttachments.length > 0;
+  const isAgentRunning = props.selectedThread.session?.status === "running";
+  const deliverySelector =
+    isAgentRunning && props.serverConfig?.environment.capabilities.turnQueue === true ? (
+      <TurnDeliverySelector
+        environmentId={props.environmentId}
+        threadId={props.selectedThread.id}
+      />
+    ) : null;
   const showStopAction =
     !hasContent &&
     (props.selectedThread.session?.status === "running" ||
@@ -283,7 +291,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const sendLabel =
     props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading
       ? "Waiting for connection or upload"
-      : deliveryDraft.delivery === "queue"
+      : isAgentRunning && deliveryDraft.delivery === "queue"
         ? "Queue"
         : props.selectedThread.session?.status === "running"
           ? "Steer"
@@ -603,10 +611,6 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
         <TurnQueueControls
           environmentId={props.environmentId}
           threadId={props.selectedThread.id}
-          supported={
-            props.connectionState !== "connected" ||
-            props.serverConfig?.environment.capabilities.turnQueue === true
-          }
           connected={props.connectionState === "connected"}
           onRestored={() => {
             setIsFocused(true);
@@ -732,6 +736,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                   onStart={voiceInput.start}
                   onCancel={voiceInput.cancel}
                 />
+                {deliverySelector}
                 {showStopAction ? (
                   <ComposerActionButton
                     accessibilityLabel="Stop agent"
@@ -823,6 +828,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                     onConfirm={voiceInput.stop}
                     onCancel={voiceInput.cancel}
                   />
+                  {!isVoiceInputPresented ? deliverySelector : null}
                   {showStopAction ? (
                     <ComposerActionButton
                       accessibilityLabel="Stop agent"

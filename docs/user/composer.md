@@ -25,12 +25,14 @@ See [images and videos](#images-and-videos-in-messages) for previewing and savin
 
 ## Steer or queue a message
 
-Choose **Steer** to send a correction into the agent's current work. Choose
+While the agent is working, use the delivery selector beside Send. Choose
+**Steer** to send a correction into the agent's current work. Choose
 **Queue** to let the current turn finish first. Queued messages run in order,
 one at a time, and remain on the environment when you close a client.
 On web and desktop, Cmd/Ctrl+Enter queues the current draft directly.
 
-Open **Next up** to edit, remove, or send a queued message immediately. **Edit**
+Queued messages appear above the editor. Open a message's actions to edit,
+remove, or send it immediately. **Edit**
 returns its text, attachments, and settings to the composer, preserving any
 existing draft. Once a message has started, it can no longer be taken back.
 Stopping pauses pending messages; use **Resume queue** when ready to continue.
