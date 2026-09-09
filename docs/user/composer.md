@@ -180,6 +180,35 @@ The agent receives your current list with your next ordinary message; send a
 follow-up if it should act on the changes now. Changing a checkbox does not stop
 running work. TODO edits require a connected environment with TODO support.
 
+## Reviewers
+
+Reviewers are on-demand agents for focused verification of local changes. Open **Reviewers**
+in the right sidebar on web or desktop, choose a rule and **Quick** or **Deep**, then select
+**Find issues**. Quick reviews prioritize obvious high-impact problems; Deep reviews spend more
+time tracing behavior and running verification. Review runs and findings remain on the
+environment and synchronize across connected clients.
+
+The built-in catalog covers overall test strategy, unit tests, QA and regression,
+functional and integration tests, non-functional performance, benchmarking, security and
+fuzzing, concurrency and correctness, and user acceptance testing. Prompts tell the reviewer
+to detect the repository's languages and frameworks and follow their current official
+standards. The library also includes attributed, adapted rules from Cursor Team Kit and Matt
+Pocock's engineering skills.
+
+Open the panel's settings control to manage the **Review rule library** in Settings → Agents.
+Each rule has a category, name, generated `rule-name-DATETIME.md` filename, account/model,
+description, and editable Markdown body. Add, edit, or delete rules; restore the built-in
+library when needed. **AI-optimize** rewrites the selected Markdown with the separately selected
+optimization model. The magic button beside the name uses the environment's title-generation
+model to suggest a concise name.
+
+Reviewer sessions run with **Full access**. They can run commands, use configured tools and web
+access, or inspect external library source. The standard system prompt tells reviewers not to
+modify the reviewed workspace. Findings include severity, evidence, and source location. Open a
+finding to inspect its file, use **Fix in chat** to place one finding in the composer, or use
+**Fix all** to hand every active finding back to the coding agent. Dismissed findings stay out
+of the active issue count.
+
 ## Advisors
 
 Advisors provide an independent review while an agent works. In **Settings → Agents**

@@ -167,6 +167,10 @@
       "types": "./src/state/review.ts",
       "default": "./src/state/review.ts"
     },
+    "./state/reviewers": {
+      "types": "./src/state/reviewers.ts",
+      "default": "./src/state/reviewers.ts"
+    },
     "./state/runtime": {
       "types": "./src/state/runtime.ts",
       "default": "./src/state/runtime.ts"

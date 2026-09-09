@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2026-09-09
+
+- Add configurable on-demand Reviewer agents with Quick and Deep runs, surfaced file findings, Fix in chat, dismissal, and a Settings library of editable Markdown rules. The built-in library covers nine testing/quality review types plus attributed Cursor Team Kit and Matt Pocock rules. Reviewers and AI rule optimization support every configured provider/model and run with full tool access; rule naming uses the title-generation model.
+
+---
+
 ## [0.4.1] - 2026-09-09
 
 - Let web and desktop clients replace the sidebar's T3 Code wordmark with custom text from Settings → Appearance → Sidebar title, including inline Markdown (bold, italics, strikethrough, underline, code) and emoji. Not shown in the mobile app.

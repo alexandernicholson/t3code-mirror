@@ -1,5 +1,6 @@
 import { advisors } from "~/state/advisors";
 import { AdvisorIndicator, AdvisorsPanel } from "./AdvisorsPanel";
+import { ReviewersPanel } from "./ReviewersPanel";
 import { ThreadTodos } from "./chat/ThreadTodos";
 import { useLoadBalancedEnvironment } from "../hooks/useLoadBalancedEnvironment";
 import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
@@ -33,6 +34,7 @@ import {
   ProviderInstanceId,
   type ServerProvider,
   type ResolvedKeybindingsConfig,
+  type ReviewerFinding,
   type ScopedThreadRef,
   type ThreadId,
   type ThreadLinkedPullRequest,
@@ -6397,6 +6399,18 @@ export default function ChatView(props: ChatViewProps) {
       activeThreadRef &&
       !directAnnotation &&
       !composerHasNonPromptContent &&
+      advisorCommand === "/review"
+    ) {
+      useRightPanelStore.getState().open(activeThreadRef, "reviewers");
+      promptRef.current = "";
+      setComposerDraftPrompt(composerDraftTarget, "");
+      composerRef.current?.resetCursorState();
+      return;
+    }
+    if (
+      activeThreadRef &&
+      !directAnnotation &&
+      !composerHasNonPromptContent &&
       ["/advisor", "/advisor pause", "/advisor resume"].includes(advisorCommand)
     ) {
       if (advisorCommand !== "/advisor") {
@@ -8065,6 +8079,41 @@ export default function ChatView(props: ChatViewProps) {
     },
     [activeThreadRef, isServerThread, onDiffPanelOpen],
   );
+  const fixReviewerFindings = useCallback(
+    (findings: readonly ReviewerFinding[]) => {
+      const reviewPrompt = [
+        findings.length === 1
+          ? "Address this reviewer finding. Verify it against the current code before changing anything:"
+          : "Address these reviewer findings. Verify each against the current code before changing anything:",
+        ...findings.map(
+          (finding, index) =>
+            `${index + 1}. [${finding.reviewerName} · ${finding.severity}] ${finding.title}${finding.filePath ? ` (${finding.filePath}${finding.line ? `:${finding.line}` : ""})` : ""}\n${finding.body}`,
+        ),
+      ].join("\n\n");
+      const store = useComposerDraftStore.getState();
+      const current = store.getComposerDraft(composerDraftTarget)?.prompt.trim() ?? "";
+      store.setPrompt(
+        composerDraftTarget,
+        current ? `${current}\n\n${reviewPrompt}` : reviewPrompt,
+      );
+      scheduleComposerFocus();
+      toastManager.add({
+        type: "success",
+        title: findings.length === 1 ? "Finding added to chat" : "Findings added to chat",
+        description: "Review the prompt in the editor, then send when ready.",
+      });
+    },
+    [composerDraftTarget, scheduleComposerFocus],
+  );
+  const openReviewerFinding = useCallback(
+    (finding: ReviewerFinding) => {
+      if (!activeThreadRef || !finding.filePath) return;
+      useRightPanelStore
+        .getState()
+        .openFile(activeThreadRef, finding.filePath, finding.line ?? undefined);
+    },
+    [activeThreadRef],
+  );
   // The revert handler is read from a ref at call-time so the callback
   // reference is fully stable and never busts TimelineRowCtx identity.
   const onRevertToTurnCountRef = useRef(onRevertToTurnCount);
@@ -8272,6 +8321,22 @@ export default function ChatView(props: ChatViewProps) {
         environmentId={activeThreadRef.environmentId}
         threadId={activeThreadRef.threadId}
       />
+    ) : renderedRightPanelSurface?.kind === "reviewers" ? (
+      isServerThread ? (
+        <ReviewersPanel
+          key={activeThreadRef.environmentId}
+          environmentId={activeThreadRef.environmentId}
+          threadId={activeThreadRef.threadId}
+          onFixFindings={fixReviewerFindings}
+          onOpenFinding={openReviewerFinding}
+          onOpenChanges={() => useRightPanelStore.getState().open(activeThreadRef, "diff")}
+          onOpenRules={() => void navigate({ to: "/settings/agents", hash: "review-rules" })}
+        />
+      ) : (
+        <div className="p-4 text-sm text-muted-foreground">
+          Start this thread before opening a reviewer.
+        </div>
+      )
     ) : renderedRightPanelSurface?.kind === "todos" ? (
       serverConfig?.environment.capabilities.threadTodos === true ? (
         <ThreadTodos
@@ -8908,6 +8973,7 @@ export default function ChatView(props: ChatViewProps) {
           onAddPullRequest={addPullRequestSurface}
           onAddAgents={addAgentsSurface}
           onAddAdvisors={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
+          onAddReviewers={() => useRightPanelStore.getState().open(activeThreadRef, "reviewers")}
           onAddTodos={addTodosSurface}
           todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
           browserAvailable={isPreviewSupportedInRuntime()}
@@ -8961,6 +9027,7 @@ export default function ChatView(props: ChatViewProps) {
             onAddPullRequest={addPullRequestSurface}
             onAddAgents={addAgentsSurface}
             onAddAdvisors={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
+            onAddReviewers={() => useRightPanelStore.getState().open(activeThreadRef, "reviewers")}
             onAddTodos={addTodosSurface}
             todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
             browserAvailable={isPreviewSupportedInRuntime()}

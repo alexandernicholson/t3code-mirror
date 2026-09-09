@@ -49,6 +49,11 @@ This fork currently adds or changes the following:
   project and thread selection, live review timelines, automatic guidance during
   active work, and pause/resume controls on web, desktop, and mobile. See
   [Advisors](./docs/user/composer.md#advisors).
+- Adds configurable on-demand reviewer agents for test strategy, unit, regression,
+  integration, performance, benchmark, security/fuzz, concurrency, and acceptance reviews.
+  Full-access review runs surface file findings with fix/dismiss actions, backed by an editable,
+  model-optimized Markdown rule library in Settings. See
+  [Reviewers](./docs/user/composer.md#reviewers).
 - Adds persistent, editable thread TODOs shared across web, desktop, and mobile.
   Native provider checklists and the fallback TODO tool feed the same state, while
   user edits are reconciled back into the conversation. See
