@@ -1973,6 +1973,57 @@ it.layer(grokAdapterTestLayer)("GrokAdapterLive", (it) => {
     }),
   );
 
+  it.effect("cancels advisor tool requests without exposing approval UI", () =>
+    Effect.gen(function* () {
+      const threadId = ThreadId.make("grok-advisor-read-only");
+      const tempDir = yield* Effect.promise(() =>
+        NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "grok-advisor-")),
+      );
+      const requestLogPath = NodePath.join(tempDir, "requests.ndjson");
+      const wrapperPath = yield* Effect.promise(() =>
+        makeMockGrokWrapper({
+          T3_ACP_REQUEST_LOG_PATH: requestLogPath,
+          T3_ACP_EMIT_TOOL_CALLS: "1",
+        }),
+      );
+      const adapter = yield* makeTestAdapter(wrapperPath);
+      const openedCount = yield* Ref.make(0);
+      const eventsFiber = yield* Stream.runForEach(adapter.streamEvents, (event) =>
+        event.threadId === threadId && event.type === "request.opened"
+          ? Ref.update(openedCount, (count) => count + 1)
+          : Effect.void,
+      ).pipe(Effect.forkChild);
+
+      yield* adapter.startSession({
+        threadId,
+        provider: ProviderDriverKind.make("grok"),
+        cwd: process.cwd(),
+        runtimeMode: "approval-required",
+        reviewer: true,
+      });
+      yield* adapter.sendTurn({ threadId, input: "inspect the workspace", attachments: [] });
+
+      assert.equal(adapter.capabilities.reviewerSession, "read-only");
+      assert.equal(yield* Ref.get(openedCount), 0);
+      const requests = yield* Effect.promise(() => readJsonLines(requestLogPath));
+      assert.isTrue(
+        requests.some(
+          (entry) =>
+            !("method" in entry) &&
+            typeof entry.result === "object" &&
+            entry.result !== null &&
+            "outcome" in entry.result &&
+            typeof entry.result.outcome === "object" &&
+            entry.result.outcome !== null &&
+            "outcome" in entry.result.outcome &&
+            entry.result.outcome.outcome === "cancelled",
+        ),
+      );
+      yield* Fiber.interrupt(eventsFiber);
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
   it.effect("captures xAI exit_plan_mode as a proposed plan and unblocks the turn", () =>
     Effect.gen(function* () {
       const threadId = ThreadId.make("grok-xai-exit-plan-mode");

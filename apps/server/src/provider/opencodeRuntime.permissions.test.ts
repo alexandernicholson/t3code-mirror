@@ -3,7 +3,11 @@ import * as NodeAssert from "node:assert/strict";
 import * as RegExpUtils from "effect/RegExp";
 import { describe, it } from "vite-plus/test";
 
-import { buildOpenCodePermissionRules, toOpenCodePermissionReply } from "./opencodeRuntime.ts";
+import {
+  buildOpenCodePermissionRules,
+  buildOpenCodeReviewerPermissionRules,
+  toOpenCodePermissionReply,
+} from "./opencodeRuntime.ts";
 
 function actionFor(
   runtimeMode: Parameters<typeof buildOpenCodePermissionRules>[0],
@@ -73,6 +77,33 @@ describe("buildOpenCodePermissionRules", () => {
       { permission: "*", pattern: "*", action: "allow" },
       { permission: "external_directory", pattern: "*", action: "allow" },
     ]);
+  });
+});
+
+describe("buildOpenCodeReviewerPermissionRules", () => {
+  function reviewerAction(permission: string, target = "*") {
+    return buildOpenCodeReviewerPermissionRules().findLast(
+      (rule) =>
+        (rule.permission === "*" || rule.permission === permission) &&
+        new RegExp(`^${RegExpUtils.escape(rule.pattern).replaceAll("\\*", ".*")}$`, "s").test(
+          target,
+        ),
+    )?.action;
+  }
+
+  it("allows only bounded workspace inspection", () => {
+    for (const permission of ["read", "glob", "grep"]) {
+      NodeAssert.equal(reviewerAction(permission, "src/index.ts"), "allow");
+    }
+    for (const permission of ["bash", "edit", "task", "todowrite", "webfetch", "custom_tool"]) {
+      NodeAssert.equal(reviewerAction(permission), "deny");
+    }
+  });
+
+  it("does not expose environment files to reviewers", () => {
+    NodeAssert.equal(reviewerAction("read", ".env"), "deny");
+    NodeAssert.equal(reviewerAction("read", "config/.env.local"), "deny");
+    NodeAssert.equal(reviewerAction("read", ".env.example"), "allow");
   });
 });
 

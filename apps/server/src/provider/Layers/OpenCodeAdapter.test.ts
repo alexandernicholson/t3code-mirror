@@ -38,6 +38,7 @@ import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
 import { ProviderSessionDirectory } from "../Services/ProviderSessionDirectory.ts";
 import type { OpenCodeAdapterShape } from "../Services/OpenCodeAdapter.ts";
 import {
+  buildOpenCodeReviewerPermissionRules,
   OpenCodeRuntime,
   OpenCodeRuntimeError,
   type OpenCodeRuntimeShape,
@@ -993,6 +994,27 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
         sessionId: "http://127.0.0.1:9999/session",
       });
 
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
+  it.effect("starts advisor sessions with inspection-only permissions", () =>
+    Effect.gen(function* () {
+      const adapter = yield* OpenCodeAdapter;
+      const threadId = asThreadId("thread-opencode-advisor");
+
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("opencode"),
+        threadId,
+        runtimeMode: "approval-required",
+        reviewer: true,
+      });
+
+      NodeAssert.equal(adapter.capabilities.reviewerSession, "read-only");
+      NodeAssert.deepEqual(
+        runtimeMock.state.sessionCreateInputs[0]?.permission,
+        buildOpenCodeReviewerPermissionRules(),
+      );
       yield* adapter.stopSession(threadId);
     }),
   );

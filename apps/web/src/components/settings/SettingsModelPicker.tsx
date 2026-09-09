@@ -27,11 +27,10 @@ export function SettingsModelPicker({
 }) {
   const clientSettings = useClientSettings();
   const settings = { ...DEFAULT_UNIFIED_SETTINGS, ...config.settings, ...clientSettings };
-  const providers = config.providers.filter((provider) =>
+  const providers =
     purpose === "advisor"
-      ? provider.driver === "claudeAgent"
-      : provider.supportsTextGeneration !== false,
-  );
+      ? config.providers
+      : config.providers.filter((provider) => provider.supportsTextGeneration !== false);
   const provider = providers.find((provider) => provider.instanceId === selection.instanceId);
   const instanceEntries = sortProviderInstanceEntries(
     applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), settings),

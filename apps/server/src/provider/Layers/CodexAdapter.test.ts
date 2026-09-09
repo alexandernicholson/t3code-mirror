@@ -300,6 +300,29 @@ validationLayer("CodexAdapterLive validation", (it) => {
       });
     }),
   );
+
+  it.effect("starts advisor sessions in a read-only runtime with MCP disabled", () =>
+    Effect.gen(function* () {
+      validationRuntimeFactory.factory.mockClear();
+      const adapter = yield* CodexAdapter;
+      const threadId = asThreadId("codex-advisor");
+
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("codex"),
+        threadId,
+        modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.3-codex"),
+        runtimeMode: "approval-required",
+        reviewer: true,
+      });
+
+      NodeAssert.equal(adapter.capabilities.reviewerSession, "read-only");
+      NodeAssert.partialDeepStrictEqual(validationRuntimeFactory.factory.mock.calls[0]?.[0], {
+        threadId,
+        runtimeMode: "approval-required",
+        appServerArgs: ["-c", "mcp_servers={}"],
+      });
+    }),
+  );
 });
 
 const sessionRuntimeFactory = makeRuntimeFactory();

@@ -23,9 +23,13 @@ export function ThreadAdvisors(props: Props & { openRequest?: number }) {
     advisors.snapshot({ environmentId: props.environmentId, input: { threadId: props.threadId } }),
   );
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (props.openRequest) setOpen(true);
-  }, [props.openRequest]);
+  const [dismissedOpenRequest, setDismissedOpenRequest] = useState(0);
+  const requestedOpen = (props.openRequest ?? 0) > dismissedOpenRequest;
+  const visible = open || requestedOpen;
+  const close = () => {
+    setOpen(false);
+    setDismissedOpenRequest(props.openRequest ?? 0);
+  };
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [opacity] = useState(() => new Animated.Value(1));
@@ -52,7 +56,7 @@ export function ThreadAdvisors(props: Props & { openRequest?: number }) {
       opacity.setValue(1);
     };
   }, [active, updatedAt, opacity]);
-  if (!value || (value.states.length === 0 && !open)) return null;
+  if (!value || (value.states.length === 0 && !visible)) return null;
   const label = active
     ? "Reviewing"
     : value.states.some((state) => state.status === "unavailable")
@@ -74,10 +78,10 @@ export function ThreadAdvisors(props: Props & { openRequest?: number }) {
         <Text className="text-xs text-foreground-muted">Advisors · {label}</Text>
       </Pressable>
       <Modal
-        visible={open}
+        visible={visible}
         transparent={width >= 900}
         animationType="slide"
-        onRequestClose={() => setOpen(false)}
+        onRequestClose={close}
       >
         <View className="flex-1" style={{ alignItems: width >= 900 ? "flex-end" : "stretch" }}>
           <View
@@ -90,9 +94,9 @@ export function ThreadAdvisors(props: Props & { openRequest?: number }) {
           >
             <View className="flex-row items-center justify-between px-4 py-2">
               <Text className="font-t3-semibold text-foreground">Advisors</Text>
-              <AdvisorButton title="Done" onPress={() => setOpen(false)} />
+              <AdvisorButton title="Done" onPress={close} />
             </View>
-            {open && <AdvisorTimeline {...props} />}
+            {visible && <AdvisorTimeline {...props} />}
           </View>
         </View>
       </Modal>
@@ -165,16 +169,30 @@ function AdvisorTimeline({ environmentId, threadId }: Props) {
           />
         ) : (
           <>
-            <View className="flex-row flex-wrap gap-2">
-              <AdvisorButton title="All advisors" onPress={() => setFilter(null)} />
-              {value.states.map((state) => (
+            {value.states.length === 0 ? (
+              <View className="gap-3 py-4">
+                <Text className="text-sm text-foreground-muted">
+                  Get a second opinion while your agent works. Set up reusable advisors in Settings
+                  → Advisors, then choose them for this thread.
+                </Text>
                 <AdvisorButton
-                  key={state.advisorId}
-                  title={`${state.name} · ${state.status}`}
-                  onPress={() => setFilter(state.advisorId)}
+                  title="Choose advisors for this thread"
+                  onPress={() => setSettings(true)}
                 />
-              ))}
-            </View>
+              </View>
+            ) : null}
+            {value.states.length > 0 ? (
+              <View className="flex-row flex-wrap gap-2">
+                <AdvisorButton title="All advisors" onPress={() => setFilter(null)} />
+                {value.states.map((state) => (
+                  <AdvisorButton
+                    key={state.advisorId}
+                    title={`${state.name} · ${state.status}`}
+                    onPress={() => setFilter(state.advisorId)}
+                  />
+                ))}
+              </View>
+            ) : null}
             {value.states
               .filter((state) => state.reason)
               .map((state) => (

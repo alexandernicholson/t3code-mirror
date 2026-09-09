@@ -787,13 +787,17 @@ export const makeAntigravityAdapter = Effect.fn("makeAntigravityAdapter")(functi
           .withProcess(
             stopOwned,
             Effect.gen(function* () {
-              const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
-                ManagedMcp.toAcpMcpServers(
-                  ManagedMcp.readManagedMcpServers(input.threadId),
-                  options.environment ?? process.env,
-                ),
-              );
-              const mcp = McpProviderSession.readMcpProviderSession(input.threadId);
+              const managedMcpConfig = input.reviewer
+                ? []
+                : yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+                    ManagedMcp.toAcpMcpServers(
+                      ManagedMcp.readManagedMcpServers(input.threadId),
+                      options.environment ?? process.env,
+                    ),
+                  );
+              const mcp = input.reviewer
+                ? undefined
+                : McpProviderSession.readMcpProviderSession(input.threadId);
               // The attachments dir grant lets the agent read pasted files at
               // the paths ProviderService injects into the turn text. It is a
               // leaf directory holding only uploads.
@@ -801,7 +805,7 @@ export const makeAntigravityAdapter = Effect.fn("makeAntigravityAdapter")(functi
                 cwd,
                 clientInfo: { name: "t3-code", version: "0.0.0" },
                 clientFileSystem: true,
-                additionalDirectories: [serverConfig.attachmentsDir],
+                additionalDirectories: input.reviewer ? [] : [serverConfig.attachmentsDir],
                 ...(Option.isSome(cursor) ? { resumeSessionId: cursor.value.sessionId } : {}),
                 mcpServers: [
                   ...managedMcpConfig,
@@ -823,30 +827,38 @@ export const makeAntigravityAdapter = Effect.fn("makeAntigravityAdapter")(functi
                 }),
               });
               // Workspace file access requested through the client fs
-              // capability. The agent gates each write behind
-              // `session/request_permission`, so only path containment is
-              // checked here.
-              const allowedRoots = [cwd, serverConfig.attachmentsDir];
+              // capability. Normal sessions gate writes through
+              // `session/request_permission`; advisors reject them here as a
+              // second boundary even if the provider skips that request.
+              const allowedRoots = [cwd, ...(input.reviewer ? [] : [serverConfig.attachmentsDir])];
               yield* runtime.handleReadTextFile((request) =>
                 readClientTextFile({ fileSystem, path, allowedRoots, request }),
               );
               yield* runtime.handleWriteTextFile((request) =>
-                writeClientTextFile({ fileSystem, path, allowedRoots, request }),
+                input.reviewer
+                  ? EffectAcpErrors.AcpRequestError.invalidParams(
+                      "Advisor sessions cannot write files.",
+                    )
+                  : writeClientTextFile({ fileSystem, path, allowedRoots, request }),
               );
               yield* runtime.handleRequestPermission((request) =>
-                context
-                  ? handlePermission(context, request).pipe(
-                      Effect.mapError((cause) =>
-                        EffectAcpErrors.AcpRequestError.internalError(
-                          "Could not process an Antigravity permission request.",
-                          undefined,
-                          { cause },
-                        ),
-                      ),
-                    )
-                  : Effect.succeed({
+                input.reviewer
+                  ? Effect.succeed({
                       outcome: { outcome: "cancelled" },
-                    } satisfies NativePermissionResponse),
+                    } satisfies NativePermissionResponse)
+                  : context
+                    ? handlePermission(context, request).pipe(
+                        Effect.mapError((cause) =>
+                          EffectAcpErrors.AcpRequestError.internalError(
+                            "Could not process an Antigravity permission request.",
+                            undefined,
+                            { cause },
+                          ),
+                        ),
+                      )
+                    : Effect.succeed({
+                        outcome: { outcome: "cancelled" },
+                      } satisfies NativePermissionResponse),
               );
               const started = yield* runtime.start();
               const model = yield* applyAntigravityAcpModelSelection({
@@ -1255,7 +1267,11 @@ export const makeAntigravityAdapter = Effect.fn("makeAntigravityAdapter")(functi
 
   return {
     provider: PROVIDER,
-    capabilities: { sessionModelSwitch: "in-session", supportsConversationRollback: false },
+    capabilities: {
+      sessionModelSwitch: "in-session",
+      supportsConversationRollback: false,
+      reviewerSession: "read-only",
+    },
     compaction: { type: "slash-command", command: "/compact" },
     startSession,
     sendTurn,

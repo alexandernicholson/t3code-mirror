@@ -185,8 +185,14 @@ running work. TODO edits require a connected environment with TODO support.
 Advisors provide an independent review while an agent works. In **Settings → Agents**
 on web or desktop, or **Settings → Advisors** on mobile, add a reviewer, choose its
 account and model, and enable it for all projects or selected projects. Review
-activity is sent to that account's provider. Read-only reviewer sessions currently
-require Claude Code; they can watch threads using any T3 provider. Use the same model picker as chat to choose the account, model, and supported options such as effort and context window.
+activity is sent to that account's provider. Choose any configured provider and
+model independently of the provider running the main thread. Use the same model
+picker as chat to select supported options such as effort, context window, service
+tier, reasoning mode, or provider-specific variants.
+
+Reviewer sessions can read and search the workspace. T3 blocks writes, commands,
+delegation, interactive questions, and MCP tools at the provider boundary. Normal
+thread permissions and integrations are unchanged.
 
 Open **Advisors** from the right panel, the command palette, or `/advisor`. An enabled
 advisor's status remains visible with the panel closed. On mobile, tap the advisor

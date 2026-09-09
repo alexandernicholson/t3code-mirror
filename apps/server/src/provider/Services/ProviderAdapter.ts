@@ -52,6 +52,9 @@ export interface ProviderAdapterCapabilities {
   readonly promptlessTurnContinuation?: boolean;
   /** False when native conversation history cannot be rewound. */
   readonly supportsConversationRollback?: boolean;
+  /** The adapter can run a provider session whose write and integration
+      surfaces are disabled for an independent advisor. */
+  readonly reviewerSession?: "read-only";
 }
 
 export interface ProviderThreadTurnSnapshot {

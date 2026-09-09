@@ -20,6 +20,16 @@ export const AdvisorReview = Schema.Struct({
 export type AdvisorReview = typeof AdvisorReview.Type;
 const decodeReview = Schema.decodeEffect(Schema.fromJsonString(AdvisorReview));
 const isAdvisorError = Schema.is(AdvisorError);
+
+export function extractAdvisorReviewJson(text: string): string {
+  const trimmed = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  return start >= 0 && end >= start ? trimmed.slice(start, end + 1) : trimmed;
+}
 export interface AdvisorRunInput {
   definition: AdvisorDefinition;
   cwd: string;
@@ -34,13 +44,11 @@ export const make = Effect.gen(function* () {
       const info = yield* registry.getInstanceInfo(input.definition.modelSelection.instanceId);
       if (!info.enabled)
         return yield* new AdvisorError({ message: "Enable this advisor's provider in Settings." });
-      // Only expose reviewers whose adapter enforces a bounded inspection toolset.
-      if (info.driverKind !== "claudeAgent")
-        return yield* new AdvisorError({
-          message:
-            "Read-only advisor sessions currently require Claude Code. This provider can still be watched by an advisor.",
-        });
       const adapter = yield* registry.getByInstance(info.instanceId);
+      if (adapter.capabilities.reviewerSession !== "read-only")
+        return yield* new AdvisorError({
+          message: "This provider does not support read-only advisor sessions.",
+        });
       const threadId = ThreadId.make(`advisor:${yield* crypto.randomUUIDv4}`);
       const result = yield* Deferred.make<
         { text: string; inputTokens: number; outputTokens: number; costUsd: number },
@@ -95,6 +103,12 @@ export const make = Effect.gen(function* () {
                 ApprovalRequestId.make(event.requestId),
                 "decline",
               );
+            } else if (event.type === "user-input.requested" && event.requestId) {
+              yield* adapter.respondToUserInput(
+                threadId,
+                ApprovalRequestId.make(event.requestId),
+                {},
+              );
             } else if (event.type === "turn.completed") {
               yield* flushReasoning;
               if (event.payload.state !== "completed")
@@ -143,10 +157,7 @@ export const make = Effect.gen(function* () {
           .slice(0, 115_000),
       });
       const completed = yield* Deferred.await(result).pipe(Effect.timeout("5 minutes"));
-      const raw = completed.text
-        .trim()
-        .replace(/^```(?:json)?\s*/, "")
-        .replace(/\s*```$/, "");
+      const raw = extractAdvisorReviewJson(completed.text);
       const parsed = yield* decodeReview(raw);
       return {
         ...parsed,

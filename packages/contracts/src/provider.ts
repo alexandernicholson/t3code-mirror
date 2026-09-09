@@ -52,6 +52,8 @@ export const ProviderSession = Schema.Struct({
 export type ProviderSession = typeof ProviderSession.Type;
 
 export const ProviderSessionStartInput = Schema.Struct({
+  /** Internal session role. Adapters that advertise reviewer support must
+      remove write-capable tools and integrations when this is true. */
   reviewer: Schema.optional(Schema.Boolean),
   threadId: ThreadId,
   provider: Schema.optional(ProviderDriverKind),

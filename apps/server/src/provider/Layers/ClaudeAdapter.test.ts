@@ -389,7 +389,12 @@ describe("ClaudeAdapterLive", () => {
           runtimeMode: "approval-required",
           reviewer: true,
         });
-        const permission = harness.getLastCreateQueryInput()?.options.canUseTool;
+        const options = harness.getLastCreateQueryInput()?.options;
+        assert.deepEqual(options?.tools, ["Read", "Glob", "Grep"]);
+        assert.deepEqual(options?.mcpServers, {});
+        assert.deepEqual(options?.additionalDirectories, []);
+        assert.equal(adapter.capabilities.reviewerSession, "read-only");
+        const permission = options?.canUseTool;
         assert.ok(permission);
         if (!permission) return;
         for (const tool of ["Bash", "Write", "Edit", "Task", "mcp__server__write"]) {
