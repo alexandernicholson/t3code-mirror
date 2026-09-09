@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 2026-09-09
+
+- Add repeatable web development screenshots and browser checks with a managed Chromium setup and reusable authentication.
+
+---
+
 ## [0.1.2] - 2026-09-09
 
 - Listen to concise agent progress updates with on-device voice narration across web, desktop, and mobile. The Kitten TTS model downloads on first use, shows progress, and remains cached for offline playback.

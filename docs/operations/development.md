@@ -71,6 +71,41 @@ Use `vp run lint:mobile` for native mobile changes. CI owns the full suite; see
 The [manual Windows lane](../../.github/workflows/windows-tests.yml) is available for focused
 Windows investigation while that suite is not a required gate.
 
+### Web screenshots and interaction checks
+
+The collaborative preview requires an Electron desktop host connected to the environment.
+For web-only development, use the repository-managed Chromium runner. Dev containers install
+the browser and its Linux libraries during setup; other hosts can prepare them with:
+
+```sh
+vp run browser:install
+# Linux, when system libraries are missing (requires package-install privileges):
+vp exec playwright-core install-deps chromium
+vp run browser:doctor
+vp run browser:self-test
+```
+
+The self-test uses a disposable local page and validates pairing, authentication reuse,
+interaction checks, screenshot output, and cleanup. It does not start T3 or test product UI.
+For product verification, start `vp run dev`, prepare isolated test data, and run:
+
+```sh
+vp run screenshots:web --url http://localhost:WEB_PORT --wait-for 'YOUR_READY_SELECTOR'
+vp run test:web:browser --url http://localhost:WEB_PORT --script /absolute/path/check-ui.ts
+```
+
+Use the actual printed web origin. On the first run, add `--pair-url-file FILE` with a fresh,
+agent-owned pairing URL stored in an owner-only temporary file. Later runs reuse the dedicated
+browser profile. PNGs and browser state default to `.t3/browser`; use a separate `--state-dir`
+for each environment or concurrent run. Never publish the profile, which contains credentials.
+`--output`, `--width`, `--height`, and `--full-page` control screenshot output.
+
+Check modules export an async default function receiving `{ page, context }` and throw when
+an expectation fails. Use visible UI conditions instead of sleeps. See
+[the web testing skill](../../.agents/skills/test-t3-app/SKILL.md) for pairing, test data,
+script examples, and environment reuse. The runner uses the repository-pinned
+[Playwright browser API](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context).
+
 ### Unused code
 
 `vp run knip:check` checks unused files and dependencies across the repo, then
