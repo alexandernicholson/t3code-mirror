@@ -120,7 +120,8 @@ Each completed change includes a `VERSION` bump and a matching `CHANGELOG.md` en
 - Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
 - UI changes need before/after images. Motion or timing needs a short video.
-- Upload PR evidence to GitHub. Never commit PR-only screenshots or assets such as `.github/pr-assets/`.
+- Attach PR screenshots and videos directly to the PR description or a PR comment using GitHub attachments. Never create GitHub releases, release assets, or tags to host PR evidence, including draft or prerelease releases. Never commit PR-only screenshots or assets such as `.github/pr-assets/`.
+- If direct attachment upload is unavailable, report the limitation and provide the local evidence files for manual attachment. Do not substitute a release or another hosting location.
 - One concern per PR. If the description says "also", split it.
 - When babysitting: poll checks and comments newer than the last push, verify each bot finding against the source, fix real ones, dismiss false positives with a written reason. Stay quiet when nothing is new. Stop when the bots are green on the latest commit.
 
