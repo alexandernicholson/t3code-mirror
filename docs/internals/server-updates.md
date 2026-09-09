@@ -8,10 +8,18 @@ may replace the launcher and state while the service is stopped. Foreground CLI
 processes do not self-update.
 
 Exact-version installs keep restarts independent of npm cache eviction or a moving
-release tag. Installation and preflight happen in staging before publishing an
+release tag. Source installs use a fork version plus the full Git commit and
+retain their dependencies in an isolated checkout. Installation and preflight happen in staging before publishing an
 immutable runtime. Preflight checks the launcher protocol because a target that
 needs new rollback guarantees cannot safely run under an older launcher. Upgrading
 that launcher requires a local service update.
+
+Source update settings and preparation belong to the environment, including when
+no client is connected. The updater's journal is separate from launcher-owned
+service state. Once handoff is accepted, only the launcher selects the runtime
+or restores the database. Source branch switches may lower the release number;
+the launcher accepts them only when the embedded repository matches and the
+target preserves every installed migration's identity, contents, and order.
 
 ## Commit boundary
 

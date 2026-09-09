@@ -1,3 +1,4 @@
+import { SourceUpdateCard } from "../updates/SourceUpdateCard";
 import { SymbolView } from "../../components/AppSymbol";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
 import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
@@ -92,6 +93,14 @@ export function ConnectionEnvironmentRow(props: {
           <Text className="text-xs text-foreground-muted" numberOfLines={1}>
             {props.environment.displayUrl}
           </Text>
+          {serverConfig?.sourceUpdates?.supported &&
+          serverConfig.sourceUpdates.target &&
+          serverConfig.sourceUpdates.phase !== "idle" ? (
+            <Text className="text-xs text-foreground">
+              Update {serverConfig.sourceUpdates.target.version} ·{" "}
+              {serverConfig.sourceUpdates.phase}
+            </Text>
+          ) : null}
           {statusLabel ? (
             <Text
               className={cn(
@@ -142,6 +151,10 @@ export function ConnectionEnvironmentRow(props: {
           exiting={FadeOut.duration(150)}
           className="gap-3 px-4 pb-4"
         >
+          <SourceUpdateCard
+            environmentId={props.environment.environmentId}
+            connected={props.environment.connectionState === "connected"}
+          />
           {props.environment.isRelayManaged ? (
             <Text className="text-sm text-foreground-muted">
               Managed by T3 Connect. Tunnel details update automatically.

@@ -1,3 +1,4 @@
+import { sourceBuild } from "../sourceUpdates/build.ts";
 import {
   ServerSelfUpdateError,
   type ServerSelfUpdateCapability,
@@ -200,6 +201,10 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
       );
     }
 
+    if (sourceBuild !== null)
+      return yield* failWith(
+        "Use Settings → Updates to update this fork from its selected branch.",
+      );
     const targetVersion = input.targetVersion.trim();
     if (!isExactServiceVersion(targetVersion)) {
       return yield* failWith(`'${targetVersion}' is not an exact t3 version.`);

@@ -1,3 +1,4 @@
+import { SourceUpdateStatus } from "./sourceUpdates.ts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
@@ -547,6 +548,7 @@ export function environmentThemeFileHasColors(file: EnvironmentThemeFile): boole
 }
 
 export const ServerConfig = Schema.Struct({
+  sourceUpdates: Schema.optionalKey(SourceUpdateStatus),
   environment: ExecutionEnvironmentDescriptor,
   auth: ServerAuthDescriptor,
   cwd: TrimmedNonEmptyString,
@@ -720,7 +722,14 @@ export const ServerConfigStreamUsageLimitSourcesUpdatedEvent = Schema.Struct({
 export type ServerConfigStreamUsageLimitSourcesUpdatedEvent =
   typeof ServerConfigStreamUsageLimitSourcesUpdatedEvent.Type;
 
+export const ServerConfigStreamSourceUpdatesEvent = Schema.Struct({
+  version: Schema.Literal(1),
+  type: Schema.Literal("sourceUpdatesChanged"),
+  payload: SourceUpdateStatus,
+});
+
 export const ServerConfigStreamEvent = Schema.Union([
+  ServerConfigStreamSourceUpdatesEvent,
   ServerConfigStreamSnapshotEvent,
   ServerConfigStreamKeybindingsUpdatedEvent,
   ServerConfigStreamProviderStatusesEvent,
@@ -732,6 +741,7 @@ export type ServerConfigStreamEvent = typeof ServerConfigStreamEvent.Type;
 
 /** Terminal selection recorded by the service launcher for one update. */
 export const ServerSelfUpdateOutcome = Schema.Struct({
+  sourceUpdate: Schema.optionalKey(Schema.Literal(true)),
   id: TrimmedNonEmptyString,
   fromVersion: TrimmedNonEmptyString,
   targetVersion: TrimmedNonEmptyString,

@@ -43,4 +43,5 @@ export * from "./rpc.ts";
 
 export * from "./managedMcp.ts";
 
+export * from "./sourceUpdates.ts";
 export * from "./secrets.ts";

@@ -1,3 +1,4 @@
+import { SourceUpdateCard } from "../updates/SourceUpdateCard";
 import { useAuth } from "@clerk/expo";
 import { SymbolView } from "../../components/AppSymbol";
 import {
@@ -212,6 +213,7 @@ function ConnectedCloudEnvironmentRow(props: {
   readonly onDisconnect: () => void;
   readonly onToggleError: () => void;
 }) {
+  const [updatesOpen, setUpdatesOpen] = useState(false);
   const serverConfig = useAtomValue(
     serverEnvironment.configValueAtom(props.environment.environmentId),
   );
@@ -235,6 +237,26 @@ function ConnectedCloudEnvironmentRow(props: {
         onToggleError={props.onToggleError}
         value={props.environment.connectionState !== "available"}
       />
+      {serverConfig?.sourceUpdates?.supported ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setUpdatesOpen((open) => !open)}
+          className="px-4 pb-3"
+        >
+          <Text className="text-sm text-foreground">
+            Server updates
+            {serverConfig.sourceUpdates.target && serverConfig.sourceUpdates.phase !== "idle"
+              ? ` · ${serverConfig.sourceUpdates.target.version}`
+              : ""}
+          </Text>
+        </Pressable>
+      ) : null}
+      {updatesOpen ? (
+        <SourceUpdateCard
+          environmentId={props.environment.environmentId}
+          connected={props.environment.connectionState === "connected"}
+        />
+      ) : null}
     </View>
   );
 }

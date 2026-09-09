@@ -33,6 +33,7 @@ type ConnectionLayerSource =
 const providedClientConnectionLayer = snapshotLoaderLayer.pipe(
   Layer.provideMerge(
     Connection.layerWithOptions({
+      sourceUpdates: true,
       environmentThemes: true,
       usageLimitSources: true,
       usageLimitsCommand: true,

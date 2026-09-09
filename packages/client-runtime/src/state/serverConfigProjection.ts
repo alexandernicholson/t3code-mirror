@@ -26,6 +26,13 @@ export function applyServerConfigProjection(
   event: ServerConfigStreamEvent,
 ): Option.Option<ServerConfigProjection> {
   switch (event.type) {
+    case "sourceUpdatesChanged":
+      return Option.map(current, (projection) => ({
+        ...projection,
+        config: { ...projection.config, sourceUpdates: event.payload },
+        latestEvent: event,
+        source: "live",
+      }));
     case "snapshot": {
       // Wire snapshots never contain published themes. Keep the previous set
       // until a capable server sends its authoritative theme event. A legacy

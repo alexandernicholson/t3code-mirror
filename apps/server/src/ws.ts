@@ -1,3 +1,4 @@
+import { SourceUpdates } from "./sourceUpdates/controller.ts";
 import * as Secrets from "./secrets/Secrets.ts";
 import {
   sameUsageLimitCommandCoverage,
@@ -531,6 +532,7 @@ const makeWsRpcLayer = (
       const providerInstances = yield* ProviderInstanceRegistry;
       const providerInstallation = yield* makeProviderInstallation();
       const serverUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
+      const sourceUpdates = yield* SourceUpdates;
       const config = yield* ServerConfig.ServerConfig;
       const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
@@ -1281,6 +1283,7 @@ const makeWsRpcLayer = (
               otlpMetricsEnabled: config.otlpMetricsUrl !== undefined,
             },
             settings,
+            sourceUpdates: yield* sourceUpdates.current,
             shellResumeCompletionMarker: true,
             ...(fileManagerRevealKind === undefined
               ? {}
@@ -1945,6 +1948,7 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.providerInstallRemove, providerInstallation.remove(input), {
             "rpc.aggregate": "provider",
           }),
+        [WS_METHODS.serverSourceUpdate]: (input) => sourceUpdates.act(input),
         [WS_METHODS.serverUpdateServer]: (input) =>
           observeRpcEffect(WS_METHODS.serverUpdateServer, serverUpdate.update(input), {
             "rpc.aggregate": "server",
@@ -2843,7 +2847,18 @@ const makeWsRpcLayer = (
                   providerStatuses,
                   Stream.merge(
                     settingsUpdates,
-                    Stream.merge(environmentThemeUpdates, usageLimitSourceUpdates),
+                    Stream.merge(
+                      Stream.merge(environmentThemeUpdates, usageLimitSourceUpdates),
+                      input.sourceUpdates === true
+                        ? sourceUpdates.changes.pipe(
+                            Stream.map((payload) => ({
+                              version: 1 as const,
+                              type: "sourceUpdatesChanged" as const,
+                              payload,
+                            })),
+                          )
+                        : Stream.empty,
+                    ),
                   ),
                 ),
               );
@@ -2938,6 +2953,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
     const secrets = yield* Secrets.Secrets;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const baseServerSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
+    const sourceUpdates = yield* SourceUpdates;
     const config = yield* ServerConfig.ServerConfig;
     const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
     const serverSelfUpdate = yield* ServerSelfUpdate.withRunningThreadContinuation({
@@ -3002,6 +3018,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               Layer.provide(AgentSessionScanner.layer),
               Layer.provide(ProviderMaintenanceRunner.layer),
               Layer.provide(Layer.succeed(ServerSelfUpdate.ServerSelfUpdate, serverSelfUpdate)),
+              Layer.provide(Layer.succeed(SourceUpdates, sourceUpdates)),
               // One server-lifetime service means clients share the same PR caches, and a WS
               // mutation invalidates the HTTP diff cache that every client reads from.
               Layer.provide(Layer.succeed(PullRequestService.PullRequestService, pullRequests)),

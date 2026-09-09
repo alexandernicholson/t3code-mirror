@@ -1088,7 +1088,12 @@ jobs:
               - --filter=@t3tools/scripts...
               - --filter=@t3tools/oxlint-plugin-t3code...
 
+      - name: Validate fork version metadata
+        if: hashFiles('VERSION') != ''
+        run: vp run release:check
+
       - id: update_versions
+        if: hashFiles('VERSION') == ''
         name: Update version strings
         env:
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}

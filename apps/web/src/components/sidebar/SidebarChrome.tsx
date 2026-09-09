@@ -1,3 +1,4 @@
+import { SourceUpdateNotifications } from "../SourceUpdateNotifications";
 import {
   ArrowLeftIcon,
   ChartNoAxesColumnIcon,
@@ -216,6 +217,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           />
         </>
       )}
+      <SourceUpdateNotifications compact />
       <SidebarUpdatePill />
     </SidebarMenu>
   );
