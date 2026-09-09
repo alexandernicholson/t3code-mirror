@@ -712,7 +712,8 @@ describe("ClaudeAdapterLive", () => {
             [
               { id: "effort", value: "max" },
               { id: "fastMode", value: true },
-              { id: "contextWindow", value: "expanded" },
+              { id: "thinking", value: false },
+              { id: "contextWindow", value: "1m" },
             ],
           ),
           runtimeMode: "full-access",
@@ -751,9 +752,9 @@ describe("ClaudeAdapterLive", () => {
 
       return Effect.gen(function* () {
         const { options: customOptions, prompt: customPrompt } = yield* runCustomFlow;
-        assert.equal(customOptions.model, SYNTHETIC_CLAUDE_COLLIDING_ALIAS);
+        assert.equal(customOptions.model, `${SYNTHETIC_CLAUDE_COLLIDING_ALIAS}[1m]`);
         assert.equal(customOptions.effort, undefined);
-        assert.equal(customOptions.settings, undefined);
+        assert.deepEqual(customOptions.settings, { alwaysThinkingEnabled: false });
         assert.deepEqual(customHarness.query.setModelCalls, [
           `${SYNTHETIC_CLAUDE_CAPABLE_MODEL}[expanded]`,
           SYNTHETIC_CLAUDE_COLLIDING_ALIAS,

@@ -5,8 +5,10 @@ import { hasValidClaudeManifestAdapters } from "./ClaudeModelManifest.ts";
 import type { ModelManifestData } from "./ModelManifest.ts";
 import {
   formatClaudeVersionUpgradeMessage,
+  getClaudeCatalogModelCapabilities,
   normalizeClaudeCatalogEffort,
   resolveClaudeCatalogApiModelId,
+  resolveClaudeCatalogContextWindowTokens,
   resolveClaudeCatalogEffort,
   resolveClaudeModelCatalog,
   resolveClaudeModelsForVersion,
@@ -162,6 +164,28 @@ describe("Claude model catalog", () => {
     // The bare custom slug shadows the built-in alias, so it no longer resolves to it.
     assert.strictEqual(resolveClaudeModelSlug(catalog, "synthetic"), "synthetic");
     assert.strictEqual(resolveClaudeCatalogEffort(catalog, "synthetic", "extreme"), undefined);
+    assert.deepStrictEqual(
+      getClaudeCatalogModelCapabilities(catalog, "synthetic").optionDescriptors?.map(
+        (descriptor) => descriptor.id,
+      ),
+      ["thinking", "contextWindow"],
+    );
+    const bareCustomSelection = {
+      instanceId: ProviderInstanceId.make("claudeAgent"),
+      model: "synthetic",
+      options: [
+        { id: "thinking", value: false },
+        { id: "contextWindow", value: "1m" },
+      ],
+    } as const;
+    assert.strictEqual(
+      resolveClaudeCatalogApiModelId(catalog, bareCustomSelection),
+      "synthetic[1m]",
+    );
+    assert.strictEqual(
+      resolveClaudeCatalogContextWindowTokens(catalog, bareCustomSelection),
+      1_000_000,
+    );
 
     // The entry with descriptors resolves user-defined effort ids and passes
     // them through untouched (no effortMap, no model suffix).
@@ -187,7 +211,7 @@ describe("Claude model catalog", () => {
     );
     assert.deepStrictEqual(
       resolveClaudeModelsForVersion(catalog, "3.2.0").map((model) => model.slug),
-      ["claude-synthetic-next", "claude-custom-tuned"],
+      ["claude-synthetic-next", "synthetic", "claude-custom-tuned"],
     );
   });
 });

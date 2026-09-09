@@ -80,6 +80,15 @@ export const DESCRIPTOR_PRESETS_BY_KIND: Partial<
     },
     { id: "fastMode", label: "Fast Mode", type: "boolean" },
     { id: "thinking", label: "Thinking", type: "boolean" },
+    {
+      id: "contextWindow",
+      label: "Context Window",
+      type: "select",
+      choices: [
+        { id: "200k", label: "200k", isDefault: true },
+        { id: "1m", label: "1M" },
+      ],
+    },
   ],
   [ProviderDriverKind.make("cursor")]: [
     { id: "reasoning", label: "Reasoning", type: "select", choices: EFFORT_CHOICES },
@@ -178,14 +187,12 @@ export function draftFromDefinition(entry: CustomModelDefinition): CustomModelDr
   };
 }
 
-/** Context metadata stays provider-owned; Claude choices also need runtime suffix mappings. */
+/** Numeric context metadata stays provider-owned and is not editable as ordinary choices. */
 export function descriptorsFromCapabilities(
   capabilities: ModelCapabilities | null | undefined,
-  driverKind: ProviderDriverKind | null,
 ): EditorDescriptor[] {
   return (capabilities?.optionDescriptors ?? [])
     .filter((descriptor) => descriptor.type !== "select" || descriptor.contextWindow === undefined)
-    .filter((descriptor) => driverKind !== "claudeAgent" || descriptor.id !== "contextWindow")
     .map(descriptorToEditor);
 }
 
