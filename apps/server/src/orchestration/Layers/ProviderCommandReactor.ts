@@ -68,6 +68,10 @@ type ProviderIntentEvent = Extract<
       | "thread.meta-updated"
       | "thread.runtime-mode-set"
       | "thread.turn-start-requested"
+      | "thread.turn-queue-updated"
+      | "thread.unarchived"
+      | "thread.session-set"
+      | "thread.turn-diff-completed"
       | "thread.turn-interrupt-requested"
       | "thread.approval-response-requested"
       | "thread.user-input-response-requested"
@@ -1710,6 +1714,27 @@ const make = Effect.gen(function* () {
       eventType: event.type,
     });
     switch (event.type) {
+      case "thread.turn-queue-updated":
+      case "thread.unarchived":
+      case "thread.session-set":
+      case "thread.turn-diff-completed": {
+        const thread = yield* projectionSnapshotQuery.getThreadShellById(event.payload.threadId);
+        if (
+          Option.isNone(thread) ||
+          !thread.value.queuedTurnCount ||
+          (event.type === "thread.turn-queue-updated" && event.payload.queue.paused)
+        )
+          return;
+        yield* orchestrationEngine
+          .dispatch({
+            type: "thread.turn.queue.drain",
+            commandId: yield* serverCommandId("turn-queue-drain"),
+            threadId: event.payload.threadId,
+            createdAt: DateTime.formatIso(yield* DateTime.now),
+          })
+          .pipe(Effect.catchTag("OrchestrationCommandInvariantError", () => Effect.void));
+        return;
+      }
       case "thread.meta-updated":
         yield* threadTitleRegenerationWorker.enqueue(event);
         return;
@@ -1794,6 +1819,10 @@ const make = Effect.gen(function* () {
         (event.type === "thread.meta-updated" && event.payload.regenerateTitle === true) ||
         event.type === "thread.runtime-mode-set" ||
         event.type === "thread.turn-start-requested" ||
+        event.type === "thread.turn-queue-updated" ||
+        event.type === "thread.unarchived" ||
+        event.type === "thread.session-set" ||
+        event.type === "thread.turn-diff-completed" ||
         event.type === "thread.turn-interrupt-requested" ||
         event.type === "thread.approval-response-requested" ||
         event.type === "thread.user-input-response-requested" ||
@@ -1827,6 +1856,28 @@ const make = Effect.gen(function* () {
       }),
     );
     const activation = yield* ServerActivation;
+    const recoverQueue = Effect.gen(function* () {
+      const snapshot = yield* projectionSnapshotQuery.getCommandReadModel();
+      for (const thread of snapshot.threads) {
+        if (!thread.turnQueue?.items.length || thread.turnQueue.paused || thread.deletedAt !== null)
+          continue;
+        yield* orchestrationEngine
+          .dispatch({
+            type: "thread.turn.queue.drain",
+            commandId: yield* serverCommandId("turn-queue-recover"),
+            threadId: thread.id,
+            createdAt: DateTime.formatIso(yield* DateTime.now),
+          })
+          .pipe(Effect.catchTag("OrchestrationCommandInvariantError", () => Effect.void));
+      }
+    });
+    yield* forkParked(
+      recoverQueue.pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("Failed to recover turn queues", { cause: Cause.pretty(cause) }),
+        ),
+      ),
+    );
     if (activation === undefined) {
       yield* clearInterrupted;
     } else {

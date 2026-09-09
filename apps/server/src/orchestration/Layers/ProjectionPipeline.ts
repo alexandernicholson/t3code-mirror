@@ -598,6 +598,19 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
       "applyThreadsProjection",
     )(function* (event, attachmentSideEffects) {
       switch (event.type) {
+        case "thread.turn-queue-updated": {
+          const row = yield* projectionThreadRepository.getById({
+            threadId: event.payload.threadId,
+          });
+          if (Option.isSome(row)) {
+            yield* projectionThreadRepository.upsert({
+              ...row.value,
+              turnQueue: event.payload.queue,
+              updatedAt: event.occurredAt,
+            });
+          }
+          return;
+        }
         case "thread.created":
           yield* projectionThreadRepository.upsert({
             threadId: event.payload.threadId,

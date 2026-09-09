@@ -8,6 +8,7 @@ import {
   ThreadId,
   ThreadLinkedPullRequest,
   TurnId,
+  TurnQueue,
   ProviderInstanceId,
 } from "@t3tools/contracts";
 import { assert, it } from "@effect/vitest";
@@ -524,6 +525,33 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
       if (threadShell._tag === "Some") {
         assert.deepEqual(threadShell.value.branchPullRequest, branchPullRequest);
       }
+
+      const queue = {
+        items: [
+          {
+            messageId: MessageId.make("queued-one"),
+            text: "Review next",
+            attachments: [],
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            createdAt: "2026-02-24T00:00:09.000Z",
+          },
+        ],
+        paused: true,
+      } satisfies TurnQueue;
+      const encodedQueue = yield* Schema.encodeEffect(Schema.fromJsonString(TurnQueue))(queue);
+      yield* sql`UPDATE projection_threads SET turn_queue_json = ${encodedQueue} WHERE thread_id = 'thread-1'`;
+      const queuedDetail = yield* snapshotQuery.getThreadDetailById(ThreadId.make("thread-1"));
+      assert.equal(queuedDetail._tag, "Some");
+      if (queuedDetail._tag === "Some") assert.deepEqual(queuedDetail.value.turnQueue, queue);
+      assert.deepEqual((yield* snapshotQuery.getCommandReadModel()).threads[0]?.turnQueue, queue);
+      const queuedShell = yield* snapshotQuery.getThreadShellById(ThreadId.make("thread-1"));
+      assert.equal(queuedShell._tag, "Some");
+      if (queuedShell._tag === "Some") {
+        assert.equal(queuedShell.value.queuedTurnCount, 1);
+        assert.equal("turnQueue" in queuedShell.value, false);
+      }
+      yield* sql`UPDATE projection_threads SET turn_queue_json = NULL WHERE thread_id = 'thread-1'`;
 
       yield* sql`
         INSERT INTO projection_thread_activities (

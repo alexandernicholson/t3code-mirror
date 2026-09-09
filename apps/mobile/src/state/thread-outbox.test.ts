@@ -114,6 +114,15 @@ function queuedMessage(input: {
 }
 
 describe("thread outbox", () => {
+  it("preserves explicit delivery through persistence and accepts legacy sends", () => {
+    const legacy = queuedMessage({ messageId: "delivery", createdAt: "2026-09-08T12:00:00.000Z" });
+    expect(decodeQueuedThreadMessage(encodeQueuedThreadMessage(legacy)).delivery).toBeUndefined();
+    for (const delivery of ["steer", "queue"] as const) {
+      expect(
+        decodeQueuedThreadMessage(encodeQueuedThreadMessage({ ...legacy, delivery })).delivery,
+      ).toBe(delivery);
+    }
+  });
   it.each(["read", "json", "schema"] as const)(
     "recovers usable messages without permitting cleanup after a record %s failure",
     async (failure) => {

@@ -900,6 +900,17 @@ const make = Effect.gen(function* () {
           ),
         ),
       );
+      // Publish a durable scheduling boundary even for non-Git workspaces.
+      // The drain also checks session state, so ingestion can settle before or after capture.
+      if (turnId !== null) {
+        yield* orchestrationEngine.dispatch({
+          type: "thread.turn.queue.drain",
+          commandId: yield* serverCommandId("turn-queue-ready"),
+          threadId: event.threadId,
+          completedTurnId: turnId,
+          createdAt: yield* nowIso,
+        });
+      }
       return;
     }
   });

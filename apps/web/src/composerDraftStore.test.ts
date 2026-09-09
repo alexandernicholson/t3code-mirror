@@ -250,6 +250,27 @@ describe("composerDraftStore addImages", () => {
     URL.revokeObjectURL = originalRevokeObjectUrl;
   });
 
+  it("preserves restored attachments if new draft files fill the cap during a queue take", () => {
+    const store = useComposerDraftStore.getState();
+    store.addImages(
+      threadRef,
+      Array.from({ length: 8 }, (_, index) =>
+        makeImage({
+          id: `existing-${index}`,
+          name: `existing-${index}.png`,
+          previewUrl: `blob:existing-${index}`,
+        }),
+      ),
+    );
+    const image = makeImage({ id: "restored", name: "restored.png", previewUrl: "blob:restored" });
+    store.addImages(threadRef, [image], { allowOverflow: true });
+    store.addFiles(threadRef, [makeFile("restored-file")], { allowOverflow: true });
+    const draft = useComposerDraftStore.getState().getComposerDraft(threadRef);
+    expect(draft?.images).toHaveLength(9);
+    expect(draft?.files).toHaveLength(1);
+    expect(revokeSpy).not.toHaveBeenCalledWith("blob:restored");
+  });
+
   it("deduplicates identical images in one batch by file signature", () => {
     const first = makeImage({
       id: "img-1",

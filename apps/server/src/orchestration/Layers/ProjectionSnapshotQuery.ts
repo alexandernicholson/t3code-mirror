@@ -16,6 +16,7 @@ import {
   ProjectScript,
   ProjectIconOverride,
   TurnId,
+  TurnQueue,
   type OrchestrationCheckpointSummary,
   type OrchestrationLatestTurn,
   type OrchestrationMessage,
@@ -114,6 +115,7 @@ const ProjectionTurnStartMessageDbRowSchema = ProjectionThreadMessageDbRowSchema
 const ProjectionThreadProposedPlanDbRowSchema = ProjectionThreadProposedPlan;
 const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
   Struct.assign({
+    turnQueue: Schema.NullOr(Schema.fromJsonString(TurnQueue)),
     modelSelection: Schema.fromJsonString(ModelSelection),
     linkedPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
     branchPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
@@ -514,6 +516,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pinned_at AS "pinnedAt",
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
+          turn_queue_json AS "turnQueue",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -554,6 +557,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pinned_at AS "pinnedAt",
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
+          turn_queue_json AS "turnQueue",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -596,6 +600,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pinned_at AS "pinnedAt",
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
+          turn_queue_json AS "turnQueue",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -1087,6 +1092,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pinned_at AS "pinnedAt",
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
+          turn_queue_json AS "turnQueue",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -2087,6 +2093,7 @@ pending_approval_requests AS (
                 pinnedAt: row.pinnedAt,
                 pinOrderKey: row.pinOrderKey ?? null,
                 activeOrderKey: row.activeOrderKey ?? null,
+                ...(row.turnQueue ? { turnQueue: row.turnQueue } : {}),
                 titleRegeneration: mapTitleRegeneration(row),
                 deletedAt: row.deletedAt,
                 messages: messagesByThread.get(row.threadId) ?? [],
@@ -2302,6 +2309,7 @@ pending_approval_requests AS (
                   pinnedAt: row.pinnedAt,
                   pinOrderKey: row.pinOrderKey ?? null,
                   activeOrderKey: row.activeOrderKey ?? null,
+                  ...(row.turnQueue ? { turnQueue: row.turnQueue } : {}),
                   titleRegeneration: mapTitleRegeneration(row),
                   deletedAt: row.deletedAt,
                   messages: [],
@@ -2444,6 +2452,9 @@ pending_approval_requests AS (
                       pinnedAt: row.pinnedAt,
                       pinOrderKey: row.pinOrderKey ?? null,
                       activeOrderKey: row.activeOrderKey ?? null,
+                      ...(row.turnQueue?.items.length
+                        ? { queuedTurnCount: row.turnQueue.items.length }
+                        : {}),
                       titleRegeneration: mapTitleRegeneration(row),
                       session: sessionByThread.get(row.threadId) ?? null,
                       latestUserMessageAt: row.latestUserMessageAt,
@@ -2594,6 +2605,9 @@ pending_approval_requests AS (
                 pinnedAt: row.pinnedAt,
                 pinOrderKey: row.pinOrderKey ?? null,
                 activeOrderKey: row.activeOrderKey ?? null,
+                ...(row.turnQueue?.items.length
+                  ? { queuedTurnCount: row.turnQueue.items.length }
+                  : {}),
                 titleRegeneration: mapTitleRegeneration(row),
                 session: sessionByThread.get(row.threadId) ?? null,
                 latestUserMessageAt: row.latestUserMessageAt,
@@ -2917,6 +2931,9 @@ pending_approval_requests AS (
         pinnedAt: threadRow.value.pinnedAt,
         pinOrderKey: threadRow.value.pinOrderKey ?? null,
         activeOrderKey: threadRow.value.activeOrderKey ?? null,
+        ...(threadRow.value.turnQueue?.items.length
+          ? { queuedTurnCount: threadRow.value.turnQueue.items.length }
+          : {}),
         titleRegeneration: mapTitleRegeneration(threadRow.value),
         session: Option.isSome(sessionRow) ? mapSessionRow(sessionRow.value) : null,
         latestUserMessageAt: threadRow.value.latestUserMessageAt,
@@ -3200,6 +3217,7 @@ pending_approval_requests AS (
         pinnedAt: threadRow.value.pinnedAt,
         pinOrderKey: threadRow.value.pinOrderKey ?? null,
         activeOrderKey: threadRow.value.activeOrderKey ?? null,
+        ...(threadRow.value.turnQueue ? { turnQueue: threadRow.value.turnQueue } : {}),
         titleRegeneration: mapTitleRegeneration(threadRow.value),
         deletedAt: null,
         messages: messageRows.map((row) => {

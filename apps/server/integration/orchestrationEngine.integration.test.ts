@@ -19,6 +19,7 @@ import {
 } from "@t3tools/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -181,6 +182,103 @@ const startTurn = (input: {
     runtimeMode: "approval-required",
     createdAt: input.createdAt ?? nowIso(),
   });
+
+it.live("runs queued messages only after the active turn checkpoint and preserves FIFO", () =>
+  withHarness((harness) =>
+    Effect.gen(function* () {
+      yield* seedProjectAndThread(harness);
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      yield* harness.adapterHarness!.queueTurnResponseForNextSession({
+        events: [
+          {
+            type: "turn.started",
+            ...runtimeBase("queue-first-start", nowIso()),
+            threadId: THREAD_ID,
+            turnId: "turn-1",
+          },
+          {
+            type: "turn.completed",
+            ...runtimeBase("queue-first-end", nowIso()),
+            threadId: THREAD_ID,
+            turnId: "turn-1",
+            status: "completed",
+          },
+        ],
+        mutateWorkspace: () =>
+          Deferred.succeed(entered, undefined).pipe(Effect.andThen(Deferred.await(release))),
+      });
+      yield* startTurn({
+        harness,
+        commandId: "queue-start",
+        messageId: "queue-initial",
+        text: "Work first",
+      });
+      yield* Deferred.await(entered);
+      for (const id of ["next-one", "next-two"]) {
+        yield* harness.engine.dispatch({
+          type: "thread.turn.start",
+          delivery: "queue",
+          commandId: CommandId.make(`queue-${id}`),
+          threadId: THREAD_ID,
+          message: { messageId: MessageId.make(id), role: "user", text: id, attachments: [] },
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+          createdAt: nowIso(),
+        });
+      }
+      const before = yield* harness.snapshotQuery.getSnapshot();
+      assert.deepEqual(
+        before.threads
+          .find((thread) => thread.id === THREAD_ID)
+          ?.turnQueue?.items.map((item) => item.text),
+        ["next-one", "next-two"],
+      );
+      assert.equal(
+        before.threads
+          .find((thread) => thread.id === THREAD_ID)
+          ?.messages.filter((message) => message.role === "user").length,
+        1,
+      );
+      for (const [index, id] of ["next-one", "next-two"].entries()) {
+        yield* harness.adapterHarness!.queueTurnResponse(THREAD_ID, {
+          events: [
+            {
+              type: "turn.started",
+              ...runtimeBase(`queue-${id}-start`, nowIso()),
+              threadId: THREAD_ID,
+              turnId: `turn-${index + 2}`,
+            },
+            {
+              type: "turn.completed",
+              ...runtimeBase(`queue-${id}-end`, nowIso()),
+              threadId: THREAD_ID,
+              turnId: `turn-${index + 2}`,
+              status: "completed",
+            },
+          ],
+        });
+      }
+      yield* Deferred.succeed(release, undefined);
+      yield* harness.waitForReceipt(
+        (receipt) =>
+          receipt.type === "turn.processing.quiesced" &&
+          receipt.threadId === THREAD_ID &&
+          receipt.checkpointTurnCount === 3,
+      );
+      yield* harness.drainProviderRuntime;
+      yield* harness.drainCheckpointReactor;
+      const after = yield* harness.snapshotQuery.getSnapshot();
+      const thread = after.threads.find((thread) => thread.id === THREAD_ID)!;
+      assert.deepEqual(thread.turnQueue?.items, []);
+      assert.deepEqual(
+        thread.messages.filter((message) => message.role === "user").map((message) => message.text),
+        ["Work first", "next-one", "next-two"],
+      );
+      assert.equal(thread.checkpoints.length, 3);
+    }),
+  ),
+);
 
 it.live("runs a single turn end-to-end and persists checkpoint state in sqlite + git", () =>
   withHarness((harness) =>

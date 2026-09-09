@@ -1240,6 +1240,8 @@ export interface ChatComposerHandle {
 // --------------------------------------------------------------------------
 
 export interface ChatComposerProps {
+  queueControls?: React.ReactNode;
+  onQueue?: (() => void) | undefined;
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
   attachmentUploadsCapabilityKnown: boolean;
@@ -4921,6 +4923,20 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   return (
     <form
       ref={composerFormRef}
+      onKeyDownCapture={(event) => {
+        if (
+          props.onQueue &&
+          event.key === "Enter" &&
+          (event.metaKey || event.ctrlKey) &&
+          !event.shiftKey &&
+          !event.nativeEvent.isComposing &&
+          !activePendingProgress
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onQueue();
+        }
+      }}
       onSubmit={submitComposer}
       onPointerDownCapture={(event) => {
         const target = event.target;
@@ -4984,6 +5000,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       className="mx-auto w-full min-w-0 max-w-3xl"
       data-chat-composer-form="true"
     >
+      {props.queueControls}
       {composerControlsInStrip && restingControlsHost
         ? createPortal(
             <div
@@ -5877,7 +5894,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     isPreparingWorktree={isPreparingWorktree}
                     hasSendableContent={composerSendState.hasSendableContent}
                     preserveComposerFocusOnPointerDown={isMobileViewport || isComposerResting}
-                    showSendWhileRunning={isMobileViewport}
+                    showSendWhileRunning={isMobileViewport || props.queueControls !== undefined}
                     onPreviousPendingQuestion={onPreviousActivePendingUserInputQuestion}
                     onInterrupt={handleInterruptPrimaryAction}
                     onImplementPlanInNewThread={handleImplementPlanInNewThreadPrimaryAction}

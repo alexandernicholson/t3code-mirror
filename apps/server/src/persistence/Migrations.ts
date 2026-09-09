@@ -61,6 +61,7 @@ import Migration0046 from "./Migrations/046_RepairAutomaticSettlementTimestamps.
 import Migration0047 from "./Migrations/047_ProjectionProjectIcon.ts";
 import Migration0048 from "./Migrations/048_ProjectionThreadBranchPullRequest.ts";
 import Migration0049 from "./Migrations/049_ProjectionThreadsActiveOrderKey.ts";
+import Migration0050 from "./Migrations/050_ProjectionThreadTurnQueue.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -73,6 +74,7 @@ import Migration0049 from "./Migrations/049_ProjectionThreadsActiveOrderKey.ts";
  * returns migrations sorted by ID.
  */
 const migrationEntries = [
+  [50, "ProjectionThreadTurnQueue", Migration0050],
   [1, "OrchestrationEvents", Migration0001],
   [2, "OrchestrationCommandReceipts", Migration0002],
   [3, "CheckpointDiffBlobs", Migration0003],

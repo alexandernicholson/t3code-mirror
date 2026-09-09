@@ -472,6 +472,8 @@ import {
 } from "../versionSkew";
 import { useAssetUrls } from "../assets/assetUrls";
 import { ATTACHMENT_ONLY_BOOTSTRAP_PROMPT } from "./chat/composerPromptHistory";
+import { TurnQueueControls } from "./chat/TurnQueueControls";
+import type { QueuedTurn, TurnDelivery } from "@t3tools/contracts";
 
 const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
 const EMPTY_PROVIDERS: ServerProvider[] = [];
@@ -1425,6 +1427,8 @@ export default function ChatView(props: ChatViewProps) {
     reportFailure: false,
   });
   const startThreadTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const updateTurnQueue = useAtomCommand(threadEnvironment.updateQueue, { reportFailure: false });
+  const [turnDelivery, setTurnDelivery] = useState<TurnDelivery>("steer");
   const createAttachmentAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
     reportFailure: false,
     refresh: true,
@@ -6374,8 +6378,22 @@ export default function ChatView(props: ChatViewProps) {
       annotation: PreviewAnnotationPayload;
       image: ComposerImageAttachment | null;
     },
+    deliveryOverride?: TurnDelivery,
   ) => {
     e?.preventDefault();
+    const delivery = isServerThread ? (deliveryOverride ?? turnDelivery) : "steer";
+    if (delivery === "queue" && promptRef.current.trimStart().startsWith("/")) {
+      setThreadError(activeThread?.id ?? null, "Switch to Steer to send commands directly.");
+      return;
+    }
+    if (
+      delivery === "queue" &&
+      appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId)?.environment.capabilities
+        .turnQueue !== true
+    ) {
+      setThreadError(activeThread?.id ?? null, "Update this environment to queue messages.");
+      return;
+    }
     // Typed out in full rather than picked from the menu. Attachments or contexts
     // mean the user is sending a prompt, so those go through as usual.
     if (
@@ -6577,6 +6595,7 @@ export default function ChatView(props: ChatViewProps) {
     }
     if (
       !directAnnotation &&
+      delivery !== "queue" &&
       sendInteractionModeEnabled &&
       showPlanFollowUpPrompt &&
       activeProposedPlan &&
@@ -6669,6 +6688,13 @@ export default function ChatView(props: ChatViewProps) {
     const composerImagesSnapshot = [...composerImages];
     const composerFilesSnapshot = [...composerFiles];
     const composerAttachmentsSnapshot = [...composerImagesSnapshot, ...composerFilesSnapshot];
+    if (composerAttachmentsSnapshot.length > PROVIDER_SEND_TURN_MAX_ATTACHMENTS) {
+      setThreadError(
+        threadIdForSend,
+        `Remove attachments until there are at most ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS}.`,
+      );
+      return;
+    }
     const composerTerminalContextsSnapshot = [...sendableComposerTerminalContexts];
     const composerElementContextsSnapshot = [...composerElementContexts];
     const composerPreviewAnnotationsSnapshot = [...composerPreviewAnnotations];
@@ -6921,7 +6947,7 @@ export default function ChatView(props: ChatViewProps) {
       }
     }
 
-    if (failure === null && isServerThread) {
+    if (failure === null && isServerThread && delivery !== "queue") {
       const settingsResult = await persistThreadSettingsForNextTurn({
         threadId: threadIdForSend,
         createdAt: messageCreatedAt,
@@ -6992,6 +7018,7 @@ export default function ChatView(props: ChatViewProps) {
         environmentId,
         input: {
           threadId: threadIdForSend,
+          delivery,
           message: {
             messageId: messageIdForSend,
             role: "user",
@@ -7013,6 +7040,12 @@ export default function ChatView(props: ChatViewProps) {
         failure = startResult;
       } else {
         turnStartSucceeded = true;
+        if (delivery === "queue") {
+          setOptimisticUserMessages((messages) =>
+            messages.filter((message) => message.id !== messageIdForSend),
+          );
+          resetLocalDispatch();
+        }
         // The turn is under way and will spend quota, so that thread's limits
         // snapshot is stale. Uploads may have outlasted a navigation, so only
         // the sending thread's panel clears.
@@ -7138,6 +7171,100 @@ export default function ChatView(props: ChatViewProps) {
         currentThreadKey === activeThreadKey ? null : currentThreadKey,
       );
       resetLocalDispatch();
+    }
+  };
+
+  const onTurnQueueAction = async (
+    action: "cancel" | "steer" | "resume",
+    messageId?: MessageId,
+  ) => {
+    const result = await updateTurnQueue({
+      environmentId,
+      input: {
+        threadId,
+        action,
+        ...(messageId ? { messageId } : {}),
+      },
+    });
+    if (result._tag === "Failure") {
+      toastManager.add({
+        type: "error",
+        title: "Could not update queued message",
+        description: String(squashAtomCommandFailure(result)),
+      });
+      return false;
+    }
+    return true;
+  };
+  const restoreQueuedTurn = async (item: QueuedTurn) => {
+    const connection = readPreparedConnection(environmentId);
+    if (!connection) return;
+    const images: ComposerImageAttachment[] = [];
+    const files: ComposerFileAttachment[] = [];
+    try {
+      const draft = useComposerDraftStore.getState().getComposerDraft(composerDraftTarget);
+      if (
+        (draft?.images.length ?? 0) + (draft?.files.length ?? 0) + item.attachments.length >
+        PROVIDER_SEND_TURN_MAX_ATTACHMENTS
+      ) {
+        throw new Error("Make room in your draft before restoring these attachments.");
+      }
+      for (const attachment of item.attachments) {
+        if (attachment.type === "file") {
+          files.push({
+            ...attachment,
+            type: "file",
+            file: null,
+            uploadedAttachmentId: attachment.id,
+            uploadEnvironmentId: environmentId,
+          });
+        } else {
+          const result = await createAttachmentAssetUrl({
+            environmentId,
+            input: {
+              resource: {
+                _tag: "attachment",
+                attachmentId: attachment.id,
+                fileName: attachment.name,
+                mimeType: attachment.mimeType,
+              },
+            },
+          });
+          if (result._tag !== "Success") throw new Error(`Could not restore ${attachment.name}`);
+          const response = await fetch(new URL(result.value.relativeUrl, connection.httpBaseUrl));
+          if (!response.ok) throw new Error(`Could not restore ${attachment.name}`);
+          const blob = await response.blob();
+          images.push({
+            ...attachment,
+            type: "image",
+            file: new File([blob], attachment.name, { type: attachment.mimeType }),
+            previewUrl: URL.createObjectURL(blob),
+          });
+        }
+      }
+      if (!(await onTurnQueueAction("cancel", item.messageId))) {
+        for (const image of images) URL.revokeObjectURL(image.previewUrl);
+        return;
+      }
+      const store = useComposerDraftStore.getState();
+      const current = store.getComposerDraft(composerDraftTarget)?.prompt ?? "";
+      store.setPrompt(composerDraftTarget, current ? `${current}\n\n${item.text}` : item.text);
+      // The draft can change while the server acknowledges the take. Preserve all files;
+      // the send preflight lets the user trim an over-cap draft without losing anything.
+      store.addImages(composerDraftTarget, images, { allowOverflow: true });
+      store.addFiles(composerDraftTarget, files, { allowOverflow: true });
+      if (item.modelSelection) store.setModelSelection(composerDraftTarget, item.modelSelection);
+      store.setRuntimeMode(composerDraftTarget, item.runtimeMode);
+      store.setInteractionMode(composerDraftTarget, item.interactionMode);
+      setTurnDelivery("queue");
+      scheduleComposerFocus();
+    } catch (error) {
+      for (const image of images) URL.revokeObjectURL(image.previewUrl);
+      toastManager.add({
+        type: "error",
+        title: "Could not restore queued message",
+        description: String(error),
+      });
     }
   };
 
@@ -8407,6 +8534,24 @@ export default function ChatView(props: ChatViewProps) {
                             onPageScrollKeyUp={onComposerPageScrollKeyUp}
                             onPageScrollRelease={onComposerPageScrollRelease}
                             onSend={onSend}
+                            onQueue={
+                              isServerThread
+                                ? () => void onSend(undefined, "foreground", undefined, "queue")
+                                : undefined
+                            }
+                            queueControls={
+                              isServerThread &&
+                              serverConfig?.environment.capabilities.turnQueue === true ? (
+                                <TurnQueueControls
+                                  delivery={turnDelivery}
+                                  onDeliveryChange={setTurnDelivery}
+                                  queue={activeThread.turnQueue}
+                                  disabled={activeEnvironmentUnavailable}
+                                  onAction={onTurnQueueAction}
+                                  onEdit={restoreQueuedTurn}
+                                />
+                              ) : undefined
+                            }
                             onInterrupt={onInterrupt}
                             onImplementPlanInNewThread={onImplementPlanInNewThread}
                             onRespondToApproval={onRespondToApproval}

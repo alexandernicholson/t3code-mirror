@@ -238,6 +238,15 @@ export function projectEvent(
   };
 
   switch (event.type) {
+    case "thread.turn-queue-updated":
+      return Effect.succeed({
+        ...nextBase,
+        threads: nextBase.threads.map((thread) =>
+          thread.id === event.payload.threadId
+            ? { ...thread, turnQueue: event.payload.queue, updatedAt: event.occurredAt }
+            : thread,
+        ),
+      });
     case "project.created":
       return decodeForEvent(ProjectCreatedPayload, event.payload, event.type, "payload").pipe(
         Effect.map((payload) => {

@@ -205,7 +205,7 @@ export async function completeQueuedMessageDelivery(
     if (appAtomRegistry.get(editingQueuedMessageIdsAtom)[queuedMessage.messageId]) {
       return "edited";
     }
-    retainAcknowledgedThreadMessage(queuedMessage);
+    if (queuedMessage.delivery !== "queue") retainAcknowledgedThreadMessage(queuedMessage);
     // Removal also releases the message's local attachment files.
     const removed = await removeThreadOutboxMessage(
       queuedMessage,
@@ -403,6 +403,7 @@ export async function restoreRejectedQueuedMessage(
     }
     updateComposerDraftSettings(draftKey, {
       ...(queuedMessage.modelSelection ? { modelSelection: queuedMessage.modelSelection } : {}),
+      delivery: queuedMessage.delivery ?? "steer",
       ...(queuedMessage.runtimeMode ? { runtimeMode: queuedMessage.runtimeMode } : {}),
       ...(queuedMessage.interactionMode ? { interactionMode: queuedMessage.interactionMode } : {}),
       ...(queuedMessage.creation
@@ -688,6 +689,12 @@ export function useThreadOutboxDrain(): void {
         serverEnvironment.configValueAtom(queuedMessage.environmentId),
       );
       if (!serverConfig) return false;
+      if (
+        queuedMessage.delivery === "queue" &&
+        serverConfig.environment.capabilities.turnQueue !== true
+      ) {
+        return restoreQueuedMessage(queuedMessage, "Update this environment to queue messages.");
+      }
       const settings = resolveQueuedThreadSettings(queuedMessage, thread, serverConfig.providers);
       if (isModelSelectionUnavailable(serverConfig, settings.modelSelection)) {
         return restoreQueuedMessage(
@@ -697,7 +704,10 @@ export function useThreadOutboxDrain(): void {
       }
       const { reportFailure } = makeDeliveryHelpers(queuedMessage);
 
-      if (!modelSelectionsEqual(settings.modelSelection, thread.modelSelection)) {
+      if (
+        queuedMessage.delivery !== "queue" &&
+        !modelSelectionsEqual(settings.modelSelection, thread.modelSelection)
+      ) {
         const updateResult = await updateThreadMetadata({
           environmentId: queuedMessage.environmentId,
           input: {
@@ -712,7 +722,7 @@ export function useThreadOutboxDrain(): void {
         }
       }
 
-      if (settings.runtimeMode !== thread.runtimeMode) {
+      if (queuedMessage.delivery !== "queue" && settings.runtimeMode !== thread.runtimeMode) {
         const runtimeResult = await setThreadRuntimeMode({
           environmentId: queuedMessage.environmentId,
           input: {
@@ -728,7 +738,10 @@ export function useThreadOutboxDrain(): void {
         }
       }
 
-      if (settings.interactionMode !== thread.interactionMode) {
+      if (
+        queuedMessage.delivery !== "queue" &&
+        settings.interactionMode !== thread.interactionMode
+      ) {
         const interactionResult = await setThreadInteractionMode({
           environmentId: queuedMessage.environmentId,
           input: {
@@ -798,6 +811,7 @@ export function useThreadOutboxDrain(): void {
         input: {
           commandId: queuedMessage.commandId,
           threadId: queuedMessage.threadId,
+          delivery: queuedMessage.delivery ?? "steer",
           message: {
             messageId: queuedMessage.messageId,
             role: "user",

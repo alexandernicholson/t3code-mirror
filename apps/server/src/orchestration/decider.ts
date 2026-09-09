@@ -11,6 +11,7 @@ import {
   type OrchestrationReadModel,
   type OrchestrationThread,
   type OrchestrationThreadActivity,
+  type TurnQueue,
 } from "@t3tools/contracts";
 import { compareDateTimeStrings } from "@t3tools/shared/dateTime";
 import * as DateTime from "effect/DateTime";
@@ -43,6 +44,25 @@ const isScriptRunCommand = Schema.is(SCRIPT_RUN_COMMAND_PATTERN);
 
 const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 const decodeUserInputRequestedPayload = Schema.decodeUnknownOption(UserInputRequestedPayload);
+const queueEvent = Effect.fn("queueEvent")(function* (
+  command: {
+    commandId: OrchestrationCommand["commandId"];
+    threadId: OrchestrationThread["id"];
+    createdAt: string;
+  },
+  queue: TurnQueue,
+) {
+  return {
+    ...(yield* withEventBase({
+      aggregateKind: "thread",
+      aggregateId: command.threadId,
+      occurredAt: command.createdAt,
+      commandId: command.commandId,
+    })),
+    type: "thread.turn-queue-updated" as const,
+    payload: { threadId: command.threadId, queue },
+  };
+});
 const threadPullRequestLinksEqual = Schema.toEquivalence(Schema.NullOr(ThreadLinkedPullRequest));
 
 /**
@@ -468,7 +488,11 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       }
       // The server owns settle eligibility. A stale command must not settle
       // a thread whose session is coming alive or working.
-      if (thread.session?.status === "starting" || thread.session?.status === "running") {
+      if (
+        thread.session?.status === "starting" ||
+        thread.session?.status === "running" ||
+        thread.turnQueue?.items.length
+      ) {
         return yield* new OrchestrationThreadSettleBlockedError({ threadId: command.threadId });
       }
       const pendingRequests = openRequests(thread);
@@ -1060,6 +1084,37 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
+      let queuedEvent: PlannedOrchestrationEvent | undefined;
+      if (command.delivery === "queue") {
+        const queue = targetThread.turnQueue ?? { items: [], paused: false };
+        if (queue.items.some((item) => item.messageId === command.message.messageId)) return [];
+        if (
+          queue.items.length >= 20 ||
+          command.message.text.trimStart().startsWith("/") ||
+          command.sourceProposedPlan
+        ) {
+          return yield* new OrchestrationCommandInvariantError({
+            commandType: command.type,
+            detail:
+              queue.items.length >= 20
+                ? "The queue is full (20 messages)."
+                : "Send commands and plan actions directly.",
+          });
+        }
+        queuedEvent = yield* queueEvent(command, {
+          ...queue,
+          items: [
+            ...queue.items,
+            {
+              ...command.message,
+              modelSelection: command.modelSelection ?? targetThread.modelSelection,
+              runtimeMode: command.runtimeMode,
+              interactionMode: command.interactionMode,
+              createdAt: command.createdAt,
+            },
+          ],
+        });
+      }
       const sourceProposedPlan = command.sourceProposedPlan;
       const sourceThread = sourceProposedPlan
         ? yield* requireThread({
@@ -1164,16 +1219,119 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           },
         });
       }
-      return [...lifecycleResetEvents, userMessageEvent, turnStartRequestedEvent];
+      return queuedEvent
+        ? [...lifecycleResetEvents, queuedEvent]
+        : [...lifecycleResetEvents, userMessageEvent, turnStartRequestedEvent];
+    }
+
+    case "thread.turn.queue":
+    case "thread.turn.queue.drain": {
+      const thread = yield* requireThread({ readModel, command, threadId: command.threadId });
+      const queue = {
+        ...(thread.turnQueue ?? { items: [], paused: false }),
+        ...(command.type === "thread.turn.queue.drain" && command.completedTurnId
+          ? { completedTurnId: command.completedTurnId }
+          : {}),
+      };
+      const boundaryEvent =
+        command.type === "thread.turn.queue.drain" && command.completedTurnId
+          ? yield* queueEvent(command, queue)
+          : undefined;
+      if (
+        command.type === "thread.turn.queue" &&
+        command.action === "resume" &&
+        (thread.session?.status === "running" ||
+          thread.session?.status === "starting" ||
+          queue.items.length === 0)
+      ) {
+        return yield* queueEvent(command, { ...queue, paused: false });
+      }
+      const automatic = command.type === "thread.turn.queue.drain";
+      const item =
+        automatic || command.action === "resume"
+          ? queue.items[0]
+          : queue.items.find((item) => item.messageId === command.messageId);
+      if (!item && boundaryEvent) return boundaryEvent;
+      if (!item)
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "This message has already been sent or removed.",
+        });
+      if (
+        automatic &&
+        (queue.paused ||
+          queue.dispatchingMessageId !== undefined ||
+          thread.archivedAt !== null ||
+          thread.settledOverride === "settled" ||
+          thread.session?.status === "running" ||
+          thread.session?.status === "starting" ||
+          openRequests(thread).size > 0 ||
+          hasQueuedTurnStartForThread(thread, command.createdAt) ||
+          (thread.latestTurn !== null &&
+            queue.completedTurnId !== thread.latestTurn.turnId &&
+            !thread.checkpoints.some(
+              (checkpoint) =>
+                checkpoint.turnId === thread.latestTurn?.turnId && checkpoint.status === "ready",
+            )))
+      )
+        return boundaryEvent ?? [];
+      const updated = yield* queueEvent(command, {
+        ...queue,
+        paused: !automatic && command.action === "resume" ? false : queue.paused,
+        items: queue.items.filter((entry) => entry.messageId !== item.messageId),
+        ...(automatic || command.action === "resume"
+          ? { dispatchingMessageId: item.messageId }
+          : {}),
+      });
+      if (!automatic && command.action === "cancel") return updated;
+      const nextReadModel = yield* projectEvent(readModel, {
+        ...updated,
+        sequence: readModel.snapshotSequence + 1,
+      }).pipe(Effect.orDie);
+      const started = yield* decideCommandSequence({
+        readModel: nextReadModel,
+        commands: [
+          {
+            type: "thread.runtime-mode.set",
+            commandId: command.commandId,
+            threadId: command.threadId,
+            runtimeMode: item.runtimeMode,
+            createdAt: command.createdAt,
+          },
+          {
+            type: "thread.interaction-mode.set",
+            commandId: command.commandId,
+            threadId: command.threadId,
+            interactionMode: item.interactionMode,
+            createdAt: command.createdAt,
+          },
+          {
+            type: "thread.turn.start",
+            commandId: command.commandId,
+            threadId: command.threadId,
+            message: {
+              messageId: item.messageId,
+              role: "user",
+              text: item.text,
+              attachments: item.attachments,
+            },
+            modelSelection: item.modelSelection,
+            runtimeMode: item.runtimeMode,
+            interactionMode: item.interactionMode,
+            createdAt: command.createdAt,
+          },
+        ],
+      });
+      return [updated, ...(Array.isArray(started) ? started : [started])];
     }
 
     case "thread.turn.interrupt": {
-      yield* requireThread({
+      const thread = yield* requireThread({
         readModel,
         command,
         threadId: command.threadId,
       });
-      return {
+      const interrupted: Omit<OrchestrationEvent, "sequence"> = {
         ...(yield* withEventBase({
           aggregateKind: "thread",
           aggregateId: command.threadId,
@@ -1187,6 +1345,9 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           createdAt: command.createdAt,
         },
       };
+      return thread.turnQueue?.items.length
+        ? [yield* queueEvent(command, { ...thread.turnQueue, paused: true }), interrupted]
+        : interrupted;
     }
 
     case "thread.approval.respond": {
@@ -1503,6 +1664,31 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           session: command.session,
         },
       };
+      if (
+        thread.turnQueue?.items.length &&
+        !thread.turnQueue.paused &&
+        (command.session.status === "error" ||
+          command.session.status === "interrupted" ||
+          command.session.status === "stopped")
+      ) {
+        return [
+          yield* queueEvent(command, {
+            ...thread.turnQueue,
+            dispatchingMessageId: undefined,
+            paused: true,
+          }),
+          sessionSetEvent,
+        ];
+      }
+      if (
+        thread.turnQueue?.dispatchingMessageId !== undefined &&
+        command.session.status !== "starting"
+      ) {
+        return [
+          yield* queueEvent(command, { ...thread.turnQueue, dispatchingMessageId: undefined }),
+          sessionSetEvent,
+        ];
+      }
       // Only a session coming alive is activity worth waking a settled thread
       // for — status writes like ready/stopped/error arrive after the fact and
       // must not fight a user's explicit settle. Snooze is deliberately NOT

@@ -44,6 +44,7 @@ const QueuedThreadCreationSchema = Schema.Struct({
 });
 
 export const QueuedThreadMessageSchema = Schema.Struct({
+  delivery: Schema.optional(Schema.Literals(["steer", "queue"])),
   schemaVersion: Schema.Literals([1, 2, THREAD_OUTBOX_SCHEMA_VERSION, 4]),
   environmentId: EnvironmentId,
   threadId: ThreadId,
@@ -74,6 +75,7 @@ export interface QueuedThreadCreation {
 }
 
 export interface QueuedThreadMessage {
+  readonly delivery?: "steer" | "queue";
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly messageId: MessageId;
