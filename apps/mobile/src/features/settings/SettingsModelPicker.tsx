@@ -18,13 +18,7 @@ export function SettingsModelPicker({
   onChange: (selection: ModelSelection) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const models = buildModelOptions(
-    {
-      ...config,
-      providers: config.providers.filter((provider) => provider.driver === "claudeAgent"),
-    },
-    selection,
-  );
+  const models = buildModelOptions(config, selection);
   const selected = models.find(
     (option) =>
       option.selection.instanceId === selection.instanceId &&

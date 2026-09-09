@@ -987,13 +987,17 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
             threadId: input.threadId,
           });
 
-          const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
-            ManagedMcp.toAcpMcpServers(
-              ManagedMcp.readManagedMcpServers(input.threadId),
-              options?.environment ?? process.env,
-            ),
-          );
-          const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+          const managedMcpConfig = input.reviewer
+            ? []
+            : yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+                ManagedMcp.toAcpMcpServers(
+                  ManagedMcp.readManagedMcpServers(input.threadId),
+                  options?.environment ?? process.env,
+                ),
+              );
+          const mcpSession = input.reviewer
+            ? undefined
+            : McpProviderSession.readMcpProviderSession(input.threadId);
           const acp = yield* makeGrokAcpRuntime({
             grokSettings,
             ...(options?.environment ? { environment: options.environment } : {}),
@@ -1037,6 +1041,7 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
                   mapAcpCallbackFailure(
                     Effect.gen(function* () {
                       yield* logNative(input.threadId, method, params);
+                      if (input.reviewer) return makeXAiAskUserQuestionCancelledResponse();
                       const requestId = ApprovalRequestId.make(yield* randomUUIDv4);
                       const runtimeRequestId = RuntimeRequestId.make(requestId);
                       const resolution = yield* Deferred.make<PendingUserInputResolution>();
@@ -1136,6 +1141,9 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
               mapAcpCallbackFailure(
                 Effect.gen(function* () {
                   yield* logNative(input.threadId, "session/request_permission", params);
+                  if (input.reviewer) {
+                    return { outcome: { outcome: "cancelled" as const } };
+                  }
                   const permissionRequest = parsePermissionRequest(params);
                   const command = permissionRequest.toolCall?.command;
                   const { kind, title, rawInput, locations } = params.toolCall;
@@ -2130,7 +2138,7 @@ export function makeGrokAdapter(grokSettings: GrokSettings, options?: GrokAdapte
 
     return {
       provider: PROVIDER,
-      capabilities: { sessionModelSwitch: "in-session" },
+      capabilities: { sessionModelSwitch: "in-session", reviewerSession: "read-only" },
       compaction: { type: "slash-command", command: "/compact" },
       startSession,
       sendTurn,

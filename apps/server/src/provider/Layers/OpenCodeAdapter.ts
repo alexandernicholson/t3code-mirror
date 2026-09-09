@@ -47,6 +47,7 @@ import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
 import { type OpenCodeAdapterShape } from "../Services/OpenCodeAdapter.ts";
 import {
   buildOpenCodePermissionRules,
+  buildOpenCodeReviewerPermissionRules,
   OpenCodeRuntime,
   OpenCodeRuntimeError,
   openCodeQuestionId,
@@ -2839,7 +2840,9 @@ export function makeOpenCodeAdapter(
                 directory,
                 ...(server.serverPassword ? { serverPassword: server.serverPassword } : {}),
               });
-              const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+              const mcpSession = input.reviewer
+                ? undefined
+                : McpProviderSession.readMcpProviderSession(input.threadId);
               if (mcpSession && !server.external) {
                 yield* runOpenCodeSdk("mcp.add", () =>
                   client.mcp.add({
@@ -2887,7 +2890,9 @@ export function makeOpenCodeAdapter(
                   yield* runOpenCodeSdk("session.update", () =>
                     client.session.update({
                       sessionID: reusable.id,
-                      permission: buildOpenCodePermissionRules(input.runtimeMode),
+                      permission: input.reviewer
+                        ? buildOpenCodeReviewerPermissionRules()
+                        : buildOpenCodePermissionRules(input.runtimeMode),
                     }),
                   );
                   return { openCodeSession: reusable, created: false };
@@ -2914,7 +2919,9 @@ export function makeOpenCodeAdapter(
                   yield* runOpenCodeSdk("session.update", () =>
                     client.session.update({
                       sessionID: forked.id,
-                      permission: buildOpenCodePermissionRules(input.runtimeMode),
+                      permission: input.reviewer
+                        ? buildOpenCodeReviewerPermissionRules()
+                        : buildOpenCodePermissionRules(input.runtimeMode),
                     }),
                   );
                   return { openCodeSession: forked, created: true };
@@ -2928,7 +2935,9 @@ export function makeOpenCodeAdapter(
                 const createdSession = yield* runOpenCodeSdk("session.create", () =>
                   client.session.create({
                     ...(input.title ? { title: input.title } : {}),
-                    permission: buildOpenCodePermissionRules(input.runtimeMode),
+                    permission: input.reviewer
+                      ? buildOpenCodeReviewerPermissionRules()
+                      : buildOpenCodePermissionRules(input.runtimeMode),
                   }),
                 );
                 if (!createdSession.data) {
@@ -3842,6 +3851,7 @@ export function makeOpenCodeAdapter(
       provider: PROVIDER,
       capabilities: {
         sessionModelSwitch: "in-session",
+        reviewerSession: "read-only",
       },
       startSession,
       sendTurn,

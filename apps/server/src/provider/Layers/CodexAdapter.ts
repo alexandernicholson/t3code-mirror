@@ -2261,13 +2261,17 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           input.modelSelection?.instanceId === boundInstanceId
             ? getModelSelectionStringOptionValue(input.modelSelection, "contextWindow")
             : undefined;
-        const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
-          ManagedMcp.toCodexMcpArgs(
-            ManagedMcp.readManagedMcpServers(input.threadId),
-            options?.environment ?? process.env,
-          ),
-        );
-        const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+        const managedMcpConfig = input.reviewer
+          ? []
+          : yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+              ManagedMcp.toCodexMcpArgs(
+                ManagedMcp.readManagedMcpServers(input.threadId),
+                options?.environment ?? process.env,
+              ),
+            );
+        const mcpSession = input.reviewer
+          ? undefined
+          : McpProviderSession.readMcpProviderSession(input.threadId);
         const runtimeInput: CodexSessionRuntimeOptions = {
           threadId: input.threadId,
           providerInstanceId: boundInstanceId,
@@ -2292,6 +2296,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
               : {}),
           },
           appServerArgs: [
+            ...(input.reviewer ? ["-c", "mcp_servers={}"] : []),
             ...managedMcpConfig,
             ...(mcpSession
               ? [
@@ -2729,6 +2734,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
     provider: PROVIDER,
     capabilities: {
       sessionModelSwitch: "in-session",
+      reviewerSession: "read-only",
       promptlessTurnContinuation: true,
     },
     startSession,

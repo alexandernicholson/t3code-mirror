@@ -42,10 +42,10 @@ This fork currently adds or changes the following:
   trials; rollback; progress; and release notes. It also permits updates when
   terminals are idle on systems without native process monitoring. See
   [Updates from this fork](./docs/user/updating.md#updates-from-this-fork).
-- Adds independent read-only advisors, with project and thread selection, live review
-  timelines, automatic guidance during active work, and pause/resume controls on
-  web, desktop, and mobile. Reviewer sessions currently use Claude Code and can
-  watch any provider. See [Advisors](./docs/user/composer.md#advisors).
+- Adds independent read-only advisors using any configured provider or model, with
+  project and thread selection, live review timelines, automatic guidance during
+  active work, and pause/resume controls on web, desktop, and mobile. See
+  [Advisors](./docs/user/composer.md#advisors).
 - Adds persistent, editable thread TODOs shared across web, desktop, and mobile.
   Native provider checklists and the fallback TODO tool feed the same state, while
   user edits are reconciled back into the conversation. See

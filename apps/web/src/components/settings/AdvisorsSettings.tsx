@@ -113,11 +113,17 @@ export function AdvisorConfigurationEditor({
     });
   const providers = config?.providers ?? [];
   const choices = providers
-    .filter((provider) => provider.driver === "claudeAgent")
+    .filter(
+      (provider) =>
+        provider.enabled &&
+        provider.installed &&
+        provider.auth.status !== "unauthenticated" &&
+        provider.availability !== "unavailable",
+    )
     .flatMap((provider) =>
       provider.models.map((model) => ({
         key: `${provider.instanceId}/${model.slug}`,
-        label: `${provider.displayName ?? "Claude Code"} · ${model.name}`,
+        label: `${provider.displayName ?? provider.driver} · ${model.name}`,
         selection: { instanceId: provider.instanceId, model: model.slug },
       })),
     );
@@ -311,8 +317,7 @@ export function AdvisorConfigurationEditor({
       )}
       {scope.type === "environment" && choices.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Enable Claude Code in Providers to add a read-only advisor. Advisors can watch threads
-          using any provider.
+          Set up a provider account before adding an advisor.
         </p>
       )}
       <details>

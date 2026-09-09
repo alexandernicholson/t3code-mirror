@@ -541,13 +541,17 @@ export function makeCursorAdapter(
             ? yield* options.resolveSettings
             : cursorSettings;
 
-          const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
-            ManagedMcp.toAcpMcpServers(
-              ManagedMcp.readManagedMcpServers(input.threadId),
-              options?.environment ?? process.env,
-            ),
-          );
-          const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+          const managedMcpConfig = input.reviewer
+            ? []
+            : yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+                ManagedMcp.toAcpMcpServers(
+                  ManagedMcp.readManagedMcpServers(input.threadId),
+                  options?.environment ?? process.env,
+                ),
+              );
+          const mcpSession = input.reviewer
+            ? undefined
+            : McpProviderSession.readMcpProviderSession(input.threadId);
           const acp = yield* makeCursorAcpRuntime({
             cursorSettings: effectiveCursorSettings,
             ...(options?.environment ? { environment: options.environment } : {}),
@@ -593,6 +597,7 @@ export function makeCursorAdapter(
                     params,
                     "acp.cursor.extension",
                   );
+                  if (input.reviewer) return { answers: {} };
                   const requestId = ApprovalRequestId.make(yield* randomUUIDv4);
                   const runtimeRequestId = RuntimeRequestId.make(requestId);
                   const answers = yield* Deferred.make<ProviderUserInputAnswers>();
@@ -685,6 +690,9 @@ export function makeCursorAdapter(
                     params,
                     "acp.jsonrpc",
                   );
+                  if (input.reviewer) {
+                    return { outcome: { outcome: "cancelled" as const } };
+                  }
                   if (input.runtimeMode === "full-access") {
                     const autoApprovedOptionId = selectAutoApprovedPermissionOption(params);
                     if (autoApprovedOptionId !== undefined) {
@@ -1231,7 +1239,7 @@ export function makeCursorAdapter(
 
     return {
       provider: PROVIDER,
-      capabilities: { sessionModelSwitch: "in-session" },
+      capabilities: { sessionModelSwitch: "in-session", reviewerSession: "read-only" },
       compaction: { type: "slash-command", command: "/compress" },
       startSession,
       sendTurn,

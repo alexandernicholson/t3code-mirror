@@ -1,5 +1,6 @@
 import ChatMarkdown from "./ChatMarkdown";
 import { useAtomValue } from "@effect/atom-react";
+import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { Eye, Pause, Play, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -29,7 +30,9 @@ export function AdvisorIndicator({
   const [seenFindings, setSeenFindings] = useState(0);
   const findingCount = AsyncResult.isSuccess(snapshot) ? snapshot.value.findingCount : 0;
   useEffect(() => {
-    if (panelOpen) setSeenFindings(findingCount);
+    if (!panelOpen) return;
+    const timeout = window.setTimeout(() => setSeenFindings(findingCount), 0);
+    return () => window.clearTimeout(timeout);
   }, [panelOpen, findingCount]);
   const states = AsyncResult.isSuccess(snapshot) ? snapshot.value.states : [];
   const active = states.some(
@@ -82,6 +85,7 @@ export function AdvisorIndicator({
 }
 
 export function AdvisorsPanel({ environmentId, threadId }: Props) {
+  const navigate = useNavigate();
   const snapshot = useAtomValue(
     advisors.snapshot({ environmentId, input: { threadId, details: true } }),
   );
@@ -153,9 +157,14 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
             environmentId={environmentId}
             fixedScope={{ type: "thread", threadId }}
           />
-          <a className="mt-4 block text-sm underline" href="/settings/agents">
+          <Button
+            className="mt-4"
+            size="sm"
+            variant="outline"
+            onClick={() => void navigate({ to: "/settings/agents" })}
+          >
             Configure advisor models and instructions
-          </a>
+          </Button>
         </div>
       ) : (
         <>
@@ -193,12 +202,14 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
             {value.states.length === 0 && (
               <div className="space-y-3 py-6 text-sm text-muted-foreground">
                 <p>Get a second opinion while your agent works.</p>
-                <a className="underline" href="/settings/agents">
-                  Set up an advisor
-                </a>
-                <Button size="sm" variant="outline" onClick={() => setSettings(true)}>
-                  Choose advisors for this thread
-                </Button>
+                <div className="flex flex-col items-start gap-2">
+                  <Button size="sm" onClick={() => void navigate({ to: "/settings/agents" })}>
+                    Set up an advisor
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setSettings(true)}>
+                    Choose advisors for this thread
+                  </Button>
+                </div>
               </div>
             )}
             {value.entries

@@ -1271,6 +1271,45 @@ it.layer(layer)("AntigravityAdapter", (it) => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect("keeps advisor sessions read-only and disconnected from MCP tools", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const h = yield* makeHarness();
+      const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "t3-agy-advisor-" });
+      yield* h.adapter.startSession({
+        threadId,
+        cwd,
+        runtimeMode: "approval-required",
+        reviewer: true,
+      });
+
+      expect(h.adapter.capabilities.reviewerSession).toBe("read-only");
+      expect(h.launches[0]?.mcpServers).toEqual([]);
+      expect(h.launches[0]?.additionalDirectories).toEqual([]);
+      const write = h.fileHandlers.write;
+      if (!write) return yield* Effect.die("File handlers were not registered.");
+      expect(
+        Exit.isFailure(
+          yield* write({
+            sessionId: nativeSessionId,
+            path: path.join(cwd, "review.txt"),
+            content: "must not be written",
+          }).pipe(Effect.exit),
+        ),
+      ).toBe(true);
+      expect(yield* fs.exists(path.join(cwd, "review.txt"))).toBe(false);
+      expect(
+        yield* h.invokePermission({
+          sessionId: nativeSessionId,
+          toolCall: { toolCallId: "advisor-edit", kind: "edit", title: "Edit a file" },
+          options: [{ optionId: "allow", name: "Allow", kind: "allow_once" }],
+        }),
+      ).toEqual({ outcome: { outcome: "cancelled" } });
+      expect(h.seen.some((event) => event.type === "request.opened")).toBe(false);
+    }),
+  );
+
   it.effect("does not launch a process for a disabled instance or invalid resume cursor", () =>
     Effect.gen(function* () {
       const disabled = yield* makeHarness({ enabled: false });

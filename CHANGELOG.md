@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.3] - 2026-09-09
+
+- Let advisors use any configured provider and model. Reviewer sessions enforce read-only inspection, disable MCP access, and dismiss write or interaction requests across Codex, Claude, Cursor, Grok, OpenCode, and Antigravity. Improve advisor setup actions on web and mobile.
+
+---
+
 ## [0.3.2] - 2026-09-09
 
 - Add project-scoped conversation backgrounds with grouped workstation, landscape, and abstract choices, cover-cropped artwork, and readable glass chat surfaces across web, desktop, and mobile. Includes a database migration for the saved project selection.

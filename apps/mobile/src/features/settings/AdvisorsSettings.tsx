@@ -122,10 +122,16 @@ export function MobileAdvisorConfiguration({
       ? value.definitions
       : (configurations.find((item) => item.scope.type === "environment")?.definitions ?? []);
   const choices = (server?.providers ?? [])
-    .filter((provider) => provider.driver === "claudeAgent")
+    .filter(
+      (provider) =>
+        provider.enabled &&
+        provider.installed &&
+        provider.auth.status !== "unauthenticated" &&
+        provider.availability !== "unavailable",
+    )
     .flatMap((provider) =>
       provider.models.map((model) => ({
-        label: `${provider.displayName ?? "Claude Code"} · ${model.name}`,
+        label: `${provider.displayName ?? provider.driver} · ${model.name}`,
         selection: { instanceId: provider.instanceId, model: model.slug },
       })),
     );
@@ -264,8 +270,7 @@ export function MobileAdvisorConfiguration({
       )}
       {choices.length === 0 && (
         <Text className="text-sm text-foreground-muted">
-          Enable Claude Code in Providers to use read-only advisors. Advisors can watch any
-          provider.
+          Set up a provider account before adding an advisor.
         </Text>
       )}
       <Text className="text-sm text-foreground-muted">

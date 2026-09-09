@@ -519,6 +519,20 @@ export function buildOpenCodePermissionRules(runtimeMode: RuntimeMode): Permissi
   ];
 }
 
+/** Advisor sessions expose only the workspace inspection primitives. The
+ * leading deny also covers provider additions that T3 does not know yet. */
+export function buildOpenCodeReviewerPermissionRules(): PermissionRuleset {
+  return [
+    { permission: "*", pattern: "*", action: "deny" },
+    { permission: "read", pattern: "*", action: "allow" },
+    { permission: "read", pattern: "*.env", action: "deny" },
+    { permission: "read", pattern: "*.env.*", action: "deny" },
+    { permission: "read", pattern: "*.env.example", action: "allow" },
+    { permission: "glob", pattern: "*", action: "allow" },
+    { permission: "grep", pattern: "*", action: "allow" },
+  ];
+}
+
 export function toOpenCodePermissionReply(
   decision: ProviderApprovalDecision,
 ): "once" | "always" | "reject" {

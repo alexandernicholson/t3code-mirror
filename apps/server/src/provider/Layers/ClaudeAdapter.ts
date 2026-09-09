@@ -4670,7 +4670,7 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       // files; siblings like secrets/ and state.sqlite stay ungranted.
       const additionalDirectories = [
         ...(input.cwd ? [input.cwd] : []),
-        serverConfig.attachmentsDir,
+        ...(input.reviewer ? [] : [serverConfig.attachmentsDir]),
       ];
       const queryOptions: ClaudeQueryOptions = {
         ...(input.cwd ? { cwd: input.cwd } : {}),
@@ -5136,6 +5136,7 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
     provider: PROVIDER,
     capabilities: {
       sessionModelSwitch: "in-session",
+      reviewerSession: "read-only",
     },
     compaction: { type: "slash-command", command: "/compact" },
     startSession,
