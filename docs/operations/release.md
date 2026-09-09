@@ -14,6 +14,11 @@ CI enforces the version bump and keeps previously released notes unchanged.
 The packaged-release workflow may stamp artifact versions, but its finalize
 job does not write those stamps back over source release metadata.
 
+Before releasing a major feature or bug fix that is not present upstream, amend
+the **Differences from upstream** list in the root `README.md`. Keep the list
+focused on meaningful fork behavior and remove or revise entries when upstream
+adopts the same behavior.
+
 The source service needs Git, the repository's Node version, `vp`, native build
 prerequisites, repository access, and enough disk for a checkout and dependencies
 alongside the running runtime. Source builds retain their dependency trees; old
@@ -431,19 +436,21 @@ Checklist:
 
 ## 4) Ongoing release checklist
 
-1. Pick the latest nightly and verify it: run the smoke test above against its artifacts and
+1. Confirm the root `README.md` lists every major feature or bug fix in this release that is not
+   present upstream, and revise entries that upstream has adopted.
+2. Pick the latest nightly and verify it: run the smoke test above against its artifacts and
    check the nightly channel for regressions.
-2. Dispatch the Release workflow with `channel=stable`. Leave `version` empty unless the version
+3. Dispatch the Release workflow with `channel=stable`. Leave `version` empty unless the version
    should differ from the one the nightly previewed.
-3. Confirm the `Resolve release commit` notice names the nightly tag and commit you verified. If a
+4. Confirm the `Resolve release commit` notice names the nightly tag and commit you verified. If a
    newer nightly published in between, the run builds that one instead.
-4. Verify workflow steps:
+5. Verify workflow steps:
    - preflight passes
    - release quality checks pass
    - all matrix builds pass
    - `publish_cli` publishes the exact release version before the release job
    - release job uploads expected files
-5. Smoke test downloaded artifacts.
+6. Smoke test downloaded artifacts.
 
 ## 5) Troubleshooting
 
