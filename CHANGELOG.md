@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2] - 2026-09-09
+
+- Claude custom models now expose Thinking and 200k/1M context-window controls, including correct 1M model dispatch.
+
+---
+
 ## [0.5.1] - 2026-09-09
 
 - Track provider usage-limit percentages for 90 days and replace scheduled recovery projections with account history charts on web, desktop, and mobile. History begins after this update and includes a database migration.

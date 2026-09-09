@@ -12,7 +12,6 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { createModelCapabilities } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import {
   query as claudeQuery,
@@ -45,14 +44,14 @@ import {
 } from "./claudeUsageLimits.ts";
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
+  DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES,
   type ClaudeModelCatalog,
   formatClaudeVersionUpgradeMessage,
   resolveClaudeModelsForVersion,
 } from "../ClaudeModelCatalog.ts";
 
-const DEFAULT_CLAUDE_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
-  optionDescriptors: [],
-});
+const DEFAULT_CLAUDE_MODEL_CAPABILITIES: ModelCapabilities =
+  DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES;
 
 const CLAUDE_PRESENTATION = {
   displayName: "Claude",

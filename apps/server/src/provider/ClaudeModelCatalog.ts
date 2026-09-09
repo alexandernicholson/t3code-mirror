@@ -29,6 +29,32 @@ import {
 const CLAUDE = ProviderDriverKind.make("claudeAgent");
 const EMPTY_CAPABILITIES: ModelCapabilities = { optionDescriptors: [] };
 
+/**
+ * Bare custom Claude models use the CLI's generic controls. The context
+ * choices mirror Claude Code's model suffix syntax, which is independent of
+ * the concrete model id and therefore also works for gateway/custom ids.
+ */
+export const DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES: ModelCapabilities = {
+  optionDescriptors: [
+    { id: "thinking", label: "Thinking", type: "boolean" },
+    {
+      id: "contextWindow",
+      label: "Context Window",
+      type: "select",
+      options: [
+        { id: "200k", label: "200k", isDefault: true },
+        { id: "1m", label: "1M" },
+      ],
+      currentValue: "200k",
+    },
+  ],
+};
+
+const DEFAULT_CLAUDE_CUSTOM_MODEL_RUNTIME: ClaudeCodeProfile = {
+  modelSuffixes: { contextWindow: { "1m": "[1m]" } },
+  contextWindowTokens: { "200k": 200_000, "1m": 1_000_000 },
+};
+
 export interface ClaudeCatalogModel {
   readonly model: ServerProviderModel;
   readonly runtime: ClaudeCodeProfile;
@@ -74,10 +100,9 @@ export const BUNDLED_CLAUDE_MODEL_CATALOG = resolveClaudeModelCatalog(BUNDLED_MO
 /**
  * Scope the catalog to one instance's settings: custom model slugs stay opaque
  * (a built-in alias they shadow is dropped, canonical slugs and capabilities
- * are preserved), and custom entries that declare their own capabilities are
- * appended so the adapter resolves effort / fast mode / thinking against the
- * user's descriptors instead of the empty default. Custom entries carry no
- * runtime profile, so option values pass through to Claude Code verbatim.
+ * are preserved), and custom entries are appended so the adapter resolves
+ * thinking and context controls for bare entries plus any explicitly authored
+ * descriptors. Explicit effort values pass through to Claude Code verbatim.
  */
 export function scopeClaudeModelCatalog(
   catalog: ClaudeModelCatalog,
@@ -102,15 +127,15 @@ export function scopeClaudeModelCatalog(
   const builtInSlugs = new Set(builtInModels.map((entry) => entry.model.slug));
   const customCatalogModels: Array<ClaudeCatalogModel> = [];
   for (const entry of customEntries) {
-    if (!entry.capabilities || builtInSlugs.has(entry.slug)) continue;
+    if (builtInSlugs.has(entry.slug)) continue;
     customCatalogModels.push({
       model: {
         slug: entry.slug,
         name: entry.name,
         isCustom: true,
-        capabilities: entry.capabilities,
+        capabilities: entry.capabilities ?? DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES,
       },
-      runtime: {},
+      runtime: DEFAULT_CLAUDE_CUSTOM_MODEL_RUNTIME,
       compatibility: {},
     });
   }
@@ -140,7 +165,11 @@ export function getClaudeCatalogModelCapabilities(
   catalog: ClaudeModelCatalog,
   slugOrAlias: string | null | undefined,
 ): ModelCapabilities {
-  return resolveClaudeCatalogModel(catalog, slugOrAlias)?.model.capabilities ?? EMPTY_CAPABILITIES;
+  if (!slugOrAlias?.trim()) return EMPTY_CAPABILITIES;
+  return (
+    resolveClaudeCatalogModel(catalog, slugOrAlias)?.model.capabilities ??
+    DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES
+  );
 }
 
 function isVersionSupported(
@@ -237,10 +266,11 @@ export function resolveClaudeCatalogApiModelId(
   const entry = resolveClaudeCatalogModel(catalog, modelSelection.model);
   const slug = entry?.model.slug ?? modelSelection.model;
   const descriptors = getProviderOptionDescriptors({
-    caps: entry?.model.capabilities ?? EMPTY_CAPABILITIES,
+    caps: entry?.model.capabilities ?? DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES,
     selections: modelSelection.options,
   });
-  for (const [optionId, suffixes] of Object.entries(entry?.runtime.modelSuffixes ?? {})) {
+  const runtime = entry?.runtime ?? DEFAULT_CLAUDE_CUSTOM_MODEL_RUNTIME;
+  for (const [optionId, suffixes] of Object.entries(runtime.modelSuffixes ?? {})) {
     const value = getProviderOptionCurrentValue(
       descriptors.find((descriptor) => descriptor.id === optionId),
     );
@@ -254,8 +284,8 @@ export function resolveClaudeCatalogContextWindowTokens(
   modelSelection: ModelSelection | undefined,
 ): number | undefined {
   const entry = resolveClaudeCatalogModel(catalog, modelSelection?.model);
-  if (!entry) return undefined;
-  if (entry.runtime.fixedContextWindowTokens) return entry.runtime.fixedContextWindowTokens;
+  const runtime = entry?.runtime ?? DEFAULT_CLAUDE_CUSTOM_MODEL_RUNTIME;
+  if (runtime.fixedContextWindowTokens) return runtime.fixedContextWindowTokens;
   const contextWindow = resolveClaudeCatalogContextWindow(catalog, modelSelection);
-  return contextWindow ? entry.runtime.contextWindowTokens?.[contextWindow] : undefined;
+  return contextWindow ? runtime.contextWindowTokens?.[contextWindow] : undefined;
 }
