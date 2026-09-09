@@ -214,6 +214,8 @@ function isLegacyModel(
     (model) => model.slug === slug,
   );
   if (catalogModel) return catalogModel.status === "legacy";
+  // Claude gateways can publish models outside the curated catalog. Absence is not retirement.
+  if (driverKind === "claudeAgent") return false;
   const currentModels = manifest.currentModels[driverKind];
   if (!currentModels) return false;
   return !currentModels.includes(slug);

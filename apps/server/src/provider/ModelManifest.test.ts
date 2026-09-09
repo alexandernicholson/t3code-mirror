@@ -39,6 +39,34 @@ const model = (overrides: Partial<ServerProviderModel>): ServerProviderModel => 
 });
 
 describe("classifyModels", () => {
+  it("does not classify discovered Claude gateway models as legacy because they are absent from the manifest", () => {
+    const driver = ProviderDriverKind.make("claudeAgent");
+    const manifest: ModelManifestData = {
+      version: 1,
+      currentModels: { claudeAgent: ["claude-current"] },
+      providers: {
+        claudeAgent: {
+          profiles: {},
+          models: [{ slug: "claude-old", name: "Old", status: "legacy" }],
+        },
+      },
+    };
+    assert.deepEqual(
+      classifyModels(
+        [
+          model({ slug: "anthropic/gateway-code[1m]", isLegacy: true }),
+          model({ slug: "claude-old" }),
+        ],
+        manifest,
+        driver,
+      ).map((entry) => [entry.slug, entry.isLegacy ?? false]),
+      [
+        ["anthropic/gateway-code[1m]", false],
+        ["claude-old", true],
+      ],
+    );
+  });
+
   it("flags non-current models, clears stale flags, and skips custom models", () => {
     const manifest: ModelManifestData = {
       version: 1,

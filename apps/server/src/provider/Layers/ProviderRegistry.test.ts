@@ -1,3 +1,4 @@
+import type { ModelInfo as ClaudeModelInfo } from "@anthropic-ai/claude-agent-sdk";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, it, assert } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
@@ -34,6 +35,7 @@ import { createModelCapabilities } from "@t3tools/shared/model";
 import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
 
 import { checkCodexProviderStatus, type CodexAppServerProviderSnapshot } from "./CodexProvider.ts";
+import { SYNTHETIC_CLAUDE_MODEL_CATALOG } from "../ClaudeModelCatalog.testFixtures.ts";
 import { checkClaudeProviderStatus } from "./ClaudeProvider.ts";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { AntigravityInstallation } from "../AntigravityInstallation.ts";
@@ -138,6 +140,7 @@ function booleanDescriptor(id: string, label: string) {
 }
 
 type TestClaudeCapabilities = {
+  readonly models?: ReadonlyArray<ClaudeModelInfo>;
   readonly email: string | undefined;
   readonly subscriptionType: string | undefined;
   readonly tokenSource: string | undefined;
@@ -884,6 +887,34 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
         const afterFailure = mergeProviderSnapshot(afterRemoval, failedProvider);
 
         assert.deepStrictEqual(afterFailure.models, [authoritativeProvider.models[0]!]);
+      });
+
+      it("replaces Claude gateway inventories after successful probes and retains them during failures", () => {
+        const previous = {
+          instanceId: ProviderInstanceId.make("claude_gateway"),
+          driver: ProviderDriverKind.make("claudeAgent"),
+          enabled: true,
+          installed: true,
+          status: "ready",
+          auth: { status: "authenticated" },
+          version: "2.1.263",
+          checkedAt: "2026-09-09T00:00:00.000Z",
+          slashCommands: [],
+          skills: [],
+          models: [
+            { slug: "anthropic/retired", name: "Retired", isCustom: false, capabilities: null },
+          ],
+        } satisfies ServerProvider;
+        const next = { ...previous, models: [] };
+        assert.deepEqual(mergeProviderSnapshot(previous, next).models, []);
+        for (const status of ["warning", "error"] as const) {
+          assert.deepEqual(
+            mergeProviderSnapshot(previous, { ...next, status, auth: { status: "unknown" } })
+              .models,
+            previous.models,
+          );
+        }
+        assert.deepEqual(mergeProviderSnapshot(previous, { ...next, enabled: false }).models, []);
       });
 
       describe("Codex model inventories", () => {
@@ -2645,6 +2676,86 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
     // ── checkClaudeProviderStatus tests ──────────────────────────
 
     describe("checkClaudeProviderStatus", () => {
+      it.effect(
+        "publishes discovered Claude models while preserving catalog and custom definitions",
+        () =>
+          Effect.gen(function* () {
+            const gateway = {
+              value: "anthropic/gateway-code[1m]",
+              displayName: "Gateway Code",
+              description: "From gateway",
+            };
+            const catalog = SYNTHETIC_CLAUDE_MODEL_CATALOG;
+            const builtIn = catalog.models[0]!.model;
+            const custom = {
+              slug: "anthropic/manual",
+              name: "My Model",
+              capabilities: { optionDescriptors: [] },
+            };
+            const settings = { ...defaultClaudeSettings, customModels: [custom] };
+            const probe = (models: ReadonlyArray<ClaudeModelInfo>) =>
+              checkClaudeProviderStatus(
+                settings,
+                claudeCapabilities({ models }),
+                undefined,
+                undefined,
+                catalog,
+              );
+            const status = yield* probe([
+              gateway,
+              gateway,
+              { value: builtIn.slug, displayName: "SDK name", description: "" },
+              { value: builtIn.aliases![0]!, displayName: "Alias", description: "" },
+              { value: "default", displayName: "Default", description: "" },
+              { value: custom.slug, displayName: "Gateway name", description: "" },
+              { value: "  ", displayName: "Blank", description: "" },
+              { value: "anthropic/unnamed", displayName: " ", description: "" },
+            ]);
+            assert.deepEqual(
+              status.models.find((model) => model.slug === gateway.value),
+              {
+                slug: gateway.value,
+                name: gateway.displayName,
+                isCustom: false,
+                capabilities: { optionDescriptors: [] },
+              },
+            );
+            assert.deepEqual(
+              status.models.find((model) => model.slug === builtIn.slug),
+              builtIn,
+            );
+            assert.deepEqual(
+              status.models.find((model) => model.slug === custom.slug),
+              { ...custom, isCustom: true },
+            );
+            assert.equal(status.models.filter((model) => model.slug === gateway.value).length, 1);
+            assert.equal(
+              status.models.some(
+                (model) =>
+                  model.slug === builtIn.aliases![0] ||
+                  model.slug === "default" ||
+                  !model.slug.trim(),
+              ),
+              false,
+            );
+            assert.equal(
+              status.models.find((model) => model.slug === "anthropic/unnamed")?.name,
+              "anthropic/unnamed",
+            );
+            const refreshed = yield* probe([]);
+            assert.equal(
+              refreshed.models.some((model) => model.slug === gateway.value),
+              false,
+            );
+            assert.equal(
+              refreshed.models.some((model) => model.slug === custom.slug),
+              true,
+            );
+          }).pipe(
+            Effect.provide(mockSpawnerLayer(() => ({ stdout: "2.1.263\n", stderr: "", code: 0 }))),
+          ),
+      );
+
       it.effect("returns ready when claude is installed and authenticated", () =>
         Effect.gen(function* () {
           const status = yield* checkClaudeProviderStatus(

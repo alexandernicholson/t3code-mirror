@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.2] - 2026-09-09
+
+- Show models discovered by Claude gateways across web, desktop, and mobile, preserving custom model settings and removing retired gateway entries after successful refreshes.
+
+---
+
 ## [0.2.1] - 2026-09-09
 
 - Move TODO checklists from above the composer into the right sidebar, with a toolbar inspector or sheet on mobile. Track TODO updates in the conversation and remove redundant editing guidance.

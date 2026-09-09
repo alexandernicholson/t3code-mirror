@@ -114,7 +114,7 @@ it.layer(NodeServices.layer)("Claude capability probe SDK boundary", (it) => {
           "      agents: [],",
           '      output_style: "default",',
           '      available_output_styles: ["default"],',
-          "      models: [],",
+          '      models: [{ value: "anthropic/gateway-code[1m]", displayName: "Gateway Code", description: "From gateway" }],',
           '      account: { email: "dev@example.com", subscriptionType: "pro", tokenSource: "oauth" },',
           "    });",
           "  }",
@@ -150,6 +150,13 @@ it.layer(NodeServices.layer)("Claude capability probe SDK boundary", (it) => {
         subscriptionType: "pro",
         tokenSource: "oauth",
         apiProvider: undefined,
+        models: [
+          {
+            value: "anthropic/gateway-code[1m]",
+            displayName: "Gateway Code",
+            description: "From gateway",
+          },
+        ],
         slashCommands: [
           {
             name: "review",
@@ -219,6 +226,7 @@ it.effect("preserves initialized capabilities when optional usage times out", ()
     assert.deepEqual(capabilities?.slashCommands, [
       { name: "review", description: "Review changes", input: { hint: "[path]" } },
     ]);
+    assert.deepEqual(capabilities?.models, []);
     assert.equal(capabilities?.usage, undefined);
     assert.equal(abortSignal?.aborted, true);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

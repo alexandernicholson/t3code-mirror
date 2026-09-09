@@ -2,6 +2,7 @@ import {
   type ClaudeSettings,
   type ModelCapabilities,
   type ServerProviderSlashCommand,
+  type ServerProviderModel,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -16,6 +17,7 @@ import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import {
   query as claudeQuery,
   type Options as ClaudeQueryOptions,
+  type ModelInfo as ClaudeModelInfo,
   type SlashCommand as ClaudeSlashCommand,
   type SDKControlGetUsageResponse,
   type SDKUserMessage,
@@ -225,6 +227,7 @@ function nonEmptyProbeString(value: string): string | undefined {
 }
 
 type ClaudeCapabilitiesProbe = {
+  readonly models?: ReadonlyArray<ClaudeModelInfo>;
   readonly email: string | undefined;
   readonly subscriptionType: string | undefined;
   readonly tokenSource: string | undefined;
@@ -381,6 +384,7 @@ const probeClaudeCapabilities = (
             }
           | undefined;
         return {
+          models: init.models ?? [],
           email: account?.email,
           subscriptionType: account?.subscriptionType,
           tokenSource: account?.tokenSource,
@@ -399,6 +403,32 @@ const probeClaudeCapabilities = (
     Effect.map((result) => (Result.isSuccess(result) ? result.success : undefined)),
   );
 };
+
+/** Keep catalog capabilities and user overrides; SDK-only rows remain opaque provider models. */
+function mergeClaudeDiscoveredModels(
+  configuredModels: ReadonlyArray<ServerProviderModel>,
+  discoveredModels: ReadonlyArray<ClaudeModelInfo>,
+): ReadonlyArray<ServerProviderModel> {
+  const models = [...configuredModels];
+  const seen = new Set(configuredModels.map((model) => model.slug));
+  const aliases = new Set(
+    configuredModels.flatMap((model) => model.aliases ?? []).map((alias) => alias.toLowerCase()),
+  );
+  for (const model of discoveredModels) {
+    const slug = nonEmptyProbeString(model.value);
+    // `default` delegates to Claude's current default; T3 already owns that selection.
+    if (!slug || slug === "default" || seen.has(slug) || aliases.has(slug.toLowerCase())) continue;
+    seen.add(slug);
+    models.push({
+      slug,
+      name: nonEmptyProbeString(model.displayName) ?? slug,
+      // isCustom denotes settings-authored entries, which clients reconcile against settings.
+      isCustom: false,
+      capabilities: DEFAULT_CLAUDE_MODEL_CAPABILITIES,
+    });
+  }
+  return models;
+}
 
 const runClaudeCommand = Effect.fn("runClaudeCommand")(function* (
   claudeSettings: ClaudeSettings,
@@ -523,7 +553,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
     });
   }
 
-  const models = providerModelsFromSettings(
+  const configuredModels = providerModelsFromSettings(
     resolveClaudeModelsForVersion(modelCatalog, parsedVersion),
     claudeSettings.customModels,
     DEFAULT_CLAUDE_MODEL_CAPABILITIES,
@@ -533,6 +563,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   const capabilities = resolveCapabilities
     ? yield* resolveCapabilities(claudeSettings).pipe(Effect.orElseSucceed(() => undefined))
     : undefined;
+  const models = mergeClaudeDiscoveredModels(configuredModels, capabilities?.models ?? []);
   const skills = yield* discoverClaudeSkills(claudeSettings, cwd, resolvedEnvironment);
   const slashCommands = [COMPACT_SLASH_COMMAND, ...(capabilities?.slashCommands ?? [])];
   const dedupedSlashCommands = dedupeSlashCommands(slashCommands);

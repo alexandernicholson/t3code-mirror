@@ -20,6 +20,8 @@ This fork currently adds or changes the following:
   [Secrets](./docs/user/project-settings.md#secrets).
 - Adds shared provider settings across clients, including configurable Codex
   model context windows. See [Codex accounts and settings](./docs/user/providers-codex.md).
+- Discovers Claude gateway models for web, desktop, and mobile model selection.
+  See [Claude routers](./docs/user/providers-claude.md#other-routers).
 - Keeps pull-request creation, lookup, and the in-app PR viewer pointed at the
   project's configured repository instead of silently switching to its upstream.
   See [Source control integrations](./docs/user/source-control.md).

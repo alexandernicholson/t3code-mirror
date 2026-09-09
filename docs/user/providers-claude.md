@@ -99,3 +99,10 @@ config directory and put the router's endpoint and credential variables in that
 instance's **Environment variables**. The router must run where the environment
 can reach it. Follow the [Claude Code Router instructions](https://github.com/musistudio/claude-code-router)
 for its installation and routing configuration.
+
+For gateways that support model discovery, set
+`CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` in the Claude instance's environment
+or Claude configuration on the environment's machine. Models discovered by Claude
+appear in T3 Code on web, desktop, and mobile after the provider refreshes. If a
+model is not returned by discovery, add its exact gateway ID under **Settings >
+Providers > Models** on web or desktop.

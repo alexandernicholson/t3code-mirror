@@ -66,6 +66,29 @@ function settingsWithProviderInstances(): UnifiedSettings {
 }
 
 describe("instance-scoped model selection", () => {
+  it("shows and selects discovered Claude gateway models only on their provider instance", () => {
+    const slug = "anthropic/gateway-code-advisor[1m]";
+    const gateway = provider({ instanceId: "claude_openrouter", models: [slug] });
+    const providers = [
+      provider({ instanceId: "claudeAgent", provider: ProviderDriverKind.make("claudeAgent") }),
+      {
+        ...gateway,
+        models: [{ ...gateway.models[0]!, name: "Gateway Advisor" }],
+      },
+    ];
+    const [stock, connected] = deriveProviderInstanceEntries(providers);
+    const settings = settingsWithProviderInstances();
+    expect(
+      getAppModelOptionsForInstance(settings, stock!).some((model) => model.slug === slug),
+    ).toBe(false);
+    expect(getAppModelOptionsForInstance(settings, connected!)).toContainEqual(
+      expect.objectContaining({ slug, name: "Gateway Advisor", isCustom: false }),
+    );
+    expect(resolveAppModelSelectionForInstance(gateway.instanceId, settings, providers, slug)).toBe(
+      slug,
+    );
+  });
+
   it("preserves server-provided legacy model metadata", () => {
     const baseProvider = provider({
       instanceId: "claudeAgent",
