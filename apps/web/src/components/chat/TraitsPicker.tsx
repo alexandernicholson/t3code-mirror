@@ -149,7 +149,7 @@ function getSelectedTraits(
   const modelIsUnavailable =
     provider === "opencode" &&
     !models.some((candidate) => candidate.slug === normalizeModelSlug(model, provider));
-  const descriptors = modelIsUnavailable
+  const rawDescriptors = modelIsUnavailable
     ? buildUnavailableModelOptionDescriptors(
         planModeEnabled
           ? modelOptions
@@ -159,6 +159,25 @@ function getSelectedTraits(
         caps,
         selections: modelOptions,
       });
+  const descriptors = allowPromptInjectedEffort
+    ? rawDescriptors
+    : rawDescriptors
+        .map((descriptor) =>
+          descriptor.type === "select"
+            ? {
+                ...descriptor,
+                options: descriptor.options.filter(
+                  (option) => !descriptor.promptInjectedValues?.includes(option.id),
+                ),
+              }
+            : descriptor,
+        )
+        .filter(
+          (descriptor) =>
+            descriptor.type !== "select" ||
+            descriptor.options.length > 0 ||
+            descriptor.contextWindow !== undefined,
+        );
   const selectDescriptors = descriptors.filter(
     (descriptor): descriptor is Extract<ProviderOptionDescriptor, { type: "select" }> =>
       descriptor.type === "select",
@@ -250,13 +269,7 @@ function getTraitsSectionVisibility(input: {
     showFastMode,
     showContextWindow,
     showAgent,
-    hasAnyControls:
-      showEffort ||
-      showThinking ||
-      showFastMode ||
-      showContextWindow ||
-      showAgent ||
-      (selected.modelIsUnavailable && selected.descriptors.length > 0),
+    hasAnyControls: selected.descriptors.length > 0,
   };
 }
 
@@ -284,6 +297,7 @@ export interface TraitsMenuContentProps {
   planModeEnabled: boolean;
   triggerVariant?: VariantProps<typeof buttonVariants>["variant"];
   triggerClassName?: string;
+  triggerAriaLabel?: string;
   isComposerOwned?: boolean;
 }
 
@@ -395,6 +409,7 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
             <div key={descriptor.id}>
               {index > 0 ? <MenuDivider /> : null}
               <ContextWindowOptions
+                key={String(getProviderOptionCurrentValue(descriptor) ?? "default")}
                 descriptor={descriptor}
                 onChange={(value) => handleSelectChange(descriptor, value)}
               />
@@ -571,6 +586,7 @@ export const TraitsPicker = memo(function TraitsPicker({
   planModeEnabled,
   triggerVariant,
   triggerClassName,
+  triggerAriaLabel,
   isComposerOwned,
   size = "sm",
   hidden = false,
@@ -641,6 +657,7 @@ export const TraitsPicker = memo(function TraitsPicker({
       <MenuTrigger
         render={
           <ComposerControl
+            aria-label={triggerAriaLabel}
             variant={triggerVariant ?? "ghost"}
             size={size}
             className={cn(

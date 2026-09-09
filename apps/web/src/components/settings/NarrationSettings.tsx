@@ -1,15 +1,9 @@
 import { useAtomValue } from "@effect/atom-react";
 import { DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
-import { createModelSelection } from "@t3tools/shared/model";
 import { usePrimarySettings, useUpdatePrimarySettings } from "~/hooks/useSettings";
-import { primaryServerProvidersAtom } from "~/state/server";
-import {
-  applyProviderInstanceSettings,
-  deriveProviderInstanceEntries,
-  sortProviderInstanceEntries,
-} from "~/providerInstances";
-import { getCustomModelOptionsByInstance, resolveAppModelSelectionState } from "~/modelSelection";
-import { ProviderModelPicker } from "../chat/ProviderModelPicker";
+import { primaryServerProvidersAtom, primaryServerConfigAtom } from "~/state/server";
+import { resolveAppModelSelectionState } from "~/modelSelection";
+import { SettingsModelPicker } from "./SettingsModelPicker";
 import { Textarea } from "../ui/textarea";
 import { useEffect, useRef, useState } from "react";
 import { Volume2Icon } from "lucide-react";
@@ -28,6 +22,7 @@ import { toastManager } from "../ui/toast";
 export function NarrationSettings() {
   const settings = useClientSettings();
   const serverSettings = usePrimarySettings();
+  const config = useAtomValue(primaryServerConfigAtom);
   const updateServer = useUpdatePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom).filter(
     (provider) => provider.supportsTextGeneration !== false,
@@ -39,15 +34,6 @@ export function NarrationSettings() {
         serverSettings.narrationModelSelection ?? serverSettings.textGenerationModelSelection,
     },
     providers,
-  );
-  const instanceEntries = sortProviderInstanceEntries(
-    applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), serverSettings),
-  );
-  const modelOptions = getCustomModelOptionsByInstance(
-    serverSettings,
-    providers,
-    selection.instanceId,
-    selection.model,
   );
   const update = useUpdateClientSettings();
   const voices = useNarrationVoices();
@@ -130,18 +116,15 @@ export function NarrationSettings() {
           ) : null
         }
         control={
-          <ProviderModelPicker
-            activeInstanceId={selection.instanceId}
-            model={selection.model}
-            lockedProvider={null}
-            instanceEntries={instanceEntries}
-            modelOptionsByInstance={modelOptions}
-            triggerVariant="outline"
-            triggerAriaLabel="Narration summary model"
-            onInstanceModelChange={(instanceId, model) =>
-              updateServer({ narrationModelSelection: createModelSelection(instanceId, model) })
-            }
-          />
+          config ? (
+            <SettingsModelPicker
+              config={config}
+              selection={selection}
+              purpose="narration"
+              label="Narration summary model"
+              onChange={(narrationModelSelection) => updateServer({ narrationModelSelection })}
+            />
+          ) : null
         }
       />
       <SettingsRow

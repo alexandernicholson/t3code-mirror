@@ -419,6 +419,7 @@ type ThreadSettingsSubmenuPage =
   | { readonly kind: "runtime" };
 
 type ThreadSettingsSessionProps = {
+  readonly hideRuntime?: boolean;
   readonly environmentId: EnvironmentId | null;
   readonly providerInstanceId?: ProviderInstanceId;
   readonly providerGroups: ReadonlyArray<ProviderGroup>;
@@ -472,6 +473,7 @@ export function useExistingThreadSettingsRoutePresentation() {
 }
 
 type ThreadSettingsSessionValue = {
+  readonly hideRuntime: boolean;
   readonly environmentId: EnvironmentId | null;
   readonly providerInstanceId?: ProviderInstanceId;
   readonly providerGroups: ReadonlyArray<ProviderGroup>;
@@ -524,18 +526,28 @@ function ThreadSettingsSessionProvider(
   // While a model is staged, the settings rows describe and edit the staged
   // model's options (kept on its pending selection); Save applies model and
   // options together. Otherwise they edit the applied selection directly.
-  const displayedDescriptors = useMemo(
-    () =>
-      pendingModel
-        ? pendingModel.capabilities
-          ? getProviderOptionDescriptors({
-              caps: pendingModel.capabilities,
-              selections: pendingModel.selection.options,
-            })
-          : []
-        : props.optionDescriptors,
-    [pendingModel, props.optionDescriptors],
-  );
+  const displayedDescriptors = useMemo(() => {
+    const descriptors = pendingModel
+      ? pendingModel.capabilities
+        ? getProviderOptionDescriptors({
+            caps: pendingModel.capabilities,
+            selections: pendingModel.selection.options,
+          })
+        : []
+      : props.optionDescriptors;
+    return props.hideRuntime
+      ? descriptors.map((descriptor) =>
+          descriptor.type === "select"
+            ? {
+                ...descriptor,
+                options: descriptor.options.filter(
+                  (option) => !descriptor.promptInjectedValues?.includes(option.id),
+                ),
+              }
+            : descriptor,
+        )
+      : descriptors;
+  }, [pendingModel, props.optionDescriptors, props.hideRuntime]);
 
   const hasLegacyModels = useMemo(
     () => props.providerGroups.some((group) => group.models.some((model) => model.isLegacy)),
@@ -603,6 +615,7 @@ function ThreadSettingsSessionProvider(
       environmentId: props.environmentId,
       providerInstanceId: props.providerInstanceId,
       providerGroups: props.providerGroups,
+      hideRuntime: props.hideRuntime === true,
       runtimeMode: props.runtimeMode,
       onUpdateRuntimeMode: props.onUpdateRuntimeMode,
       displayedDescriptors,
@@ -637,6 +650,7 @@ function ThreadSettingsSessionProvider(
       providerFilter,
       props.onUpdateRuntimeMode,
       props.providerGroups,
+      props.hideRuntime,
       props.runtimeMode,
       searchQuery,
       showLegacyToggle,
@@ -857,16 +871,18 @@ function ThreadSettingsOptionsItem(props: {
             </Animated.View>
           );
         })}
-        <Animated.View layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}>
-          <DisclosureRow
-            isLast
-            label="Runtime"
-            value={
-              RUNTIME_MODE_CHOICES.find((choice) => choice.mode === session.runtimeMode)?.label
-            }
-            onPress={() => props.onOpenSubmenu({ kind: "runtime" })}
-          />
-        </Animated.View>
+        {!session.hideRuntime && (
+          <Animated.View layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}>
+            <DisclosureRow
+              isLast
+              label="Runtime"
+              value={
+                RUNTIME_MODE_CHOICES.find((choice) => choice.mode === session.runtimeMode)?.label
+              }
+              onPress={() => props.onOpenSubmenu({ kind: "runtime" })}
+            />
+          </Animated.View>
+        )}
       </Animated.View>
 
       {Platform.OS !== "ios" && session.hasLegacyModels ? (
@@ -1421,6 +1437,51 @@ export function NewTaskThreadSettingsRouteScreen() {
       onUpdateRuntimeMode={flow.setRuntimeMode}
     >
       <ThreadSettingsPickerNavigator onClose={() => navigation.goBack()} />
+    </ThreadSettingsSessionProvider>
+  );
+}
+
+/** Reuse the native model and trait pages for an explicitly persisted settings selection. */
+export function SettingsModelPickerContent(props: {
+  environmentId: EnvironmentId;
+  providerGroups: ReadonlyArray<ProviderGroup>;
+  selection: ModelSelection;
+  onChange: (selection: ModelSelection) => void;
+  onClose: () => void;
+}) {
+  const selected = props.providerGroups
+    .flatMap((group) => group.models)
+    .find(
+      (model) =>
+        model.selection.instanceId === props.selection.instanceId &&
+        model.selection.model === props.selection.model,
+    );
+  const descriptors = resolveProviderOptionDescriptors({
+    capabilities: selected?.capabilities,
+    selections: props.selection.options,
+  }).map((descriptor) =>
+    descriptor.type === "select"
+      ? {
+          ...descriptor,
+          options: descriptor.options.filter(
+            (option) => !descriptor.promptInjectedValues?.includes(option.id),
+          ),
+        }
+      : descriptor,
+  );
+  return (
+    <ThreadSettingsSessionProvider
+      environmentId={props.environmentId}
+      providerGroups={props.providerGroups}
+      selectedModel={props.selection}
+      onSelectModel={(option) => props.onChange(option.selection)}
+      optionDescriptors={descriptors}
+      onUpdateOptionSelections={(options) => props.onChange({ ...props.selection, options })}
+      runtimeMode="approval-required"
+      onUpdateRuntimeMode={() => {}}
+      hideRuntime
+    >
+      <ThreadSettingsPickerNavigator onClose={props.onClose} />
     </ThreadSettingsSessionProvider>
   );
 }
