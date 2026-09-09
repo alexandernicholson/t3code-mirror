@@ -1,3 +1,4 @@
+import { appendTodoContext } from "@t3tools/shared/todos";
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
@@ -823,12 +824,60 @@ describe("ProviderCommandReactor", () => {
       });
       expect(harness.sendTurn).toHaveBeenCalledWith(
         expect.objectContaining({
-          input: text,
+          input: appendTodoContext(text, undefined),
           ...(attachments.length > 0 ? { attachments } : {}),
         }),
       );
     }),
   );
+
+  it("includes saved user TODO edits in the next provider input without changing the user message", async () => {
+    const harness = await createHarness({ unreadableHistory: true });
+    const threadId = ThreadId.make("thread-1");
+    const createdAt = "2026-09-09T00:00:00.000Z";
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.todos.edit",
+        threadId,
+        commandId: CommandId.make("edit-todos"),
+        expectedRevision: 0,
+        items: [
+          { id: "manual", content: "Review the new scope", phase: "Planning", status: "pending" },
+        ],
+        createdAt,
+      }),
+    );
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        threadId,
+        commandId: CommandId.make("send-todos"),
+        message: {
+          messageId: MessageId.make("todo-message"),
+          role: "user",
+          text: "Continue",
+          attachments: [],
+        },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        createdAt,
+      }),
+    );
+    await harness.drain();
+    expect(harness.sendTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.stringContaining("Review the new scope") }),
+    );
+    expect(harness.sendTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.stringContaining("The user has edited this list") }),
+    );
+    const message = await Effect.runPromise(
+      harness.snapshotQuery.getTurnStartMessage({
+        threadId,
+        messageId: MessageId.make("todo-message"),
+      }),
+    );
+    expect(Option.getOrThrow(message).message.text).toBe("Continue");
+  });
 
   it("reacts to thread.turn.start by ensuring session and sending provider turn", async () => {
     const harness = await createHarness();
@@ -904,7 +953,7 @@ describe("ProviderCommandReactor", () => {
       expect(session.threadId).toBe(ThreadId.make("thread-1"));
       expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({
         threadId: ThreadId.make("thread-1"),
-        input: "Start after activation",
+        input: appendTodoContext("Start after activation", undefined),
       });
     }),
   );
@@ -943,7 +992,7 @@ describe("ProviderCommandReactor", () => {
       yield* Effect.promise(() => harness.drain());
 
       expect(harness.sendTurn).toHaveBeenCalledWith(
-        expect.objectContaining({ input: "Use the current message" }),
+        expect.objectContaining({ input: appendTodoContext("Use the current message", undefined) }),
       );
       expect(harness.generateThreadTitle).toHaveBeenCalledWith(
         expect.objectContaining({ message: "Use the current message" }),
@@ -2218,7 +2267,9 @@ describe("ProviderCommandReactor", () => {
       thread?.messages.find((entry) => entry.id === asMessageId("user-message-title-formatted"))
         ?.text,
     ).toBe(prompt);
-    expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({ input: prompt });
+    expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({
+      input: appendTodoContext(prompt, undefined),
+    });
   });
 
   it("generates a worktree branch name for the first turn", async () => {
@@ -3871,21 +3922,21 @@ describe("ProviderCommandReactor", () => {
     expect(resolvedActivity).toBeUndefined();
   });
 
-  it("surfaces non-resumable provider user-input callbacks as stale failures", async () => {
-    const harness = await createHarness();
-    const now = "2026-01-01T00:00:00.000Z";
-    harness.respondToUserInput.mockImplementation(() =>
-      Effect.fail(
-        new ProviderAdapterRequestError({
-          provider: ProviderDriverKind.make("claudeAgent"),
-          method: "item/tool/respondToUserInput",
-          detail: "Unknown pending Codex user input request: user-input-request-1",
-        }),
-      ),
-    );
+  effectIt.effect("surfaces non-resumable provider user-input callbacks as stale failures", () =>
+    Effect.gen(function* () {
+      const harness = yield* Effect.promise(() => createHarness());
+      const now = "2026-01-01T00:00:00.000Z";
+      harness.respondToUserInput.mockImplementation(() =>
+        Effect.fail(
+          new ProviderAdapterRequestError({
+            provider: ProviderDriverKind.make("claudeAgent"),
+            method: "item/tool/respondToUserInput",
+            detail: "Unknown pending Codex user input request: user-input-request-1",
+          }),
+        ),
+      );
 
-    await Effect.runPromise(
-      harness.engine.dispatch({
+      yield* harness.engine.dispatch({
         type: "thread.session.set",
         commandId: CommandId.make("cmd-session-set-for-user-input-error"),
         threadId: ThreadId.make("thread-1"),
@@ -3899,11 +3950,9 @@ describe("ProviderCommandReactor", () => {
           updatedAt: now,
         },
         createdAt: now,
-      }),
-    );
+      });
 
-    await Effect.runPromise(
-      harness.engine.dispatch({
+      yield* harness.engine.dispatch({
         type: "thread.activity.append",
         commandId: CommandId.make("cmd-user-input-requested"),
         threadId: ThreadId.make("thread-1"),
@@ -3932,11 +3981,9 @@ describe("ProviderCommandReactor", () => {
           createdAt: now,
         },
         createdAt: now,
-      }),
-    );
+      });
 
-    await Effect.runPromise(
-      harness.engine.dispatch({
+      yield* harness.engine.dispatch({
         type: "thread.user-input.respond",
         commandId: CommandId.make("cmd-user-input-respond-stale"),
         threadId: ThreadId.make("thread-1"),
@@ -3945,40 +3992,33 @@ describe("ProviderCommandReactor", () => {
           sandbox_mode: "workspace-write",
         },
         createdAt: now,
-      }),
-    );
+      });
 
-    await waitFor(async () => {
-      const readModel = await harness.readModel();
+      yield* Effect.promise(() => harness.drain());
+
+      const readModel = yield* Effect.promise(() => harness.readModel());
       const thread = readModel.threads.find((entry) => entry.id === ThreadId.make("thread-1"));
-      if (!thread) return false;
-      return thread.activities.some(
+      expect(thread).toBeDefined();
+
+      const failureActivity = thread?.activities.find(
         (activity) => activity.kind === "provider.user-input.respond.failed",
       );
-    });
+      expect(failureActivity).toBeDefined();
+      expect(failureActivity?.payload).toMatchObject({
+        requestId: "user-input-request-1",
+        detail: expect.stringContaining("Stale pending user-input request: user-input-request-1"),
+      });
 
-    const readModel = await harness.readModel();
-    const thread = readModel.threads.find((entry) => entry.id === ThreadId.make("thread-1"));
-    expect(thread).toBeDefined();
-
-    const failureActivity = thread?.activities.find(
-      (activity) => activity.kind === "provider.user-input.respond.failed",
-    );
-    expect(failureActivity).toBeDefined();
-    expect(failureActivity?.payload).toMatchObject({
-      requestId: "user-input-request-1",
-      detail: expect.stringContaining("Stale pending user-input request: user-input-request-1"),
-    });
-
-    const resolvedActivity = thread?.activities.find(
-      (activity) =>
-        activity.kind === "user-input.resolved" &&
-        typeof activity.payload === "object" &&
-        activity.payload !== null &&
-        (activity.payload as Record<string, unknown>).requestId === "user-input-request-1",
-    );
-    expect(resolvedActivity).toBeUndefined();
-  });
+      const resolvedActivity = thread?.activities.find(
+        (activity) =>
+          activity.kind === "user-input.resolved" &&
+          typeof activity.payload === "object" &&
+          activity.payload !== null &&
+          (activity.payload as Record<string, unknown>).requestId === "user-input-request-1",
+      );
+      expect(resolvedActivity).toBeUndefined();
+    }),
+  );
 
   effectIt.effect("stops a provider session without reading unrelated message bodies", () =>
     Effect.gen(function* () {

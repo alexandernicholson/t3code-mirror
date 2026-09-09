@@ -362,3 +362,11 @@ export const stopThreadSession: (input: StopThreadSessionInput) => CommandEffect
     createdAt: metadata.createdAt,
   });
 });
+
+export type EditThreadTodosInput = CommandInput<"thread.todos.edit">;
+export const editThreadTodos: (input: EditThreadTodosInput) => CommandEffect = Effect.fn(
+  "EnvironmentCommands.editThreadTodos",
+)(function* (input) {
+  const metadata = yield* timestampedCommandMetadata(input);
+  return yield* dispatch({ ...input, ...metadata, type: "thread.todos.edit" });
+});

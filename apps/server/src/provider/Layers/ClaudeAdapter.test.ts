@@ -1807,15 +1807,35 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
-  it.effect("falls back to a default plan step label for blank TodoWrite content", () => {
+  it.effect.each([
+    {
+      label: "blank labels",
+      todos: [
+        { content: "   ", status: "in_progress" },
+        { content: "Ship it", status: "completed" },
+      ],
+      isError: false,
+      expected: [
+        { step: "Task", status: "inProgress" as const },
+        { step: "Ship it", status: "completed" as const },
+      ],
+    },
+    { label: "explicit clear", todos: [], isError: false, expected: [] },
+    {
+      label: "failed write",
+      todos: [{ content: "Never saved", status: "pending" }],
+      isError: true,
+      expected: undefined,
+    },
+  ])("emits only confirmed TodoWrite snapshots: $label", ({ todos, isError, expected }) => {
     const harness = makeHarness();
     return Effect.gen(function* () {
       const adapter = yield* ClaudeAdapter;
 
-      const runtimeEventsFiber = yield* Stream.take(adapter.streamEvents, 10).pipe(
-        Stream.runCollect,
-        Effect.forkChild,
-      );
+      const runtimeEventsFiber = yield* Stream.takeUntil(
+        adapter.streamEvents,
+        (event) => event.type === "turn.completed",
+      ).pipe(Stream.runCollect, Effect.forkChild);
 
       const session = yield* adapter.startSession({
         threadId: THREAD_ID,
@@ -1856,8 +1876,7 @@ describe("ClaudeAdapterLive", () => {
           index: 1,
           delta: {
             type: "input_json_delta",
-            partial_json:
-              '{"todos":[{"content":"   ","status":"in_progress"},{"content":"Ship it","status":"completed"}]}',
+            partial_json: encodeUnknownJsonString({ todos }),
           },
         },
       } as unknown as SDKMessage);
@@ -1874,6 +1893,24 @@ describe("ClaudeAdapterLive", () => {
       } as unknown as SDKMessage);
 
       harness.query.emit({
+        type: "user",
+        session_id: "sdk-session-todo-plan",
+        uuid: "todo-result",
+        parent_tool_use_id: null,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "tool-todo-1",
+              content: "Updated",
+              is_error: isError,
+            },
+          ],
+        },
+      } as unknown as SDKMessage);
+
+      harness.query.emit({
         type: "result",
         subtype: "success",
         is_error: false,
@@ -1884,13 +1921,10 @@ describe("ClaudeAdapterLive", () => {
 
       const runtimeEvents = Array.from(yield* Fiber.join(runtimeEventsFiber));
       const planUpdated = runtimeEvents.find((event) => event.type === "turn.plan.updated");
-      assert.equal(planUpdated?.type, "turn.plan.updated");
+      assert.equal(planUpdated?.type, expected === undefined ? undefined : "turn.plan.updated");
       if (planUpdated?.type === "turn.plan.updated") {
         assert.equal(String(planUpdated.turnId), String(turn.turnId));
-        assert.deepEqual(planUpdated.payload.plan, [
-          { step: "Task", status: "inProgress" },
-          { step: "Ship it", status: "completed" },
-        ]);
+        assert.deepEqual(planUpdated.payload.plan, expected);
       }
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),

@@ -1,3 +1,4 @@
+import type { ThreadTodos } from "@t3tools/contracts";
 /**
  * ProjectionSnapshotQuery - Read-model snapshot query service interface.
  *
@@ -77,6 +78,10 @@ export interface ProjectionThreadDetailQuery {
  * ProjectionSnapshotQueryShape - Service API for read-model snapshots.
  */
 export interface ProjectionSnapshotQueryShape {
+  /** Read the durable checklist without hydrating conversation history. */
+  readonly getThreadTodos: (
+    threadId: ThreadId,
+  ) => Effect.Effect<Option.Option<ThreadTodos>, ProjectionRepositoryError>;
   /** Read the latest request or resolution without loading the thread history. */
   readonly getUserInputActivity: (input: {
     readonly threadId: ThreadId;

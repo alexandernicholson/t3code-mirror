@@ -238,6 +238,15 @@ export function projectEvent(
   };
 
   switch (event.type) {
+    case "thread.todos-updated":
+      return Effect.succeed({
+        ...nextBase,
+        threads: nextBase.threads.map((thread) =>
+          thread.id === event.payload.threadId
+            ? { ...thread, todos: event.payload.todos, updatedAt: event.occurredAt }
+            : thread,
+        ),
+      });
     case "thread.turn-queue-updated":
       return Effect.succeed({
         ...nextBase,

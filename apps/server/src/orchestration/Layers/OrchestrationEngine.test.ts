@@ -115,6 +115,114 @@ const hasMetricSnapshot = (
   );
 
 describe("OrchestrationEngine", () => {
+  it("persists TODO edits across restart, rejects stale revisions, and deduplicates tool commands", async () => {
+    const directory = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-todos-"));
+    const databasePath = NodePath.join(directory, "state.sqlite");
+    let system = await createOrchestrationSystem(databasePath);
+    const threadId = ThreadId.make("todo-thread");
+    const projectId = ProjectId.make("todo-project");
+    const native: OrchestrationCommand = {
+      type: "thread.todos.native",
+      threadId,
+      commandId: CommandId.make("native-todos"),
+      createdAt: now(),
+      steps: [
+        { id: "native-a", step: "Review", status: "pending" },
+        { id: "native-b", step: "Build", status: "pending" },
+      ],
+    };
+    try {
+      await system.run(
+        system.engine.dispatch({
+          type: "project.create",
+          commandId: CommandId.make("todo-project"),
+          projectId,
+          title: "TODO test",
+          workspaceRoot: directory,
+          createdAt: now(),
+        }),
+      );
+      await system.run(
+        system.engine.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make("todo-thread"),
+          threadId,
+          projectId,
+          title: "TODO test",
+          modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5.4" },
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          createdAt: now(),
+        }),
+      );
+      await system.run(system.engine.dispatch(native));
+      const initial = Option.getOrThrow(await system.readThread(threadId)).todos!;
+      expect(initial.items.map((item) => item.content)).toEqual(["Review", "Build"]);
+      const items = [
+        { ...initial.items[1]!, content: "Build carefully", status: "completed" as const },
+        { id: "user-a", content: "Manual task", phase: "Verification", status: "pending" as const },
+      ];
+      await system.run(
+        system.engine.dispatch({
+          type: "thread.todos.edit",
+          commandId: CommandId.make("user-edit"),
+          threadId,
+          expectedRevision: initial.revision,
+          items,
+          createdAt: now(),
+        }),
+      );
+      await expect(
+        system.run(
+          system.engine.dispatch({
+            type: "thread.todos.edit",
+            commandId: CommandId.make("stale-edit"),
+            threadId,
+            expectedRevision: initial.revision,
+            items: [],
+            createdAt: now(),
+          }),
+        ),
+      ).rejects.toThrow(/TODOs changed/);
+      await system.dispose();
+      system = await createOrchestrationSystem(databasePath);
+      // This proves command snapshots restore revision and native merge baselines.
+      await system.run(
+        system.engine.dispatch({ ...native, commandId: CommandId.make("stale-native") }),
+      );
+      expect(Option.getOrThrow(await system.readThread(threadId)).todos?.items).toEqual(items);
+      const tool: OrchestrationCommand = {
+        type: "thread.todos.tool",
+        commandId: CommandId.make("append-tool"),
+        threadId,
+        createdAt: now(),
+        operation: { op: "append", phase: "Verification", items: ["Check result"] },
+      };
+      const receipt = await system.run(system.engine.dispatch(tool));
+      expect(await system.run(system.engine.dispatch(tool))).toEqual(receipt);
+      const saved = Option.getOrThrow(await system.readThread(threadId)).todos!;
+      expect(saved.items.filter((item) => item.content === "Check result")).toHaveLength(1);
+      await system.run(
+        system.engine.dispatch({
+          type: "thread.todos.edit",
+          commandId: CommandId.make("clear-todos"),
+          threadId,
+          expectedRevision: saved.revision,
+          items: [],
+          createdAt: now(),
+        }),
+      );
+      await system.dispose();
+      system = await createOrchestrationSystem(databasePath);
+      expect(Option.getOrThrow(await system.readThread(threadId)).todos?.items).toEqual([]);
+    } finally {
+      await system.dispose();
+      await NodeFSP.rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it.each(["running", "stopped"] as const)(
     "sends async answers with a %s session and rejects old duplicate replies",
     async (status) => {
@@ -435,6 +543,7 @@ describe("OrchestrationEngine", () => {
           getThreadCheckpointContext: () => Effect.succeed(Option.none()),
           getFullThreadDiffContext: () => Effect.succeed(Option.none()),
           getThreadRuntimeContext: () => Effect.die("unused"),
+          getThreadTodos: () => Effect.succeedNone,
           getTurnStartMessage: () => Effect.die("unused"),
           getThreadShellById: () => Effect.succeed(Option.none()),
           getThreadDetailById: () => Effect.succeed(Option.none()),

@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { ThreadTodos, TodoItems, TodoOperation, NativeTodoStep } from "./todos.ts";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import * as Struct from "effect/Struct";
@@ -678,6 +679,7 @@ export const OrchestrationThread = Schema.Struct({
   deletedAt: Schema.NullOr(IsoDateTime),
   messages: Schema.Array(OrchestrationMessage),
   turnQueue: Schema.optional(TurnQueue),
+  todos: Schema.optional(ThreadTodos),
   proposedPlans: Schema.Array(OrchestrationProposedPlan).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
@@ -835,6 +837,8 @@ export type OrchestrationSubscribeShellInput = typeof OrchestrationSubscribeShel
 export const OrchestrationSubscribeThreadInput = Schema.Struct({
   /** Older clients cannot decode queue events; snapshots remain additive. */
   includeTurnQueue: Schema.optionalKey(Schema.Boolean),
+  /** Opt in to durable TODO events; older clients still receive compatible snapshots. */
+  includeTodos: Schema.optionalKey(Schema.Boolean),
   threadId: ThreadId,
   /**
    * When provided, the server skips the initial snapshot frame and instead
@@ -1236,6 +1240,30 @@ const ThreadSessionStopCommand = Schema.Struct({
   onlyIfSettled: Schema.optional(Schema.Boolean),
 });
 
+const ThreadTodosEditCommand = Schema.Struct({
+  type: Schema.Literal("thread.todos.edit"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  expectedRevision: NonNegativeInt,
+  items: TodoItems,
+  createdAt: IsoDateTime,
+});
+const ThreadTodosToolCommand = Schema.Struct({
+  type: Schema.Literal("thread.todos.tool"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  operation: TodoOperation,
+  createdAt: IsoDateTime,
+});
+const ThreadTodosNativeCommand = Schema.Struct({
+  type: Schema.Literal("thread.todos.native"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  turnId: Schema.optional(TurnId),
+  steps: Schema.Array(NativeTodoStep).check(Schema.isMaxLength(500)),
+  createdAt: IsoDateTime,
+});
+
 const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectCreateCommand,
   ProjectMetaUpdateCommand,
@@ -1257,6 +1285,7 @@ const DispatchableClientOrchestrationCommand = Schema.Union([
   ThreadInteractionModeSetCommand,
   ThreadTurnStartCommand,
   ThreadTurnQueueCommand,
+  ThreadTodosEditCommand,
   ThreadTurnInterruptCommand,
   ThreadApprovalRespondCommand,
   ThreadUserInputRespondCommand,
@@ -1288,6 +1317,7 @@ export const ClientOrchestrationCommand = Schema.Union([
   ThreadInteractionModeSetCommand,
   ClientThreadTurnStartCommand,
   ThreadTurnQueueCommand,
+  ThreadTodosEditCommand,
   ThreadTurnInterruptCommand,
   ThreadApprovalRespondCommand,
   ThreadUserInputRespondCommand,
@@ -1402,6 +1432,8 @@ const ThreadPullRequestSyncCommand = Schema.Struct({
 });
 
 const InternalOrchestrationCommand = Schema.Union([
+  ThreadTodosToolCommand,
+  ThreadTodosNativeCommand,
   ThreadTurnQueueDrainCommand,
   ThreadAutoSettleCommand,
   ThreadSessionSetCommand,
@@ -1444,6 +1476,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.message-sent",
   "thread.turn-start-requested",
   "thread.turn-queue-updated",
+  "thread.todos-updated",
   "thread.turn-interrupt-requested",
   "thread.approval-response-requested",
   "thread.user-input-response-requested",
@@ -1827,6 +1860,11 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("thread.turn-start-requested"),
     payload: ThreadTurnStartRequestedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("thread.todos-updated"),
+    payload: Schema.Struct({ threadId: ThreadId, todos: ThreadTodos }),
   }),
   Schema.Struct({
     ...EventBaseFields,

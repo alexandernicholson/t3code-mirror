@@ -2126,6 +2126,16 @@ const make = Effect.gen(function* () {
         }
       }
 
+      if (event.type === "turn.plan.updated" && !conflictsWithActiveTurn) {
+        yield* orchestrationEngine.dispatch({
+          type: "thread.todos.native",
+          commandId: yield* providerCommandId(event, "thread-todos-native"),
+          threadId: thread.id,
+          ...(event.turnId ? { turnId: event.turnId } : {}),
+          steps: event.payload.plan,
+          createdAt: event.createdAt,
+        });
+      }
       const activities = runtimeEventToActivities(activityEvent, taskTitle);
       yield* Effect.forEach(activities, (activity) =>
         providerCommandId(event, "thread-activity-append").pipe(

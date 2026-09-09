@@ -163,3 +163,16 @@ Select **Narrate** in a thread to hear short excerpts from new agent messages as
 Kitten Nano generates English speech on your device without a GPU or a speech-service account. The first preview or narration downloads about 28 MB of model and voice files from Hugging Face, with progress shown while downloading. Web uses a browser cache; mobile stores the model and pronunciation data on the device. Later speech works offline with those downloads. Clearing browser/site data or removing the download means it must be downloaded again.
 
 Choose among eight voices, adjust speed, preview speech, or remove the downloaded model in **Settings → General → Voice narration** on web/desktop, or **Settings → Voice narration** on mobile. On web/desktop you can also choose **System voices**; their availability depends on the device and browser, and some use an online speech service. Preferences apply on this device the next time you start narration.
+
+## TODOs
+
+Open **TODOs** above the composer to see the thread's checklist, including after
+an agent finishes. Ask the agent to create a checklist, or add items yourself.
+You can edit the text and phase, mark items complete or reopen them, move them up
+or down, and delete them. On web and desktop, use **Toggle TODOs** in the command
+palette or Cmd/Ctrl+Alt+T; customize the shortcut in Settings → Keybindings.
+
+Edits are saved to the environment and synchronized across connected clients.
+The agent receives your current list with your next ordinary message; send a
+follow-up if it should act on the changes now. Changing a checkbox does not stop
+running work. TODO edits require a connected environment with TODO support.

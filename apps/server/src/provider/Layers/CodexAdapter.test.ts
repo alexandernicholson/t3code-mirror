@@ -672,6 +672,39 @@ function codexTurnEvent(method: "turn/started" | "turn/completed", turnId: strin
 }
 
 lifecycleLayer("CodexAdapterLive lifecycle", (it) => {
+  it.effect("maps native checklist snapshots and explicit clears with their turn identity", () =>
+    Effect.gen(function* () {
+      const { adapter, runtime } = yield* startLifecycleRuntime();
+      const events = yield* adapter.streamEvents.pipe(
+        Stream.filter((event) => event.type === "turn.plan.updated"),
+        Stream.take(2),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      const plan = [
+        { step: "Review", status: "inProgress" as const },
+        { step: "Build", status: "pending" as const },
+      ];
+      for (const [index, steps] of [plan, []].entries())
+        yield* runtime.emit({
+          id: asEventId(`todo-${index}`),
+          kind: "notification",
+          provider: ProviderDriverKind.make("codex"),
+          threadId: asThreadId("thread-1"),
+          turnId: asTurnId("todo-turn"),
+          createdAt: "2026-09-09T00:00:00.000Z",
+          method: "turn/plan/updated",
+          payload: { threadId: "thread-1", turnId: "todo-turn", explanation: null, plan: steps },
+        });
+      const snapshots = Array.from(yield* Fiber.join(events));
+      NodeAssert.equal(snapshots[0]?.turnId, "todo-turn");
+      NodeAssert.deepEqual(
+        snapshots.map((event) => event.payload.plan),
+        [plan, []],
+      );
+    }),
+  );
+
   it.effect("calculates one Codex turn total from cumulative counters", () =>
     Effect.gen(function* () {
       const { adapter, runtime } = yield* startLifecycleRuntime();

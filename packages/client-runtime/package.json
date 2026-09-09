@@ -250,6 +250,10 @@
     "./narration/kitten": {
       "types": "./src/narration/kitten.ts",
       "default": "./src/narration/kitten.ts"
+    },
+    "./todos": {
+      "types": "./src/todos.ts",
+      "default": "./src/todos.ts"
     }
   },
   "scripts": {

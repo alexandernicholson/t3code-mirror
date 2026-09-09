@@ -1,3 +1,4 @@
+import { TodosToolkitRegistrationLive } from "./toolkits/todos.ts";
 import * as NodeCrypto from "node:crypto";
 import { SecretsToolkitRegistrationLive } from "./toolkits/secrets.ts";
 import * as Cause from "effect/Cause";
@@ -445,7 +446,8 @@ const McpTransportLive = McpServer.layerHttp({
   protocols: [McpProtocol.v2025_06_18],
 }).pipe(Layer.provide(McpAuthMiddlewareLive));
 
-export const layer = Layer.merge(
+export const layer = Layer.mergeAll(
   PreviewToolkitRegistrationLive,
   SecretsToolkitRegistrationLive,
+  TodosToolkitRegistrationLive,
 ).pipe(Layer.provideMerge(McpTransportLive));

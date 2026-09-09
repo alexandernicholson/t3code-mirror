@@ -415,6 +415,7 @@ const TurnAbortedPayload = Schema.Struct({
 export type TurnAbortedPayload = typeof TurnAbortedPayload.Type;
 
 const RuntimePlanStep = Schema.Struct({
+  id: Schema.optional(TrimmedNonEmptyStringSchema),
   step: TrimmedNonEmptyStringSchema,
   status: RuntimePlanStepStatus,
 });

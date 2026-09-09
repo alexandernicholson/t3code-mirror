@@ -6,6 +6,7 @@ import type {
   OrchestrationSession,
   OrchestrationThread,
   OrchestrationThreadActivity,
+  ThreadTodos,
   ScopedThreadRef,
 } from "@t3tools/contracts";
 import * as Option from "effect/Option";
@@ -141,6 +142,13 @@ export function createEnvironmentThreadDetailAtoms<E>(
     ).pipe(Atom.setIdleTTL(0), Atom.withLabel(`environment-thread-checkpoints:${key}`)),
   );
 
+  const threadTodosAtomFamily = Atom.family((key: string) =>
+    Atom.make((get): ThreadTodos | null => get(threadDetailAtomFamily(key))?.todos ?? null).pipe(
+      Atom.setIdleTTL(0),
+      Atom.withLabel(`environment-thread-todos:${key}`),
+    ),
+  );
+
   const threadSessionAtomFamily = Atom.family((key: string) =>
     Atom.make(
       (get): OrchestrationSession | null => get(threadDetailAtomFamily(key))?.session ?? null,
@@ -162,6 +170,7 @@ export function createEnvironmentThreadDetailAtoms<E>(
     activitiesAtom: (ref: ScopedThreadRef) => threadActivitiesAtomFamily(threadKey(ref)),
     proposedPlansAtom: (ref: ScopedThreadRef) => threadProposedPlansAtomFamily(threadKey(ref)),
     checkpointsAtom: (ref: ScopedThreadRef) => threadCheckpointsAtomFamily(threadKey(ref)),
+    todosAtom: (ref: ScopedThreadRef) => threadTodosAtomFamily(threadKey(ref)),
     sessionAtom: (ref: ScopedThreadRef) => threadSessionAtomFamily(threadKey(ref)),
     latestTurnAtom: (ref: ScopedThreadRef) => threadLatestTurnAtomFamily(threadKey(ref)),
   };
