@@ -5,12 +5,10 @@ import { primaryServerProvidersAtom, primaryServerConfigAtom } from "~/state/ser
 import { resolveAppModelSelectionState } from "~/modelSelection";
 import { SettingsModelPicker } from "./SettingsModelPicker";
 import { Textarea } from "../ui/textarea";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Volume2Icon } from "lucide-react";
 import { useClientSettings, useUpdateClientSettings } from "~/hooks/useSettings";
 import { getSpeechSynthesis, useNarrationVoices } from "~/narration/speech";
-import type { NarrationSpeaker } from "@t3tools/client-runtime/narration";
-import { createConfiguredNarrationSpeaker } from "~/narration/kittenSpeech";
 import { isKittenCached, clearKittenCache } from "~/narration/kittenCache";
 import { KITTEN_VOICES } from "@t3tools/client-runtime/narration/kitten";
 import { Button } from "../ui/button";
@@ -18,8 +16,10 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { SettingsRow, SettingsSection, SettingResetButton } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
 import { toastManager } from "../ui/toast";
+import { GlobalNarrationControl, useGlobalNarration } from "~/narration/GlobalNarration";
 
 export function NarrationSettings() {
+  const globalNarration = useGlobalNarration();
   const settings = useClientSettings();
   const serverSettings = usePrimarySettings();
   const config = useAtomValue(primaryServerConfigAtom);
@@ -37,8 +37,7 @@ export function NarrationSettings() {
   );
   const update = useUpdateClientSettings();
   const voices = useNarrationVoices();
-  const preview = useRef<NarrationSpeaker | null>(null);
-  const [playing, setPlaying] = useState(false);
+  const { previewing: playing, previewVoice: testVoice, stopPreview } = globalNarration;
   const available =
     settings.narrationEngine === "kitten" || (Boolean(getSpeechSynthesis()) && voices.length > 0);
   const [cached, setCached] = useState(false);
@@ -49,37 +48,7 @@ export function NarrationSettings() {
       .catch(() => undefined);
   }, [playing]);
   const selectedVoice = voices.find((voice) => voice.voiceURI === settings.narrationVoice);
-  useEffect(() => () => preview.current?.cancel(), []);
-  function stopPreview() {
-    preview.current?.cancel();
-    preview.current = null;
-    setPlaying(false);
-  }
-  function testVoice() {
-    if (playing) {
-      stopPreview();
-      return;
-    }
-    const speaker = createConfiguredNarrationSpeaker(settings);
-    preview.current = speaker;
-    setPlaying(true);
-    speaker.speak(
-      "I’m looking for the relevant files. Then I’ll check the tests and let you know what I find.",
-      () => {
-        speaker.cancel();
-        preview.current = null;
-        setPlaying(false);
-      },
-      (message) => {
-        stopPreview();
-        toastManager.add({
-          type: "error",
-          title: "Could not play this voice",
-          description: message ?? "Try another voice or check your device’s speech settings.",
-        });
-      },
-    );
-  }
+  useEffect(() => () => stopPreview(), [stopPreview]);
   return (
     <SettingsSection
       id="narration"
@@ -88,14 +57,20 @@ export function NarrationSettings() {
     >
       <SettingsRow
         title="Hear what’s happening"
-        description="Turn on Narrate in a thread to hear one-sentence summaries of new agent updates. Narration stops when you leave the thread."
+        description="Global Narrate reads new updates from all threads with automatically assigned voices. One shared queue keeps speaking as you browse threads, Settings, Pull Requests, and Usage. Stop Global Narrate to preview a voice."
         control={
-          <Button size="sm" variant="outline" disabled={!available} onClick={testVoice}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!available || globalNarration.enabled}
+            onClick={testVoice}
+          >
             <Volume2Icon className="size-4" />
             {playing ? "Stop preview" : "Preview voice"}
           </Button>
         }
       >
+        <GlobalNarrationControl compact />
         {!available ? (
           <p className="text-xs text-muted-foreground">
             No speech voices are available yet. Install a system voice or use a browser that
@@ -188,7 +163,7 @@ export function NarrationSettings() {
         <>
           <SettingsRow
             title="Kitten voice"
-            description="Eight English voices, generated entirely on this device."
+            description="Starts with this voice, then assigns other English voices to each thread. Generated entirely on this device."
             control={
               <Select
                 value={settings.narrationKittenVoice}
@@ -224,7 +199,7 @@ export function NarrationSettings() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={playing}
+                  disabled={playing || globalNarration.enabled}
                   onClick={() => {
                     void clearKittenCache()
                       .then(() => setCached(false))

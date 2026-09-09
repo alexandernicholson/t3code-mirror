@@ -28,13 +28,13 @@ export function createNarrationSpeaker(voiceURI: string, rate: number): Narratio
   let current: SpeechSynthesisUtterance | undefined;
   let removeListeners: (() => void) | undefined;
   return {
-    speak(text, done, failed) {
+    speak(text, done, failed, selectedVoice = voiceURI) {
       if (!synth) {
         failed();
         return;
       }
       current = new SpeechSynthesisUtterance(text);
-      const voice = synth.getVoices().find((candidate) => candidate.voiceURI === voiceURI);
+      const voice = synth.getVoices().find((candidate) => candidate.voiceURI === selectedVoice);
       if (voice) {
         current.voice = voice;
         current.lang = voice.lang;

@@ -979,12 +979,7 @@ function ThreadRouteContent(
             <View className="pointer-events-none absolute inset-0 bg-screen/55" />
           </>
         ) : null}
-        {selectedThreadDetail ? (
-          <ThreadNarration
-            key={`${selectedThread?.environmentId}:${selectedThreadDetail.id}`}
-            messages={selectedThreadDetail.messages}
-          />
-        ) : null}
+        {selectedThreadDetail ? <ThreadNarration /> : null}
         <ThreadDetailScreen
           onOpenAdvisors={() => setAdvisorOpenRequest((value) => value + 1)}
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}

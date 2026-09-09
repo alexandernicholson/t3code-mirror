@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.6] - 2026-09-09
+
+- Global Narrate follows new updates across threads and pages on web, desktop, and mobile, with automatic thread voices, a shared playback queue, and persistent stop controls.
+
+---
+
 ## [0.5.5] - 2026-09-09
 
 - Fix stuck Advisor, Observer, and on-demand Reviewer runs and choose their accounts and models directly in the thread panels.

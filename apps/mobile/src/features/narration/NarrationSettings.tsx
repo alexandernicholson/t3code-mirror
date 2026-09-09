@@ -11,9 +11,11 @@ import { SettingsRow } from "../settings/components/SettingsRow";
 import { GitActionProgressOverlay } from "../threads/GitActionProgressOverlay";
 import { isNativeKittenCached, clearNativeKittenCache } from "./kittenSpeech";
 import { useNarration } from "./useNarration";
+import { useGlobalNarration } from "./GlobalNarration";
 
 const NO_MESSAGES: readonly NarrationMessage[] = [];
 export function NarrationSettings() {
+  const globalNarration = useGlobalNarration();
   const result = useAtomValue(mobilePreferencesAtom);
   const settings = AsyncResult.isSuccess(result) ? result.value : {};
   const update = useAtomSet(updateMobilePreferencesAtom);
@@ -28,13 +30,22 @@ export function NarrationSettings() {
   return (
     <>
       <SettingsSection title="Voice narration" card>
+        <SettingsRow
+          icon="speaker.wave.2"
+          label={globalNarration.enabled ? "Stop Global Narrate" : "Start Global Narrate"}
+          onPress={() => {
+            narration.stop();
+            globalNarration.toggle();
+          }}
+        />
         <View className="gap-3 p-4">
           <Text className="text-base text-foreground">Kitten Nano · Local English voices</Text>
           <Text className="text-sm text-foreground-muted">
-            Hear short agent updates while you work. Downloads about 28 MB plus pronunciation data
-            on first use, then speaks offline on this device.
+            Hear new updates from all threads with automatic voices and a shared queue, even as you
+            browse other pages. Stop Global Narrate to preview voices. Downloads about 28 MB plus
+            pronunciation data on first use, then speaks offline on this device.
           </Text>
-          <Text className="text-sm text-foreground-muted">Voice</Text>
+          <Text className="text-sm text-foreground-muted">Starting voice</Text>
           <View className="flex-row flex-wrap gap-2">
             {KITTEN_VOICES.map((voice) => (
               <Pressable
@@ -98,6 +109,7 @@ export function NarrationSettings() {
         <SettingsRow
           icon="speaker.wave.2"
           label={narration.enabled ? "Stop preview" : "Preview voice"}
+          disabled={globalNarration.enabled}
           onPress={() =>
             narration.start(
               "I’m looking for the relevant files. Then I’ll check the tests and let you know what I find.",
@@ -109,7 +121,7 @@ export function NarrationSettings() {
           icon="trash"
           label="Remove downloaded model"
           value={cached ? "Downloaded" : "Not downloaded"}
-          disabled={!cached || narration.enabled}
+          disabled={!cached || narration.enabled || globalNarration.enabled}
           onPress={() => {
             void clearNativeKittenCache()
               .then(() => setCached(false))
