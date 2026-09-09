@@ -473,7 +473,7 @@ import {
 } from "../versionSkew";
 import { useAssetUrls } from "../assets/assetUrls";
 import { ATTACHMENT_ONLY_BOOTSTRAP_PROMPT } from "./chat/composerPromptHistory";
-import { TurnQueueControls } from "./chat/TurnQueueControls";
+import { TurnDeliverySelector, TurnQueueControls } from "./chat/TurnQueueControls";
 import type { QueuedTurn, TurnDelivery } from "@t3tools/contracts";
 
 const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
@@ -6382,7 +6382,9 @@ export default function ChatView(props: ChatViewProps) {
     deliveryOverride?: TurnDelivery,
   ) => {
     e?.preventDefault();
-    const delivery = isServerThread ? (deliveryOverride ?? turnDelivery) : "steer";
+    const delivery = isServerThread
+      ? (deliveryOverride ?? (phase === "running" ? turnDelivery : "steer"))
+      : "steer";
     if (delivery === "queue" && promptRef.current.trimStart().startsWith("/")) {
       setThreadError(activeThread?.id ?? null, "Switch to Steer to send commands directly.");
       return;
@@ -8548,12 +8550,19 @@ export default function ChatView(props: ChatViewProps) {
                                 ? () => void onSend(undefined, "foreground", undefined, "queue")
                                 : undefined
                             }
+                            deliverySelector={
+                              isServerThread &&
+                              serverConfig?.environment.capabilities.turnQueue === true ? (
+                                <TurnDeliverySelector
+                                  delivery={turnDelivery}
+                                  onDeliveryChange={setTurnDelivery}
+                                />
+                              ) : undefined
+                            }
                             queueControls={
                               isServerThread &&
                               serverConfig?.environment.capabilities.turnQueue === true ? (
                                 <TurnQueueControls
-                                  delivery={turnDelivery}
-                                  onDeliveryChange={setTurnDelivery}
                                   queue={activeThread.turnQueue}
                                   disabled={activeEnvironmentUnavailable}
                                   onAction={onTurnQueueAction}

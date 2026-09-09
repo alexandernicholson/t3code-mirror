@@ -1241,6 +1241,7 @@ export interface ChatComposerHandle {
 
 export interface ChatComposerProps {
   queueControls?: React.ReactNode;
+  deliverySelector?: React.ReactNode;
   onQueue?: (() => void) | undefined;
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
@@ -5870,6 +5871,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       </Tooltip>
                     </>
                   ) : null}
+                  {phase === "running" && !pendingPrimaryAction && !showPlanFollowUpPrompt
+                    ? props.deliverySelector
+                    : null}
                   <ComposerFooterPrimaryActions
                     compact={isComposerResting || isComposerPrimaryActionsCompact}
                     activeContextWindow={

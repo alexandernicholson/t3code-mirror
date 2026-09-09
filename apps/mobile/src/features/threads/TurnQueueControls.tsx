@@ -3,6 +3,8 @@ import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
 import type { EnvironmentId, MessageId, QueuedTurn, ThreadId } from "@t3tools/contracts";
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS } from "@t3tools/contracts";
 import { assetUrlStateFromResult } from "@t3tools/client-runtime/state/assets";
+import { SymbolView } from "../../components/AppSymbol";
+import { ControlPillMenu } from "../../components/ControlPill";
 import { AppText as Text } from "../../components/AppText";
 import { useSelectedThreadDetail } from "../../state/use-thread-detail";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -26,16 +28,13 @@ import {
   useComposerDraft,
 } from "../../state/use-composer-drafts";
 
-/** Kept outside the collapsing editor so delivery is always visible. */
 export function TurnQueueControls(props: {
   environmentId: EnvironmentId;
   threadId: ThreadId;
-  supported: boolean;
   connected: boolean;
   onRestored: () => void;
 }) {
   const draftKey = scopedThreadKey(props.environmentId, props.threadId);
-  const draft = useComposerDraft(draftKey);
   const detail = useSelectedThreadDetail();
   const queue = detail?.id === props.threadId ? detail.turnQueue : undefined;
   const [expanded, setExpanded] = useState(false);
@@ -148,50 +147,45 @@ export function TurnQueueControls(props: {
     }
   };
   const count = queue?.items.length ?? 0;
+  if (count === 0) return null;
   return (
-    <View className="gap-2 px-3 py-2">
-      <View className="flex-row items-center justify-between gap-2">
-        <View
-          className="flex-row rounded-xl border border-border bg-surface p-1"
-          accessibilityRole="radiogroup"
-          accessibilityLabel="Message delivery"
+    <View className="px-3 pt-1">
+      {queue?.paused ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy || !props.connected}
+          onPress={() => void run(() => action("resume"))}
+          className="py-2"
         >
-          {(["steer", "queue"] as const).map((delivery) => (
-            <Pressable
-              key={delivery}
-              accessibilityRole="radio"
-              accessibilityState={{
-                checked: (draft.delivery ?? "steer") === delivery,
-                disabled: delivery === "queue" && !props.supported,
-              }}
-              disabled={delivery === "queue" && !props.supported}
-              onPress={() => updateComposerDraftSettings(draftKey, { delivery })}
-              className={`rounded-lg px-4 py-2 ${(draft.delivery ?? "steer") === delivery ? "bg-muted" : ""}`}
-            >
-              <Text
-                className={`text-xs font-semibold ${delivery === "queue" && !props.supported ? "text-muted-foreground" : "text-foreground"}`}
-              >
-                {delivery === "steer" ? "Steer" : "Queue"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {count > 0 ? (
+          <Text className="text-xs text-muted-foreground">Resume queue</Text>
+        </Pressable>
+      ) : null}
+      <ScrollView style={{ maxHeight: 144 }} keyboardShouldPersistTaps="handled">
+        {queue?.items.map((item, index) => (
           <Pressable
+            key={item.messageId}
             accessibilityRole="button"
-            onPress={() => setExpanded(!expanded)}
-            className="px-2 py-2"
+            accessibilityLabel={`Queued message ${index + 1}: ${item.text || "Attachment"}. Show actions`}
+            onPress={() => setExpanded(true)}
+            className="min-h-[36px] flex-row items-center gap-2 border-b border-border py-1"
           >
-            <Text className="text-xs text-foreground">
-              {queue?.paused ? "Paused" : "Next up"} · {count}
+            <SymbolView
+              name="text.badge.plus"
+              size={14}
+              tintColorClassName="accent-foreground-muted"
+            />
+            <Text
+              className="min-w-0 flex-1 text-xs text-muted-foreground"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {item.text.replace(/\s+/g, " ").trim() || "Attachment"}
+              {item.attachments.length > 0 ? ` · ${item.attachments.length} attachment(s)` : ""}
             </Text>
+            <SymbolView name="ellipsis" size={16} tintColorClassName="accent-foreground-muted" />
           </Pressable>
-        ) : (
-          <Text className="shrink text-xs text-muted-foreground">
-            {draft.delivery === "queue" ? "After this turn" : "Send into current work"}
-          </Text>
-        )}
-      </View>
+        ))}
+      </ScrollView>
       <Modal
         visible={expanded}
         transparent
@@ -269,5 +263,46 @@ export function TurnQueueControls(props: {
         </View>
       </Modal>
     </View>
+  );
+}
+
+export function TurnDeliverySelector(props: { environmentId: EnvironmentId; threadId: ThreadId }) {
+  const draftKey = scopedThreadKey(props.environmentId, props.threadId);
+  const draft = useComposerDraft(draftKey);
+  const delivery = draft.delivery ?? "steer";
+  return (
+    <ControlPillMenu
+      actions={[
+        {
+          id: "steer",
+          title: "Steer",
+          image: "arrow.turn.up.right",
+          state: delivery === "steer" ? "on" : "off",
+        },
+        {
+          id: "queue",
+          title: "Queue",
+          image: "text.badge.plus",
+          state: delivery === "queue" ? "on" : "off",
+        },
+      ]}
+      onPressAction={({ nativeEvent }) => {
+        const value = nativeEvent.event;
+        if (value === "steer" || value === "queue")
+          updateComposerDraftSettings(draftKey, { delivery: value });
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Message delivery: ${delivery === "queue" ? "Queue" : "Steer"}`}
+        className="size-[44px] items-center justify-center rounded-full active:opacity-70"
+      >
+        <SymbolView
+          name={delivery === "queue" ? "text.badge.plus" : "arrow.turn.up.right"}
+          size={18}
+          tintColorClassName="accent-icon"
+        />
+      </Pressable>
+    </ControlPillMenu>
   );
 }

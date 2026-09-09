@@ -2,6 +2,7 @@
 
 ## [0.1.5] - 2026-09-09
 
+- Show steer and queue in a compact delivery selector only while the agent is working, and display queued messages as single lines above the editor on web, desktop, and mobile.
 - Add repeatable web development screenshots and browser checks with a managed Chromium setup and reusable authentication.
 
 ---
