@@ -8,6 +8,7 @@ import { nativeMarkdownDocumentRuns, nativeMarkdownListItemBlocks } from "./nati
 import { NativeMarkdownSelectableText } from "./NativeMarkdownSelectableText.ios";
 import type {
   MarkdownCodeHighlighter,
+  MarkdownCodeBlockRenderer,
   MarkdownHighlightedToken,
   MarkdownImageRenderer,
   NativeMarkdownTextStyle,
@@ -16,6 +17,10 @@ import type {
 
 /** Set by SelectableMarkdownText so images anywhere in the block tree can use it. */
 export const MarkdownImageRendererContext = createContext<MarkdownImageRenderer | null>(null);
+
+export const MarkdownCodeBlockRendererContext = createContext<MarkdownCodeBlockRenderer | null>(
+  null,
+);
 
 type HighlightedCode = ReadonlyArray<ReadonlyArray<MarkdownHighlightedToken>>;
 
@@ -592,6 +597,7 @@ export function NativeMarkdownBlock(props: {
   readonly compact?: boolean;
 }) {
   const depth = props.depth ?? 0;
+  const renderCodeBlock = useContext(MarkdownCodeBlockRendererContext);
   switch (props.node.type) {
     case "document":
       return (
@@ -611,12 +617,17 @@ export function NativeMarkdownBlock(props: {
       );
     case "code_block":
       return (
-        <NativeCodeBlock
-          node={props.node}
-          textStyle={props.textStyle}
-          highlightCode={props.highlightCode}
-          compact={props.compact}
-        />
+        renderCodeBlock?.({
+          code: nodeText(props.node),
+          language: props.node.language ?? null,
+        }) ?? (
+          <NativeCodeBlock
+            node={props.node}
+            textStyle={props.textStyle}
+            highlightCode={props.highlightCode}
+            compact={props.compact}
+          />
+        )
       );
     case "table":
       return (

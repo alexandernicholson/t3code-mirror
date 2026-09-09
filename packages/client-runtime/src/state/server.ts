@@ -1063,6 +1063,16 @@ export function createServerEnvironmentAtoms<R, E>(
         key: ({ environmentId, input }) => JSON.stringify([environmentId, input]),
       },
     }),
+    readProviderGlobalSettings: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:provider:read-global-settings",
+      tag: WS_METHODS.providerReadGlobalSettings,
+    }),
+    writeProviderGlobalSettings: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:provider:write-global-settings",
+      tag: WS_METHODS.providerWriteGlobalSettings,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
+    }),
     refreshProviders: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:refresh-providers",
       tag: WS_METHODS.serverRefreshProviders,

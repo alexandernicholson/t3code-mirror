@@ -1,0 +1,28 @@
+diff --git a/src/async-require/buildUrlForBundle.ts b/src/async-require/buildUrlForBundle.ts
+index 9c59910b0fd0c49396865a67fb968b0e0047c748..3bfd128a9e1cb943d9cb52e0d6ce6109006300a3 100644
+--- a/src/async-require/buildUrlForBundle.ts
++++ b/src/async-require/buildUrlForBundle.ts
+@@ -7,6 +7,11 @@
+ 
+ import getDevServer from './getDevServer';
+ 
++declare global {
++  // Installed by the native DOM export HTML before any chunks execute.
++  var __EXPO_DOM_BUNDLE_URLS__: Record<string, string> | undefined;
++}
++
+ /**
+  * Given a path and some optional additional query parameters, create the dev server bundle URL.
+  * @param bundlePath like `/foobar`
+@@ -14,6 +19,11 @@ import getDevServer from './getDevServer';
+  * @returns a URL like "/foobar.bundle?platform=android&modulesOnly=true&runModule=false&runtimeBytecodeVersion=null"
+  */
+ export function buildUrlForBundle(bundlePath: string): string {
++  if (typeof document !== 'undefined' && globalThis.__EXPO_DOM_BUNDLE_URLS__) {
++    const url = new URL(bundlePath, document.baseURI).href;
++    const assetUrl = globalThis.__EXPO_DOM_BUNDLE_URLS__[url];
++    if (assetUrl) return assetUrl;
++  }
+   if (/^https?:\/\//.test(bundlePath)) {
+     return bundlePath;
+   }

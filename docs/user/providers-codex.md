@@ -4,6 +4,20 @@ For one account, use the default Codex provider with your normal Codex login.
 [Provider setup](./install.md#providers) covers installation, Settings > Providers,
 and custom binaries or environment variables.
 
+## Configure global settings
+
+Open **Settings > Providers**, choose the environment and Codex instance, then
+open **Global settings**. On mobile, choose the provider under **Settings > Providers**.
+Configure web search, response verbosity, personality, and context or compaction
+limits. Use **Advanced settings** for other configuration keys; values
+use JSON, including quoted strings, arrays, and objects. Resetting a key removes
+its override so Codex can inherit its default.
+
+Changes are saved to the provider's configuration file and apply to new provider
+sessions. Instances sharing a Codex home share these settings. Thread settings,
+launch arguments, project configuration, and managed policies can override them.
+If someone edits the file while you are working, reload it before saving again.
+
 ## Use multiple accounts
 
 A shared Codex home with a shadow home lets work and personal accounts continue

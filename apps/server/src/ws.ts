@@ -1,4 +1,5 @@
 import { SourceUpdates } from "./sourceUpdates/controller.ts";
+import * as Secrets from "./secrets/Secrets.ts";
 import {
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
@@ -107,6 +108,7 @@ import * as ProviderSessionDirectory from "./provider/Services/ProviderSessionDi
 import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
 import { ProviderAuthService } from "./provider/Services/ProviderAuthService.ts";
 import { ProviderInstanceRegistry } from "./provider/Services/ProviderInstanceRegistry.ts";
+import { providerGlobalSettings } from "./provider/ProviderGlobalSettings.ts";
 import { makeProviderInstallation } from "./provider/providerInstallation.ts";
 import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
@@ -472,6 +474,7 @@ const makeWsRpcLayer = (
   clientOrigin: OrchestrationClientOrigin,
   clientAnalyticsProps: Readonly<Record<string, unknown>>,
   previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
+  secrets: Secrets.Secrets["Service"],
 ) =>
   WsRpcGroup.toLayer(
     Effect.gen(function* () {
@@ -1847,6 +1850,22 @@ const makeWsRpcLayer = (
               "rpc.aggregate": "server",
             },
           ),
+        [WS_METHODS.providerReadGlobalSettings]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.providerReadGlobalSettings,
+            providerGlobalSettings(providerInstances, input.instanceId).pipe(
+              Effect.flatMap((settings) => settings.read),
+            ),
+            { "rpc.aggregate": "provider" },
+          ),
+        [WS_METHODS.providerWriteGlobalSettings]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.providerWriteGlobalSettings,
+            providerGlobalSettings(providerInstances, input.instanceId).pipe(
+              Effect.flatMap((settings) => settings.write(input)),
+            ),
+            { "rpc.aggregate": "provider" },
+          ),
         [WS_METHODS.providerConsumeResetCredit]: (input) =>
           observeRpcEffect(
             WS_METHODS.providerConsumeResetCredit,
@@ -2667,6 +2686,18 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.previewReportStatus, previewManager.reportStatus(input), {
             "rpc.aggregate": "preview",
           }),
+        [WS_METHODS.secretsCreate]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsCreate, secrets.create(input)),
+        [WS_METHODS.secretsUpdate]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsUpdate, secrets.update(input)),
+        [WS_METHODS.secretsDelete]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsDelete, secrets.remove(input)),
+        [WS_METHODS.secretsRevoke]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsRevoke, secrets.revoke(input)),
+        [WS_METHODS.secretsRespond]: (input) =>
+          observeRpcEffect(WS_METHODS.secretsRespond, secrets.respond(input)),
+        [WS_METHODS.secretsSubscribe]: () =>
+          observeRpcStream(WS_METHODS.secretsSubscribe, secrets.changes),
         [WS_METHODS.previewAutomationConnect]: (input) =>
           observeRpcStreamEffect(
             WS_METHODS.previewAutomationConnect,
@@ -2919,6 +2950,7 @@ const makeWsRpcLayer = (
 
 export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
+    const secrets = yield* Secrets.Secrets;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const baseServerSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const sourceUpdates = yield* SourceUpdates;
@@ -2980,6 +3012,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               clientOrigin,
               clientAnalyticsProps,
               previewAutomationBroker,
+              secrets,
             ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(AgentSessionScanner.layer),

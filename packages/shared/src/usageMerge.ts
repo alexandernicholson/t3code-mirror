@@ -21,7 +21,17 @@ export interface EnvironmentUsage {
   readonly summary: UsageSummary;
 }
 
-export interface ProviderTotals {
+interface CacheUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+}
+
+/** Fraction of all input tokens served from cache, including writes in the denominator. */
+export function cacheHitRate(usage: CacheUsage): number | null {
+  return usage.inputTokens === 0 ? null : usage.cachedInputTokens / usage.inputTokens;
+}
+
+export interface ProviderTotals extends CacheUsage {
   readonly provider: UsageProviderKind;
   readonly costUsd: number;
   readonly totalTokens: number;
@@ -31,7 +41,7 @@ export interface ProviderTotals {
   readonly tokenShare: number;
 }
 
-export interface ModelTotals {
+export interface ModelTotals extends CacheUsage {
   readonly model: string;
   readonly provider: UsageProviderKind;
   readonly costUsd: number;
@@ -245,11 +255,16 @@ export function mergeUsage(
 
   const providerAccumulator = new Map<
     UsageProviderKind,
-    { costUsd: number; totalTokens: number; records: number; sessions: number }
+    CacheUsage & { costUsd: number; totalTokens: number; records: number; sessions: number }
   >();
   const modelAccumulator = new Map<
     string,
-    { provider: UsageProviderKind; costUsd: number; totalTokens: number; records: number }
+    CacheUsage & {
+      provider: UsageProviderKind;
+      costUsd: number;
+      totalTokens: number;
+      records: number;
+    }
   >();
   const dailyAccumulator = new Map<
     string,
@@ -282,6 +297,8 @@ export function mergeUsage(
         costUsd: 0,
         totalTokens: 0,
         records: 0,
+        inputTokens: 0,
+        cachedInputTokens: 0,
         sessions: 0,
       };
       provider.sessions += providerSessions;
@@ -290,6 +307,7 @@ export function mergeUsage(
 
     for (const bucket of buckets) {
       const tokens = bucketTokens(bucket);
+      const inputTokens = tokens - bucket.totals.outputTokens;
 
       costUsd += bucket.costUsd;
       cacheSavingsUsd += bucket.cacheSavingsUsd;
@@ -306,22 +324,30 @@ export function mergeUsage(
         costUsd: 0,
         totalTokens: 0,
         records: 0,
+        inputTokens: 0,
+        cachedInputTokens: 0,
         sessions: 0,
       };
       provider.costUsd += bucket.costUsd;
       provider.totalTokens += tokens;
+      provider.inputTokens += inputTokens;
+      provider.cachedInputTokens += bucket.totals.cachedInputTokens;
       provider.records += bucket.records;
       providerAccumulator.set(bucket.provider, provider);
 
       const modelKey = `${bucket.provider} ${bucket.model}`;
       const model = modelAccumulator.get(modelKey) ?? {
         provider: bucket.provider,
+        inputTokens: 0,
+        cachedInputTokens: 0,
         costUsd: 0,
         totalTokens: 0,
         records: 0,
       };
       model.costUsd += bucket.costUsd;
       model.totalTokens += tokens;
+      model.inputTokens += inputTokens;
+      model.cachedInputTokens += bucket.totals.cachedInputTokens;
       model.records += bucket.records;
       modelAccumulator.set(modelKey, model);
 
@@ -367,6 +393,8 @@ export function mergeUsage(
       provider,
       costUsd: totals.costUsd,
       totalTokens: totals.totalTokens,
+      inputTokens: totals.inputTokens,
+      cachedInputTokens: totals.cachedInputTokens,
       records: totals.records,
       sessions: totals.sessions,
       costShare: costUsd === 0 ? 0 : totals.costUsd / costUsd,
@@ -380,6 +408,8 @@ export function mergeUsage(
       provider: totals.provider,
       costUsd: totals.costUsd,
       totalTokens: totals.totalTokens,
+      inputTokens: totals.inputTokens,
+      cachedInputTokens: totals.cachedInputTokens,
       records: totals.records,
       costShare: costUsd === 0 ? 0 : totals.costUsd / costUsd,
     }))

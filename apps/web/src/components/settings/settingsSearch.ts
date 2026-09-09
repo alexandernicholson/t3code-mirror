@@ -8,6 +8,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/secrets"
   | "/settings/tools"
   | "/settings/integrations"
   | "/settings/source-control"
@@ -57,6 +58,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/secrets": "Secrets",
   "/settings/tools": "Tools & MCP servers",
   "/settings/integrations": "Integrations",
   "/settings/source-control": "Source Control",
@@ -76,6 +78,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Updates",
     to: "/settings/updates",
     searchTerms: ["version changelog automatic install restart source branch experiments"],
+  },
+  {
+    id: "secrets",
+    title: "Secrets",
+    to: "/settings/secrets",
+    searchTerms: ["secrets keys values sensitive credentials kv approval project environment"],
   },
   {
     id: "mcp-servers",
@@ -390,7 +398,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Providers",
     to: "/settings/providers",
     searchTerms: [
-      "agents cli codex claude cursor grok opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory endpoint arguments environment variables display name accent color custom favorite hidden auto compact",
+      "agents cli codex claude cursor grok opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory endpoint arguments environment variables display name accent color custom favorite hidden auto compact global settings config.toml web search verbosity personality context window advanced key value",
     ],
   },
   {

@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./mermaid-browser": {
+      "types": "./src/mermaidBrowser.ts",
+      "default": "./src/mermaidBrowser.ts"
+    },
     "./load-balancing": {
       "types": "./src/load-balancing.ts",
       "default": "./src/load-balancing.ts"
@@ -78,6 +82,10 @@
     "./platform": {
       "types": "./src/platform/index.ts",
       "default": "./src/platform/index.ts"
+    },
+    "./provider-global-settings": {
+      "types": "./src/providerGlobalSettings.ts",
+      "default": "./src/providerGlobalSettings.ts"
     },
     "./providerSkills": {
       "types": "./src/providerSkills.ts",
@@ -167,6 +175,10 @@
       "types": "./src/state/usage.ts",
       "default": "./src/state/usage.ts"
     },
+    "./state/secrets": {
+      "types": "./src/state/secrets.ts",
+      "default": "./src/state/secrets.ts"
+    },
     "./state/server": {
       "types": "./src/state/server.ts",
       "default": "./src/state/server.ts"
@@ -241,6 +253,7 @@
     "@t3tools/shared": "workspace:*",
     "effect": "catalog:",
     "mdast-util-directive": "^3.1.0",
+    "mermaid": "^11.17.2",
     "micromark-extension-directive": "^4.0.0",
     "micromark-util-character": "^2.1.1",
     "remark-parse": "^11.0.0",

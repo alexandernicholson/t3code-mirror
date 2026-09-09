@@ -54,6 +54,7 @@ import { SettingsAppearanceRouteScreen } from "./features/settings/SettingsAppea
 import { SettingsClientStorageRouteScreen } from "./features/settings/SettingsClientStorageRouteScreen";
 import { SettingsAuthRouteScreen } from "./features/settings/SettingsAuthRouteScreen";
 import { SettingsEnvironmentsRouteScreen } from "./features/settings/SettingsEnvironmentsRouteScreen";
+import { SettingsProvidersRouteScreen } from "./features/settings/SettingsProvidersRouteScreen";
 import { SettingsLegalRouteScreen } from "./features/settings/SettingsLegalRouteScreen";
 import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
 import { UsageLimitAccountScreen } from "./features/usage/UsageLimitsPooled";
@@ -150,6 +151,11 @@ const SettingsContentStack = createNativeStackNavigator({
       options: {
         title: "Settings",
       },
+    }),
+    SettingsProviders: createNativeStackScreen({
+      screen: SettingsProvidersRouteScreen,
+      linking: "providers",
+      options: { title: "Providers" },
     }),
     SettingsEnvironments: createNativeStackScreen({
       screen: SettingsEnvironmentsRouteScreen,

@@ -55,11 +55,13 @@ import {
   type SourceControlProviderInfo,
   type SourceControlProviderKind,
 } from "@t3tools/contracts";
+import { normalizeGitRemoteUrl } from "@t3tools/shared/git";
 import { detectSourceControlProviderFromRemoteUrl } from "@t3tools/shared/sourceControl";
 
 import * as ProjectionSnapshotQuery from "../orchestration/Services/ProjectionSnapshotQuery.ts";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as SourceControlRateLimit from "../sourceControl/SourceControlRateLimit.ts";
+import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import {
   type ProviderChangeRequest,
   type ProviderListCursor,
@@ -539,6 +541,7 @@ export const make = Effect.gen(function* () {
   const projections = yield* ProjectionSnapshotQuery.ProjectionSnapshotQuery;
   const sourceControlProviders = yield* SourceControlProviderRegistry.SourceControlProviderRegistry;
   const rateLimits = yield* SourceControlRateLimit.SourceControlRateLimit;
+  const vcsDrivers = yield* VcsDriverRegistry.VcsDriverRegistry;
 
   const refineUnknownProjectKinds = (
     projects: ReadonlyArray<OrchestrationProjectShell>,
@@ -667,26 +670,47 @@ export const make = Effect.gen(function* () {
       }),
     );
 
-  const requireProject = (ref: PullRequestRef): Effect.Effect<SupportedProject, PullRequestError> =>
-    listWorkspaceProjects({ projectId: ref.projectId }).pipe(
-      Effect.flatMap(({ supported }): Effect.Effect<SupportedProject, PullRequestError> => {
-        const match = supported[0];
-        if (!match) {
-          return Effect.fail(new PullRequestUnavailableError({ reason: "provider-unsupported" }));
-        }
-        // The repository travels through the client, so it is checked against the project's
-        // own remote rather than being handed to a provider verbatim.
-        if (match.repository.toLowerCase() !== ref.repository.trim().toLowerCase()) {
-          return Effect.fail(
+  const requireProject = Effect.fn("PullRequestService.requireProject")(function* (
+    ref: PullRequestRef,
+  ): Effect.fn.Return<SupportedProject, PullRequestError> {
+    const { supported } = yield* listWorkspaceProjects({ projectId: ref.projectId });
+    const match = supported[0];
+    if (!match) {
+      return yield* new PullRequestUnavailableError({ reason: "provider-unsupported" });
+    }
+    const repository = ref.repository.trim();
+    if (match.repository.toLowerCase() === repository.toLowerCase()) return match;
+
+    // Azure's repository name is relative to the checkout's organisation and project.
+    // A different remote cannot safely select that context with a name alone.
+    if (match.api.kind !== "azure-devops") {
+      const remotes = yield* vcsDrivers.resolve({ cwd: match.project.workspaceRoot }).pipe(
+        Effect.flatMap(({ driver }) => driver.listRemotes(match.project.workspaceRoot)),
+        Effect.mapError(
+          (cause) =>
             new PullRequestOperationError({
               operation: "resolveRepository",
-              detail: "The change request does not belong to the selected project.",
+              detail: "The project's configured remotes could not be read.",
+              cause,
             }),
-          );
-        }
-        return Effect.succeed(match);
-      }),
-    );
+        ),
+      );
+      const requestedKey = `${match.host}/${repository.toLowerCase()}`;
+      const verified = remotes.remotes.some((remote) => {
+        const provider = detectSourceControlProviderFromRemoteUrl(remote.url);
+        return (
+          provider !== null &&
+          (provider.kind === "unknown" || provider.kind === match.api.kind) &&
+          normalizeGitRemoteUrl(remote.url) === requestedKey
+        );
+      });
+      if (verified) return { ...match, repository };
+    }
+    return yield* new PullRequestOperationError({
+      operation: "resolveRepository",
+      detail: "The change request does not belong to the selected project.",
+    });
+  });
 
   /**
    * What the signed-in account may do with this change request, asked of the host itself. Every

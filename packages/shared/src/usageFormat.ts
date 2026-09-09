@@ -6,6 +6,16 @@
  */
 import { UsageDay, type UsageResolution, type UsageSummaryInput } from "@t3tools/contracts";
 
+import { cacheHitRate } from "./usageMerge.ts";
+
+export function formatCacheHitRate(usage: {
+  readonly inputTokens: number;
+  readonly cachedInputTokens: number;
+}): string {
+  const rate = cacheHitRate(usage);
+  return rate === null ? "—" : formatPercent(rate);
+}
+
 const CURRENCY = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",

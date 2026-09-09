@@ -1,4 +1,7 @@
 import * as SourceUpdates from "./sourceUpdates/service.ts";
+import * as Secrets from "./secrets/Secrets.ts";
+import * as SecretApprovals from "./secrets/SecretApprovals.ts";
+import { localBackendLayer } from "./secrets/SecretBackend.ts";
 import { EnvironmentHttpApi, ProviderDriverKind } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import * as Duration from "effect/Duration";
@@ -558,6 +561,12 @@ export const makeRoutesLayer = Layer.mergeAll(
   // and mutations observed on WebSocket invalidate patches subsequently read over HTTP.
   Layer.provide(PullRequestServiceLive),
   Layer.provide(PreviewAutomationBroker.layer),
+  Layer.provide(
+    Secrets.layer.pipe(
+      Layer.provide(SecretApprovals.layer),
+      Layer.provide(localBackendLayer.pipe(Layer.provide(ServerSecretStore.layer))),
+    ),
+  ),
   Layer.provide(ServerSelfUpdate.layer.pipe(Layer.provide(DesktopAppUpdateLayerLive))),
   Layer.provide(commandReadinessLayer),
   Layer.provide(browserApiCorsLayer),

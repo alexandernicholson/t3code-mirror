@@ -12,6 +12,7 @@ export * from "./ipc.ts";
 export * from "./terminal.ts";
 export * from "./provider.ts";
 export * from "./providerInstance.ts";
+export * from "./providerGlobalSettings.ts";
 export * from "./providerSetup.ts";
 export * from "./providerRuntime.ts";
 export * from "./providerUsageLimits.ts";
@@ -43,3 +44,4 @@ export * from "./rpc.ts";
 export * from "./managedMcp.ts";
 
 export * from "./sourceUpdates.ts";
+export * from "./secrets.ts";
