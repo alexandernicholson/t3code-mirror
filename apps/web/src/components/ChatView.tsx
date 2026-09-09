@@ -201,6 +201,7 @@ import {
   usePreviewMiniPlayerStore,
 } from "../previewMiniPlayerStore";
 import { isThreadOwnPullRequest } from "./pullRequest/pullRequestDetail.logic";
+import { getConversationBackground } from "../conversationBackgrounds";
 import { PullRequestDetailPanel } from "./pullRequest/PullRequestDetailPanel";
 import { PullRequestDetailGhost } from "./pullRequest/PullRequestGhosts";
 import { PullRequestsUnavailableState } from "./pullRequest/PullRequestsUnavailableState";
@@ -2021,6 +2022,7 @@ export default function ChatView(props: ChatViewProps) {
     [activeThread?.environmentId, activeThread?.projectId],
   );
   const activeProject = useProject(activeProjectRef);
+  const conversationBackground = getConversationBackground(activeProject?.conversationBackground);
   const activeProjectScripts = useMemo(
     () => (activeProject ? resolveProjectScripts(settings, activeProject) : []),
     [activeProject, settings],
@@ -8366,12 +8368,27 @@ export default function ChatView(props: ChatViewProps) {
           {/* Chat column */}
           <div
             className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+            data-conversation-background={conversationBackground?.id}
             data-chat-workspace-drop-target="true"
             onDragEnter={workspaceFileDropHandlers.onDragEnter}
             onDragOver={workspaceFileDropHandlers.onDragOver}
             onDragLeave={workspaceFileDropHandlers.onDragLeave}
             onDrop={workspaceFileDropHandlers.onDrop}
           >
+            {conversationBackground ? (
+              <>
+                <img
+                  src={conversationBackground.src}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 size-full object-cover"
+                />
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 bg-black/10 dark:bg-black/25"
+                />
+              </>
+            ) : null}
             {isWorkspaceFileDragActive ? (
               <div
                 className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/60 bg-primary/[0.035]"
@@ -8404,54 +8421,62 @@ export default function ChatView(props: ChatViewProps) {
             </div>
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
+              {conversationBackground ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-1/2 z-0 w-full max-w-[52rem] -translate-x-1/2 border-x border-white/12 bg-background/58 shadow-2xl backdrop-blur-xl backdrop-saturate-125"
+                />
+              ) : null}
               {/* Messages — LegendList handles virtualization and scrolling internally */}
-              <MessagesTimeline
-                citationRequest={citationRequest}
-                citationHistoryLoading={threadDetailLoading}
-                onCiteAssistantText={citeAssistantText}
-                agentPanelModel={agentPanelModel}
-                onOpenAgents={addAgentsSurface}
-                key={activeThread.id}
-                isWorking={isWorking}
-                isPreparingWorktree={isPreparingWorktree}
-                isCompacting={isCompacting}
-                activeTurnStartedAt={activeWorkStartedAt}
-                listRef={legendListRef}
-                timelineEntries={timelineEntries}
-                latestTurn={activeLatestTurn}
-                runningTurnId={activeRunningTurnId}
-                turnDiffSummaries={activeThread.checkpoints}
-                activeThreadEnvironmentId={activeThread.environmentId}
-                routeThreadKey={routeThreadKey}
-                onOpenTurnDiff={onOpenTurnDiff}
-                supportsConversationRollback={supportsConversationRollback}
-                onRevertToTurnCount={onRevertTimelineTurn}
-                onUseArtifactTemplate={useArtifactTemplate}
-                isRevertingCheckpoint={isRevertingCheckpoint}
-                onImageExpand={onExpandTimelineImage}
-                onFileOpen={openFileAttachment}
-                onFileDownload={downloadFileAttachment}
-                markdownCwd={gitCwd ?? undefined}
-                resolvedTheme={resolvedTheme}
-                timestampFormat={timestampFormat}
-                workspaceRoot={activeWorkspaceRoot}
-                skills={
-                  activeProviderStatus
-                    ? resolveProviderSkillsForCwd(activeProviderStatus, gitCwd)
-                    : EMPTY_PROVIDER_SKILLS
-                }
-                anchorMessageId={timelineAnchorMessageId}
-                onAnchorReady={onTimelineAnchorReady}
-                contentInsetEndAdjustment={composerTimelineInset}
-                liveFollowEnabled={timelineLiveFollowEnabled}
-                onIsAtEndChange={onIsAtEndChange}
-                onContentOverflowChange={setTimelineOverflows}
-                onToolOutputCollapsedAtEnd={onToolOutputCollapsedAtEnd}
-                onManualNavigation={cancelTimelineLiveFollowForUserNavigation}
-                hideEmptyPlaceholder={isDraftHeroState || threadDetailLoading}
-                topFadeEnabled={!hasTimelineTopBanner}
-                loadEarlier={loadEarlierTurns}
-              />
+              <div className="relative z-10 min-h-0 flex-1">
+                <MessagesTimeline
+                  citationRequest={citationRequest}
+                  citationHistoryLoading={threadDetailLoading}
+                  onCiteAssistantText={citeAssistantText}
+                  agentPanelModel={agentPanelModel}
+                  onOpenAgents={addAgentsSurface}
+                  key={activeThread.id}
+                  isWorking={isWorking}
+                  isPreparingWorktree={isPreparingWorktree}
+                  isCompacting={isCompacting}
+                  activeTurnStartedAt={activeWorkStartedAt}
+                  listRef={legendListRef}
+                  timelineEntries={timelineEntries}
+                  latestTurn={activeLatestTurn}
+                  runningTurnId={activeRunningTurnId}
+                  turnDiffSummaries={activeThread.checkpoints}
+                  activeThreadEnvironmentId={activeThread.environmentId}
+                  routeThreadKey={routeThreadKey}
+                  onOpenTurnDiff={onOpenTurnDiff}
+                  supportsConversationRollback={supportsConversationRollback}
+                  onRevertToTurnCount={onRevertTimelineTurn}
+                  onUseArtifactTemplate={useArtifactTemplate}
+                  isRevertingCheckpoint={isRevertingCheckpoint}
+                  onImageExpand={onExpandTimelineImage}
+                  onFileOpen={openFileAttachment}
+                  onFileDownload={downloadFileAttachment}
+                  markdownCwd={gitCwd ?? undefined}
+                  resolvedTheme={resolvedTheme}
+                  timestampFormat={timestampFormat}
+                  workspaceRoot={activeWorkspaceRoot}
+                  skills={
+                    activeProviderStatus
+                      ? resolveProviderSkillsForCwd(activeProviderStatus, gitCwd)
+                      : EMPTY_PROVIDER_SKILLS
+                  }
+                  anchorMessageId={timelineAnchorMessageId}
+                  onAnchorReady={onTimelineAnchorReady}
+                  contentInsetEndAdjustment={composerTimelineInset}
+                  liveFollowEnabled={timelineLiveFollowEnabled}
+                  onIsAtEndChange={onIsAtEndChange}
+                  onContentOverflowChange={setTimelineOverflows}
+                  onToolOutputCollapsedAtEnd={onToolOutputCollapsedAtEnd}
+                  onManualNavigation={cancelTimelineLiveFollowForUserNavigation}
+                  hideEmptyPlaceholder={isDraftHeroState || threadDetailLoading}
+                  topFadeEnabled={!hasTimelineTopBanner}
+                  loadEarlier={loadEarlierTurns}
+                />
+              </div>
 
               {/* scroll to end pill — shown when user has scrolled away from the live edge */}
               {showScrollToBottom && (

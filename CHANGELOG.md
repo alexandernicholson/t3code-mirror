@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2] - 2026-09-09
+
+- Add project-scoped conversation backgrounds with grouped workstation, landscape, and abstract choices, cover-cropped artwork, and readable glass chat surfaces across web, desktop, and mobile. Includes a database migration for the saved project selection.
+
+---
+
 ## [0.3.1] - 2026-09-09
 
 - Use the chat model picker and supported model options in advisor and voice-summary settings. Preserve effort, context window, and service tier selections; honor Codex context windows when generating voice summaries.

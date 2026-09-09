@@ -15,6 +15,7 @@ import {
 import {
   type EnvironmentId,
   type ModelSelection,
+  type ProjectConversationBackground,
   type ProjectIconOverride,
   type ProjectId,
   type ProjectScript,
@@ -115,10 +116,17 @@ import {
   ProjectFaviconPickerDialog,
 } from "./ProjectFaviconPickerDialog";
 import { projectGroupTitleNeedsUpdate } from "./ProjectSettingsPanel.logic";
+import { getConversationBackground } from "../../conversationBackgrounds";
 
 const ProjectIconPickerDialog = lazy(() =>
   import("./ProjectIconPickerDialog").then((module) => ({
     default: module.ProjectIconPickerDialog,
+  })),
+);
+
+const ProjectConversationBackgroundPickerDialog = lazy(() =>
+  import("./ProjectConversationBackgroundPickerDialog").then((module) => ({
+    default: module.ProjectConversationBackgroundPickerDialog,
   })),
 );
 
@@ -498,6 +506,11 @@ function ProjectDetail({
 
   const faviconPath = representative.faviconPath ?? null;
   const projectIcon = representative.projectIcon ?? null;
+  const conversationBackground = representative.conversationBackground ?? null;
+  const conversationBackgroundOption = getConversationBackground(conversationBackground);
+  const mixedConversationBackground = group.memberProjects.some(
+    (member) => (member.conversationBackground ?? null) !== conversationBackground,
+  );
   const pickProjectFavicon =
     typeof window !== "undefined" &&
     group.memberProjects.every(
@@ -531,6 +544,7 @@ function ProjectDetail({
         autoPull: boolean;
         faviconPath: string | null;
         projectIcon: ProjectIconOverride | null;
+        conversationBackground: ProjectConversationBackground | null;
       }>,
       failureTitle: string,
     ): Promise<AtomCommandResult<void, unknown>> => {
@@ -694,6 +708,7 @@ function ProjectDetail({
   // ----- project icon -----
   const [faviconPickerOpen, setFaviconPickerOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [backgroundPickerOpen, setBackgroundPickerOpen] = useState(false);
   const [isSavingFavicon, setIsSavingFavicon] = useState(false);
   const savingFaviconRef = useRef(false);
   const setProjectIcon = useCallback(
@@ -987,6 +1002,47 @@ function ProjectDetail({
                   onClick={() => setFaviconPickerOpen(true)}
                 >
                   Choose file
+                </Button>
+              </div>
+            }
+          />
+          <SettingsRow
+            title="Conversation background"
+            description={
+              mixedConversationBackground
+                ? "Mixed across project checkouts"
+                : (conversationBackgroundOption?.label ?? "None")
+            }
+            resetAction={
+              conversationBackground !== null || mixedConversationBackground ? (
+                <SettingResetButton
+                  label="conversation background"
+                  onClick={() =>
+                    void updateAllMembers(
+                      { conversationBackground: null },
+                      "Failed to clear conversation background",
+                    )
+                  }
+                />
+              ) : null
+            }
+            control={
+              <div className="flex items-center gap-2">
+                {conversationBackgroundOption ? (
+                  <img
+                    src={conversationBackgroundOption.src}
+                    alt=""
+                    className="aspect-video w-20 rounded-md border border-border/70 object-cover"
+                  />
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  aria-label="Choose a conversation background"
+                  onClick={() => setBackgroundPickerOpen(true)}
+                >
+                  Choose background
                 </Button>
               </div>
             }
@@ -1475,6 +1531,21 @@ function ProjectDetail({
             open
             onOpenChange={setIconPickerOpen}
             onSelect={(icon) => void setProjectIcon({ faviconPath: null, projectIcon: icon })}
+          />
+        </Suspense>
+      ) : null}
+      {backgroundPickerOpen ? (
+        <Suspense fallback={null}>
+          <ProjectConversationBackgroundPickerDialog
+            current={conversationBackground}
+            open
+            onOpenChange={setBackgroundPickerOpen}
+            onSelect={(background) =>
+              void updateAllMembers(
+                { conversationBackground: background },
+                "Failed to update conversation background",
+              )
+            }
           />
         </Suspense>
       ) : null}

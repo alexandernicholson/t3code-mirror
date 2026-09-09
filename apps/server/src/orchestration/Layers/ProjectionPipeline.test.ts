@@ -4055,6 +4055,7 @@ engineLayer("OrchestrationProjectionPipeline via engine dispatch", (it) => {
         },
         faviconPath: "brand/icon.svg",
         projectIcon: { kind: "emoji", emoji: "🚀" },
+        conversationBackground: "landscape-redwoods",
       });
 
       const projectRows = yield* sql<{
@@ -4062,12 +4063,14 @@ engineLayer("OrchestrationProjectionPipeline via engine dispatch", (it) => {
         readonly defaultModelSelection: string;
         readonly faviconPath: string | null;
         readonly projectIcon: string | null;
+        readonly conversationBackground: string | null;
       }>`
         SELECT
           scripts_json AS "scriptsJson",
           default_model_selection_json AS "defaultModelSelection",
           favicon_path AS "faviconPath",
-          project_icon_json AS "projectIcon"
+          project_icon_json AS "projectIcon",
+          conversation_background AS "conversationBackground"
         FROM projection_projects
         WHERE project_id = 'project-scripts'
       `;
@@ -4078,6 +4081,7 @@ engineLayer("OrchestrationProjectionPipeline via engine dispatch", (it) => {
           defaultModelSelection: '{"instanceId":"codex","model":"gpt-5"}',
           faviconPath: "brand/icon.svg",
           projectIcon: '{"kind":"emoji","emoji":"🚀"}',
+          conversationBackground: "landscape-redwoods",
         },
       ]);
     }),

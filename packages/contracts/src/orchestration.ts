@@ -452,6 +452,25 @@ export const ProjectIconOverride = Schema.Union([
 ]);
 export type ProjectIconOverride = typeof ProjectIconOverride.Type;
 
+export const ProjectConversationBackground = Schema.Literals([
+  "workstation-mountain-cabin",
+  "workstation-brutalist-studio",
+  "workstation-rainy-loft",
+  "workstation-moonlit-observatory",
+  "workstation-stormy-ocean",
+  "landscape-alpine-lake",
+  "landscape-northern-cliffs",
+  "landscape-redwoods",
+  "landscape-twilight-dunes",
+  "landscape-glacial-valley",
+  "abstract-folded-graphite",
+  "abstract-midnight-ribbon",
+  "abstract-moss-contours",
+  "abstract-frosted-plum",
+  "abstract-monumental-graphite",
+]);
+export type ProjectConversationBackground = typeof ProjectConversationBackground.Type;
+
 export const OrchestrationProject = Schema.Struct({
   id: ProjectId,
   title: TrimmedNonEmptyString,
@@ -467,6 +486,7 @@ export const OrchestrationProject = Schema.Struct({
   // Optional on the wire so cached snapshots from older servers still decode.
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   projectIcon: Schema.optional(Schema.NullOr(ProjectIconOverride)),
+  conversationBackground: Schema.optional(Schema.NullOr(ProjectConversationBackground)),
   scripts: Schema.Array(ProjectScript),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -708,6 +728,7 @@ export const OrchestrationProjectShell = Schema.Struct({
   // Optional on the wire so cached snapshots from older servers still decode.
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   projectIcon: Schema.optional(Schema.NullOr(ProjectIconOverride)),
+  conversationBackground: Schema.optional(Schema.NullOr(ProjectConversationBackground)),
   scripts: Schema.Array(ProjectScript),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -937,6 +958,7 @@ const ProjectMetaUpdateCommand = Schema.Struct({
   autoPull: Schema.optional(Schema.Boolean),
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   projectIcon: Schema.optional(Schema.NullOr(ProjectIconOverride)),
+  conversationBackground: Schema.optional(Schema.NullOr(ProjectConversationBackground)),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
 });
 
@@ -1504,6 +1526,7 @@ export const ProjectCreatedPayload = Schema.Struct({
   // Optional so persisted events from older servers still decode.
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   projectIcon: Schema.optional(Schema.NullOr(ProjectIconOverride)),
+  conversationBackground: Schema.optional(Schema.NullOr(ProjectConversationBackground)),
   scripts: Schema.Array(ProjectScript),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -1519,6 +1542,7 @@ export const ProjectMetaUpdatedPayload = Schema.Struct({
   autoPull: Schema.optional(Schema.Boolean),
   faviconPath: Schema.optional(Schema.NullOr(ProjectFaviconPath)),
   projectIcon: Schema.optional(Schema.NullOr(ProjectIconOverride)),
+  conversationBackground: Schema.optional(Schema.NullOr(ProjectConversationBackground)),
   scripts: Schema.optional(Schema.Array(ProjectScript)),
   updatedAt: IsoDateTime,
 });

@@ -50,6 +50,9 @@ This fork currently adds or changes the following:
   Native provider checklists and the fallback TODO tool feed the same state, while
   user edits are reconciled back into the conversation. See
   [TODOs](./docs/user/composer.md#todos).
+- Adds project-scoped conversation backgrounds with grouped workstation,
+  landscape, and abstract collections. See
+  [Conversation backgrounds](./docs/user/project-settings.md#conversation-backgrounds).
 - Uses a fork-oriented release lifecycle and a leaner CI setup, with focused web
   browser checks and repeatable screenshot tooling for maintainers.
 

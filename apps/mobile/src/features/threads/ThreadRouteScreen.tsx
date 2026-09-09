@@ -26,6 +26,8 @@ import {
   resolveProjectScripts,
 } from "@t3tools/shared/projectScripts";
 import { Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { BlurView } from "expo-blur";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceState } from "../../state/workspace";
 import { restoredNewTaskDraftKey } from "../../state/new-task-draft-key";
@@ -44,6 +46,8 @@ import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { connectionTone } from "../connection/connectionTone";
+import { appBlurTargetRef } from "../../lib/appBlurTarget";
+import { getMobileConversationBackgroundSource } from "../../conversationBackgrounds";
 
 import {
   useRemoteConnections,
@@ -197,7 +201,8 @@ function ThreadRouteContent(
     readonly selectedThreadDetailState: ReturnType<typeof useSelectedThreadDetailState>;
   },
 ) {
-  const { materialYouStyleLayoutActive, themeVariables } = useAppearancePreferences();
+  const { materialYouStyleLayoutActive, themeAppearance, themeVariables } =
+    useAppearancePreferences();
   const headerColor = themeVariables["--color-header"];
   const {
     fileInspector,
@@ -217,6 +222,9 @@ function ThreadRouteContent(
   } = useThreadSelection();
   const selectedThreadDetailState = props.selectedThreadDetailState;
   const selectedThreadDetail = Option.getOrNull(selectedThreadDetailState.data);
+  const conversationBackgroundSource = getMobileConversationBackgroundSource(
+    selectedThreadProject?.conversationBackground,
+  );
   // "Load earlier turns" header state for windowed (paginated) thread loads.
   const loadEarlierTurns = useMemo(() => {
     if (selectedThread === null || !threadHasOlderTurns(selectedThreadDetailState)) {
@@ -929,7 +937,13 @@ function ThreadRouteContent(
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
 
       <View
-        className={materialYouStyleLayoutActive ? "flex-1 bg-thread-canvas" : "flex-1 bg-screen"}
+        className={
+          conversationBackgroundSource
+            ? "flex-1"
+            : materialYouStyleLayoutActive
+              ? "flex-1 bg-thread-canvas"
+              : "flex-1 bg-screen"
+        }
         style={
           materialYouStyleLayoutActive
             ? {
@@ -941,6 +955,23 @@ function ThreadRouteContent(
             : undefined
         }
       >
+        {conversationBackgroundSource ? (
+          <>
+            <Image
+              source={conversationBackgroundSource}
+              contentFit="cover"
+              className="absolute inset-0"
+            />
+            <BlurView
+              blurMethod="dimezisBlurView"
+              blurTarget={appBlurTargetRef}
+              intensity={24}
+              tint={themeAppearance === "dark" ? "dark" : "light"}
+              className="absolute inset-0"
+            />
+            <View className="pointer-events-none absolute inset-0 bg-screen/55" />
+          </>
+        ) : null}
         {selectedThreadDetail ? (
           <ThreadNarration
             key={`${selectedThread?.environmentId}:${selectedThreadDetail.id}`}
