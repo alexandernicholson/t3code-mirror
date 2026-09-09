@@ -5,8 +5,10 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useState } from "react";
 import {
   inheritedAdvisorIds,
+  advisorDefinitionsForScope,
   advisorScopeKey,
   emptyAdvisorConfiguration,
+  setAdvisorDefinition,
   type AdvisorConfiguration,
   type AdvisorDefinition,
   type AdvisorScope,
@@ -104,15 +106,24 @@ export function AdvisorConfigurationEditor({
     emptyAdvisorConfiguration(scope);
   const value = draft ?? current;
   const inheritedIds = inheritedAdvisorIds(configurations, scope, thread?.projectId);
-  const definitions =
-    scope.type === "environment"
-      ? value.definitions
-      : (configurations.find((item) => item.scope.type === "environment")?.definitions ?? []);
+  const definitions = advisorDefinitionsForScope(
+    [
+      ...configurations.filter((item) => advisorScopeKey(item.scope) !== advisorScopeKey(scope)),
+      value,
+    ],
+    scope,
+    thread?.projectId,
+  );
+  const inheritedDefinitions = advisorDefinitionsForScope(
+    configurations.filter((item) => advisorScopeKey(item.scope) !== advisorScopeKey(scope)),
+    scope,
+    thread?.projectId,
+  );
   const update = (patch: Partial<AdvisorConfiguration>) => setDraft({ ...value, ...patch });
-  const changeDefinition = (id: string, patch: Partial<AdvisorDefinition>) =>
-    update({
-      definitions: value.definitions.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    });
+  const changeDefinition = (id: string, patch: Partial<AdvisorDefinition>) => {
+    const definition = definitions.find((item) => item.id === id);
+    if (definition) setDraft(setAdvisorDefinition(value, { ...definition, ...patch }));
+  };
   const providers = config?.providers ?? [];
   const choices = providers
     .filter(
@@ -210,15 +221,13 @@ export function AdvisorConfigurationEditor({
                 · {definition.mode === "guide" ? "Guide automatically" : "Observe only"}
               </div>
             </div>
-            {scope.type === "environment" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditing(editing === definition.id ? null : definition.id)}
-              >
-                {editing === definition.id ? "Close" : "Edit"}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditing(editing === definition.id ? null : definition.id)}
+            >
+              {editing === definition.id ? "Close" : "Edit"}
+            </Button>
           </div>
           {editing === definition.id && (
             <div className="mt-4 grid gap-3">
@@ -273,51 +282,56 @@ export function AdvisorConfigurationEditor({
                   placeholder="What should this advisor watch for?"
                 />
               </label>
-              <Button
-                variant="ghost"
-                className="justify-self-start text-destructive-foreground"
-                onClick={() => {
-                  update({
-                    definitions: value.definitions.filter((item) => item.id !== definition.id),
-                    advisorIds: value.advisorIds?.filter((id) => id !== definition.id) ?? null,
-                  });
-                  setEditing(null);
-                }}
-              >
-                Remove advisor
-              </Button>
+              {value.definitions.some((item) => item.id === definition.id) && (
+                <Button
+                  variant="ghost"
+                  className="justify-self-start text-destructive-foreground"
+                  onClick={() => {
+                    update({
+                      definitions: value.definitions.filter((item) => item.id !== definition.id),
+                      advisorIds: inheritedDefinitions.some((item) => item.id === definition.id)
+                        ? value.advisorIds
+                        : (value.advisorIds?.filter((id) => id !== definition.id) ?? null),
+                    });
+                    setEditing(null);
+                  }}
+                >
+                  {inheritedDefinitions.some((item) => item.id === definition.id)
+                    ? "Use inherited settings"
+                    : "Remove advisor"}
+                </Button>
+              )}
             </div>
           )}
         </div>
       ))}
-      {scope.type === "environment" && (
-        <Button
-          variant="outline"
-          disabled={!choices[0] || definitions.length >= 12}
-          onClick={() => {
-            const choice = choices[0];
-            if (!choice) return;
-            const id = randomUUID();
-            update({
-              definitions: [
-                ...value.definitions,
-                {
-                  id,
-                  name: "General reviewer",
-                  modelSelection: choice.selection,
-                  instructions:
-                    "Watch for correctness, missed requirements, and changes that need verification.",
-                  mode: "guide",
-                },
-              ],
-            });
-            setEditing(id);
-          }}
-        >
-          Add advisor
-        </Button>
-      )}
-      {scope.type === "environment" && choices.length === 0 && (
+      <Button
+        variant="outline"
+        disabled={!choices[0] || definitions.length >= 12}
+        onClick={() => {
+          const choice = choices[0];
+          if (!choice) return;
+          const id = randomUUID();
+          update({
+            advisorIds: [...(value.advisorIds ?? inheritedIds), id],
+            definitions: [
+              ...value.definitions,
+              {
+                id,
+                name: "General reviewer",
+                modelSelection: choice.selection,
+                instructions:
+                  "Watch for correctness, missed requirements, and changes that need verification.",
+                mode: "guide",
+              },
+            ],
+          });
+          setEditing(id);
+        }}
+      >
+        Add advisor
+      </Button>
+      {choices.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Set up a provider account before adding an advisor.
         </p>

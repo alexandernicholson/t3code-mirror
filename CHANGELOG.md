@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.5] - 2026-09-09
+
+- Fix stuck Advisor, Observer, and on-demand Reviewer runs and choose their accounts and models directly in the thread panels.
+- Keep advisor model controls visible as activity arrives and skip reviews of empty messages, usage updates, and checkpoint bookkeeping.
+
+---
+
 ## [0.5.4] - 2026-09-09
 
 - Add an in-browser IDE linked to agent threads with live changed files, approval controls, conflict-safe saves, and CodeMirror editing.

@@ -1,6 +1,7 @@
 import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { Effect, PubSub, Stream } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Queue, Stream } from "effect";
+import { TestClock } from "effect/testing";
 import {
   EventId,
   ProviderDriverKind,
@@ -10,17 +11,18 @@ import {
   type ProviderRuntimeEvent,
   type ProviderSessionStartInput,
 } from "@t3tools/contracts";
-import { extractAdvisorReviewJson, make } from "./AdvisorRunner.ts";
-import { ProviderAdapterRegistry } from "../provider/Services/ProviderAdapterRegistry.ts";
-import { makeAdapterRegistryMock } from "../provider/testUtils/providerAdapterRegistryMock.ts";
+import { make, extractAdvisorReviewJson } from "./AdvisorRunner.ts";
+import { ProviderService } from "../provider/Services/ProviderService.ts";
+import { providerServiceTestLayer } from "../provider/testUtils/providerServiceTestLayer.ts";
 import type { ProviderAdapterShape } from "../provider/Services/ProviderAdapter.ts";
 import type { ProviderAdapterError } from "../provider/Errors.ts";
+import { makeTestProviderAdapterHarness } from "../../integration/TestProviderAdapter.integration.ts";
 
 it.effect(
   "observes early events, denies approvals, captures findings and closes its reviewer session",
   () =>
     Effect.gen(function* () {
-      const events = yield* PubSub.unbounded<ProviderRuntimeEvent>();
+      const events = yield* Queue.unbounded<ProviderRuntimeEvent>();
       let started: ProviderSessionStartInput | undefined;
       let stopped = false;
       let denied = false;
@@ -48,21 +50,21 @@ it.effect(
               provider,
               createdAt: "2026-09-09T00:00:00.000Z",
             };
-            yield* PubSub.publish(events, {
+            yield* Queue.offer(events, {
               ...base,
               eventId: EventId.make("question"),
               type: "user-input.requested",
               requestId: RuntimeRequestId.make("question"),
               payload: { questions: [] },
             });
-            yield* PubSub.publish(events, {
+            yield* Queue.offer(events, {
               ...base,
               eventId: EventId.make("approval"),
               type: "request.opened",
               requestId: RuntimeRequestId.make("request"),
               payload: { requestType: "command_execution_approval" },
             });
-            yield* PubSub.publish(events, {
+            yield* Queue.offer(events, {
               ...base,
               eventId: EventId.make("content"),
               type: "content.delta",
@@ -72,7 +74,7 @@ it.effect(
                   '{"summary":"Checked cancellation","findings":[{"severity":"concern","text":"Worker.ts:12 leaves a receipt unresolved"}]}',
               },
             });
-            yield* PubSub.publish(events, {
+            yield* Queue.offer(events, {
               ...base,
               eventId: EventId.make("completed"),
               type: "turn.completed",
@@ -108,13 +110,17 @@ it.effect(
         readThread: (threadId) => Effect.succeed({ threadId, turns: [] }),
         rollbackThread: (threadId) => Effect.succeed({ threadId, turns: [] }),
         stopAll: () => Effect.void,
-        streamEvents: Stream.fromPubSub(events),
+        streamEvents: Stream.fromQueue(events),
       };
-      const runner = yield* make.pipe(
-        Effect.provideService(
-          ProviderAdapterRegistry,
-          makeAdapterRegistryMock({ [provider]: adapter }),
-        ),
+      const services = yield* Layer.build(providerServiceTestLayer(adapter));
+      const runner = yield* make.pipe(Effect.provide(services));
+      const providers = Context.get(services, ProviderService);
+      const pull = yield* Stream.toPull(providers.streamEvents);
+      const observed = yield* Stream.fromPull(Effect.succeed(pull)).pipe(
+        Stream.filter((event) => event.type === "turn.completed"),
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.forkScoped({ startImmediately: true }),
       );
       const result = yield* runner.review({
         definition: {
@@ -135,6 +141,7 @@ it.effect(
       assert.strictEqual(stopped, true);
       assert.strictEqual(result.findings[0]?.severity, "concern");
       assert.strictEqual(result.inputTokens, 100);
+      assert.strictEqual((yield* Fiber.join(observed)).length, 1);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
@@ -143,3 +150,43 @@ it("extracts a review object from provider prose or a fenced response", () => {
   assert.strictEqual(extractAdvisorReviewJson(`Here is the review:\n${review}\nDone.`), review);
   assert.strictEqual(extractAdvisorReviewJson(`\`\`\`json\n${review}\n\`\`\``), review);
 });
+
+it.effect("times out a stalled session startup and cleans up the reviewer", () =>
+  Effect.gen(function* () {
+    const started = yield* Deferred.make<void>();
+    let stopped = false;
+    const harness = yield* makeTestProviderAdapterHarness();
+    const services = yield* Layer.build(
+      providerServiceTestLayer({
+        ...harness.adapter,
+        capabilities: { ...harness.adapter.capabilities, reviewerSession: "read-only" },
+        startSession: () => Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+        stopSession: () =>
+          Effect.sync(() => {
+            stopped = true;
+          }),
+      }),
+    );
+    const runner = yield* make.pipe(Effect.provide(services));
+    const review = yield* runner
+      .review({
+        definition: {
+          id: "stalled",
+          name: "Stalled reviewer",
+          mode: "observe",
+          instructions: "Review adult.js",
+          modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5" },
+        },
+        cwd: "/tmp",
+        context: "Check the age boundary",
+        onActivity: () => Effect.void,
+      })
+      .pipe(Effect.result, Effect.forkScoped);
+    yield* Deferred.await(started);
+    yield* TestClock.adjust("5 minutes");
+    const result = yield* Fiber.join(review);
+    assert.strictEqual(result._tag, "Failure");
+    if (result._tag === "Failure") assert.match(result.failure.message, /timed out/);
+    assert.strictEqual(stopped, true);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);

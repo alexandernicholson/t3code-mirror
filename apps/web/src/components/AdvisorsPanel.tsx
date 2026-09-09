@@ -1,14 +1,23 @@
 import ChatMarkdown from "./ChatMarkdown";
 import { useAtomValue } from "@effect/atom-react";
-import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { Eye, Pause, Play, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import {
+  advisorDefinitionsForScope,
+  emptyAdvisorConfiguration,
+  setAdvisorDefinition,
+  type AdvisorConfiguration,
+  type EnvironmentId,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { advisors } from "~/state/advisors";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { Button } from "./ui/button";
 import { AdvisorConfigurationEditor } from "./settings/AdvisorsSettings";
+import { SettingsModelPicker } from "./settings/SettingsModelPicker";
+import { useThreadShell } from "~/state/entities";
+import { serverEnvironment } from "~/state/server";
 
 const labels = {
   watching: "Watching",
@@ -85,11 +94,13 @@ export function AdvisorIndicator({
 }
 
 export function AdvisorsPanel({ environmentId, threadId }: Props) {
-  const navigate = useNavigate();
+  const thread = useThreadShell({ environmentId, threadId });
+  const config = useAtomValue(serverEnvironment.configValueAtom(environmentId));
   const snapshot = useAtomValue(
     advisors.snapshot({ environmentId, input: { threadId, details: true } }),
   );
   const action = useAtomCommand(advisors.action);
+  const save = useAtomCommand(advisors.save);
   const [filter, setFilter] = useState("all");
   const [settings, setSettings] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +121,14 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
     setBusy(false);
     if (result._tag !== "Success") setError("Could not update advisors. Reconnect and try again.");
   }
+  async function configure(input: AdvisorConfiguration) {
+    setBusy(true);
+    setError(null);
+    const result = await save({ environmentId, input });
+    setBusy(false);
+    if (result._tag !== "Success")
+      setError("Could not save advisor settings. Reload and try again.");
+  }
   if (!value)
     return (
       <div className="p-4 text-sm text-muted-foreground">
@@ -121,6 +140,17 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
   const paused =
     value.states.length > 0 &&
     value.states.every((state) => state.status === "paused" || state.status === "unavailable");
+  const scope = { type: "thread", threadId } as const;
+  const configuration =
+    value.configurations.find(
+      (item) => item.scope.type === "thread" && item.scope.threadId === threadId,
+    ) ?? emptyAdvisorConfiguration(scope);
+  const definitions = advisorDefinitionsForScope(value.configurations, scope, thread?.projectId);
+  const inheritedDefinitions = advisorDefinitionsForScope(
+    value.configurations.filter((item) => item !== configuration),
+    scope,
+    thread?.projectId,
+  );
   return (
     <section className="flex h-full min-h-0 flex-col" aria-label="Advisors">
       <header className="flex items-center gap-2 border-b border-border p-3">
@@ -151,20 +181,13 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
           {error}
         </p>
       )}
-      {settings ? (
+      {settings || value.states.length === 0 ? (
         <div className="overflow-auto p-4">
           <AdvisorConfigurationEditor
+            key={threadId}
             environmentId={environmentId}
             fixedScope={{ type: "thread", threadId }}
           />
-          <Button
-            className="mt-4"
-            size="sm"
-            variant="outline"
-            onClick={() => void navigate({ to: "/settings/agents" })}
-          >
-            Configure advisor models and instructions
-          </Button>
         </div>
       ) : (
         <>
@@ -183,6 +206,56 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
               ))}
             </select>
           )}
+          <div className="max-h-[40%] shrink-0 space-y-3 overflow-y-auto border-b border-border p-3">
+            {value.states
+              .filter((state) => filter === "all" || state.advisorId === filter)
+              .map((state) => {
+                const definition = definitions.find((item) => item.id === state.advisorId);
+                return (
+                  <div key={state.advisorId} className="text-xs">
+                    <span className="font-medium">{state.name}</span>
+                    <span className="text-muted-foreground"> · {labels[state.status]}</span>
+                    {config && definition && (
+                      <fieldset disabled={busy} className="mt-2 min-w-0">
+                        <SettingsModelPicker
+                          config={config}
+                          selection={definition.modelSelection}
+                          purpose="advisor"
+                          label={`${state.name} account and model`}
+                          onChange={(modelSelection) => {
+                            void configure(
+                              setAdvisorDefinition(configuration, {
+                                ...definition,
+                                modelSelection,
+                              }),
+                            );
+                          }}
+                        />
+                        {configuration.definitions.some((item) => item.id === state.advisorId) &&
+                          inheritedDefinitions.some((item) => item.id === state.advisorId) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mt-1 text-xs"
+                              onClick={() =>
+                                void configure({
+                                  ...configuration,
+                                  definitions: configuration.definitions.filter(
+                                    (item) => item.id !== state.advisorId,
+                                  ),
+                                })
+                              }
+                            >
+                              Use inherited advisor
+                            </Button>
+                          )}
+                      </fieldset>
+                    )}
+                    {state.reason && <p className="mt-1 text-muted-foreground">{state.reason}</p>}
+                  </div>
+                );
+              })}
+          </div>
           <div
             className="flex-1 space-y-3 overflow-auto p-4"
             onScroll={(event) => {
@@ -190,28 +263,6 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
               setFollowing(el.scrollHeight - el.scrollTop - el.clientHeight < 60);
             }}
           >
-            {value.states
-              .filter((state) => filter === "all" || state.advisorId === filter)
-              .map((state) => (
-                <div key={state.advisorId} className="text-xs">
-                  <span className="font-medium">{state.name}</span>
-                  <span className="text-muted-foreground"> · {labels[state.status]}</span>
-                  {state.reason && <p className="mt-1 text-muted-foreground">{state.reason}</p>}
-                </div>
-              ))}
-            {value.states.length === 0 && (
-              <div className="space-y-3 py-6 text-sm text-muted-foreground">
-                <p>Get a second opinion while your agent works.</p>
-                <div className="flex flex-col items-start gap-2">
-                  <Button size="sm" onClick={() => void navigate({ to: "/settings/agents" })}>
-                    Set up an advisor
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setSettings(true)}>
-                    Choose advisors for this thread
-                  </Button>
-                </div>
-              </div>
-            )}
             {value.entries
               .filter((entry) => filter === "all" || entry.advisorId === filter)
               .map((entry) => (

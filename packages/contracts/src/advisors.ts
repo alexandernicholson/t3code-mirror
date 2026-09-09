@@ -113,3 +113,36 @@ export function inheritedAdvisorIds(
     )?.advisorIds ?? environmentIds
   );
 }
+
+/** Definitions visible at a scope, with local overrides replacing inherited values. */
+export function advisorDefinitionsForScope(
+  configurations: readonly AdvisorConfiguration[],
+  scope: AdvisorScope,
+  projectId?: ProjectId,
+): readonly AdvisorDefinition[] {
+  const keys = ["environment"];
+  if (scope.type === "project") keys.push(advisorScopeKey(scope));
+  if (scope.type === "thread") {
+    if (projectId !== undefined) keys.push(`project:${projectId}`);
+    keys.push(advisorScopeKey(scope));
+  }
+  const definitions = new Map<string, AdvisorDefinition>();
+  for (const key of keys) {
+    const configuration = configurations.find((value) => advisorScopeKey(value.scope) === key);
+    for (const definition of configuration?.definitions ?? [])
+      definitions.set(definition.id, definition);
+  }
+  return [...definitions.values()];
+}
+
+export function setAdvisorDefinition(
+  configuration: AdvisorConfiguration,
+  definition: AdvisorDefinition,
+): AdvisorConfiguration {
+  return {
+    ...configuration,
+    definitions: configuration.definitions.some((value) => value.id === definition.id)
+      ? configuration.definitions.map((value) => (value.id === definition.id ? definition : value))
+      : [...configuration.definitions, definition],
+  };
+}

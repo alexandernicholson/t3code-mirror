@@ -7,6 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { Context, Crypto, Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { ProviderAdapterRegistry } from "../provider/Services/ProviderAdapterRegistry.ts";
+import { ProviderService } from "../provider/Services/ProviderService.ts";
 
 export const AdvisorReview = Schema.Struct({
   summary: Schema.String.check(Schema.isMaxLength(4_000)),
@@ -38,6 +39,7 @@ export interface AdvisorRunInput {
 }
 export const make = Effect.gen(function* () {
   const registry = yield* ProviderAdapterRegistry;
+  const providers = yield* ProviderService;
   const crypto = yield* Crypto.Crypto;
   const review = Effect.fn("AdvisorRunner.review")(
     function* (input: AdvisorRunInput) {
@@ -61,9 +63,10 @@ export const make = Effect.gen(function* () {
         reasoning = "";
         return value ? input.onActivity("reasoning", value.slice(-8_000)) : Effect.void;
       });
-      // Stream.toPull acquires the hot subscription before the provider starts.
+      // ProviderService owns the adapter queue. Subscribe to its broadcast before
+      // starting so reviews cannot consume another thread's events or lose their own.
       const pull = yield* Stream.toPull(
-        adapter.streamEvents.pipe(Stream.filter((event) => event.threadId === threadId)),
+        providers.streamEvents.pipe(Stream.filter((event) => event.threadId === threadId)),
       );
       yield* Effect.addFinalizer(() =>
         adapter.stopSession(threadId).pipe(Effect.catch(() => Effect.void)),
@@ -156,7 +159,7 @@ export const make = Effect.gen(function* () {
           .join("\n\n")
           .slice(0, 115_000),
       });
-      const completed = yield* Deferred.await(result).pipe(Effect.timeout("5 minutes"));
+      const completed = yield* Deferred.await(result);
       const raw = extractAdvisorReviewJson(completed.text);
       const parsed = yield* decodeReview(raw);
       return {
@@ -166,13 +169,16 @@ export const make = Effect.gen(function* () {
         costUsd: completed.costUsd,
       };
     },
+    Effect.timeout("5 minutes"),
     Effect.scoped,
     Effect.mapError(
       (cause) =>
         new AdvisorError({
           message: isAdvisorError(cause)
             ? cause.message
-            : "Advisor review failed. Check the selected account and model, then resume.",
+            : cause._tag === "TimeoutError"
+              ? "Advisor review timed out after five minutes. Resume to retry."
+              : "Advisor review failed. Check the selected account and model, then resume.",
         }),
     ),
   );

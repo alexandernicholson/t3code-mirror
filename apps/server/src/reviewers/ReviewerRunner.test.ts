@@ -9,16 +9,15 @@ import {
   type ProviderRuntimeEvent,
   type ProviderSessionStartInput,
 } from "@t3tools/contracts";
-import { Effect, PubSub, Stream } from "effect";
+import { Effect, Layer, Queue, Stream } from "effect";
 import type { ProviderAdapterError } from "../provider/Errors.ts";
 import type { ProviderAdapterShape } from "../provider/Services/ProviderAdapter.ts";
-import { ProviderAdapterRegistry } from "../provider/Services/ProviderAdapterRegistry.ts";
-import { makeAdapterRegistryMock } from "../provider/testUtils/providerAdapterRegistryMock.ts";
 import { extractReviewerJson, make } from "./ReviewerRunner.ts";
+import { providerServiceTestLayer } from "../provider/testUtils/providerServiceTestLayer.ts";
 
 it.effect("runs reviewer agents with full access and accepts tool requests", () =>
   Effect.gen(function* () {
-    const events = yield* PubSub.unbounded<ProviderRuntimeEvent>();
+    const events = yield* Queue.unbounded<ProviderRuntimeEvent>();
     const provider = ProviderDriverKind.make("codex");
     let started: ProviderSessionStartInput | undefined;
     let accepted = false;
@@ -44,14 +43,29 @@ it.effect("runs reviewer agents with full access and accepts tool requests", () 
             provider,
             createdAt: "2026-09-09T00:00:00.000Z",
           };
-          yield* PubSub.publish(events, {
+          yield* Queue.offer(events, {
             ...base,
             eventId: EventId.make("approval"),
             type: "request.opened",
             requestId: RuntimeRequestId.make("request"),
             payload: { requestType: "command_execution_approval" },
           });
-          yield* PubSub.publish(events, {
+          yield* Queue.offer(events, {
+            ...base,
+            eventId: EventId.make("commentary"),
+            type: "content.delta",
+            payload: {
+              streamKind: "assistant_text",
+              delta: "Inspecting the fallback {value || defaultValue} first.",
+            },
+          });
+          yield* Queue.offer(events, {
+            ...base,
+            eventId: EventId.make("final-message"),
+            type: "item.started",
+            payload: { itemType: "assistant_message" },
+          });
+          yield* Queue.offer(events, {
             ...base,
             eventId: EventId.make("content"),
             type: "content.delta",
@@ -61,7 +75,7 @@ it.effect("runs reviewer agents with full access and accepts tool requests", () 
                 '{"summary":"Checked","findings":[{"severity":"concern","title":"Zero lost","body":"Falsy fallback","filePath":"src/a.ts","line":12}]}',
             },
           });
-          yield* PubSub.publish(events, {
+          yield* Queue.offer(events, {
             ...base,
             eventId: EventId.make("done"),
             type: "turn.completed",
@@ -81,14 +95,10 @@ it.effect("runs reviewer agents with full access and accepts tool requests", () 
       readThread: (threadId) => Effect.succeed({ threadId, turns: [] }),
       rollbackThread: (threadId) => Effect.succeed({ threadId, turns: [] }),
       stopAll: () => Effect.void,
-      streamEvents: Stream.fromPubSub(events),
+      streamEvents: Stream.fromQueue(events),
     };
-    const runner = yield* make.pipe(
-      Effect.provideService(
-        ProviderAdapterRegistry,
-        makeAdapterRegistryMock({ [provider]: adapter }),
-      ),
-    );
+    const services = yield* Layer.build(providerServiceTestLayer(adapter));
+    const runner = yield* make.pipe(Effect.provide(services));
     const output = yield* runner.review({
       modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5" },
       cwd: "/tmp",

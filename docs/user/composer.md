@@ -183,7 +183,7 @@ running work. TODO edits require a connected environment with TODO support.
 ## Reviewers
 
 Reviewers are on-demand agents for focused verification of local changes. Open **Reviewers**
-in the right sidebar on web or desktop, choose a rule and **Quick** or **Deep**, then select
+in the right sidebar on web or desktop, choose a rule, account/model, and **Quick** or **Deep**, then select
 **Find issues**. Quick reviews prioritize obvious high-impact problems; Deep reviews spend more
 time tracing behavior and running verification. Review runs and findings remain on the
 environment and synchronize across connected clients.
@@ -211,11 +211,14 @@ of the active issue count.
 
 ## Advisors
 
-Advisors provide an independent review while an agent works. In **Settings → Agents**
-on web or desktop, or **Settings → Advisors** on mobile, add a reviewer, choose its
-account and model, and enable it for all projects or selected projects. Review
-activity is sent to that account's provider. Choose any configured provider and
-model independently of the provider running the main thread. Use the same model
+Advisors provide an independent review while an agent works. Open the **Advisors**
+panel to add a reviewer for the current thread or change a reviewer's account and
+model using the same picker as chat. These changes apply only to this thread;
+**Use inherited advisor** restores its project or environment settings. To set
+defaults for multiple threads, use **Settings → Agents** on web or desktop, or
+**Settings → Advisors** on mobile. Review activity is sent to the selected account's
+provider. Choose any configured provider and model independently of the provider
+running the main thread. Use the same model
 picker as chat to select supported options such as effort, context window, service
 tier, reasoning mode, or provider-specific variants.
 

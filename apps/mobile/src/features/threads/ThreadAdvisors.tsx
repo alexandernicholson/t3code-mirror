@@ -11,11 +11,21 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import {
+  advisorDefinitionsForScope,
+  emptyAdvisorConfiguration,
+  setAdvisorDefinition,
+  type AdvisorConfiguration,
+  type EnvironmentId,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { AppText as Text } from "../../components/AppText";
 import { advisors } from "../../state/advisors";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { AdvisorButton, MobileAdvisorConfiguration } from "../settings/AdvisorsSettings";
+import { SettingsModelPicker } from "../settings/SettingsModelPicker";
+import { useThreadShell } from "../../state/entities";
+import { serverEnvironment } from "../../state/server";
 
 type Props = { environmentId: EnvironmentId; threadId: ThreadId };
 export function ThreadAdvisors(props: Props & { openRequest?: number }) {
@@ -104,10 +114,13 @@ export function ThreadAdvisors(props: Props & { openRequest?: number }) {
   );
 }
 function AdvisorTimeline({ environmentId, threadId }: Props) {
+  const thread = useThreadShell({ environmentId, threadId });
+  const config = useAtomValue(serverEnvironment.configValueAtom(environmentId));
   const snapshot = useAtomValue(
     advisors.snapshot({ environmentId, input: { threadId, details: true } }),
   );
   const action = useAtomCommand(advisors.action);
+  const save = useAtomCommand(advisors.save);
   const [settings, setSettings] = useState(false);
   const [filter, setFilter] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -117,6 +130,27 @@ function AdvisorTimeline({ environmentId, threadId }: Props) {
   if (!AsyncResult.isSuccess(snapshot))
     return <Text className="p-4 text-foreground-muted">Loading advisor activity…</Text>;
   const value = snapshot.value;
+  const scope = { type: "thread", threadId } as const;
+  const configuration =
+    value.configurations.find(
+      (item) => item.scope.type === "thread" && item.scope.threadId === threadId,
+    ) ?? emptyAdvisorConfiguration(scope);
+  const definitions = advisorDefinitionsForScope(value.configurations, scope, thread?.projectId);
+  const inheritedDefinitions = advisorDefinitionsForScope(
+    value.configurations.filter((item) => item !== configuration),
+    scope,
+    thread?.projectId,
+  );
+  const configure = (input: AdvisorConfiguration) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    void save({ environmentId, input }).then((result) => {
+      setBusy(false);
+      if (result._tag !== "Success")
+        setError("Could not save advisor settings. Reload and try again.");
+    });
+  };
   const paused = value.states.every(
     (state) => state.status === "paused" || state.status === "unavailable",
   );
@@ -150,6 +184,55 @@ function AdvisorTimeline({ environmentId, threadId }: Props) {
           {error}
         </Text>
       )}
+      {!settings && value.states.length > 0 && (
+        <ScrollView
+          style={{ maxHeight: 240, flexGrow: 0 }}
+          contentContainerClassName="gap-3 px-4 py-2"
+          keyboardShouldPersistTaps="handled"
+        >
+          {value.states
+            .filter((state) => filter === null || state.advisorId === filter)
+            .map((state) => {
+              const definition = definitions.find((item) => item.id === state.advisorId);
+              return (
+                <View key={state.advisorId} className="gap-2">
+                  <Text className="text-sm text-foreground-muted">{state.name}</Text>
+                  {config && definition && (
+                    <SettingsModelPicker
+                      config={config}
+                      environmentId={environmentId}
+                      selection={definition.modelSelection}
+                      disabled={busy}
+                      onChange={(modelSelection) =>
+                        configure(
+                          setAdvisorDefinition(configuration, { ...definition, modelSelection }),
+                        )
+                      }
+                    />
+                  )}
+                  {configuration.definitions.some((item) => item.id === state.advisorId) &&
+                    inheritedDefinitions.some((item) => item.id === state.advisorId) && (
+                      <AdvisorButton
+                        title="Use inherited advisor"
+                        disabled={busy}
+                        onPress={() =>
+                          configure({
+                            ...configuration,
+                            definitions: configuration.definitions.filter(
+                              (item) => item.id !== state.advisorId,
+                            ),
+                          })
+                        }
+                      />
+                    )}
+                  {state.reason && (
+                    <Text className="text-sm text-foreground-muted">{state.reason}</Text>
+                  )}
+                </View>
+              );
+            })}
+        </ScrollView>
+      )}
       <ScrollView
         ref={scroll}
         contentContainerClassName="gap-4 p-4"
@@ -162,25 +245,14 @@ function AdvisorTimeline({ environmentId, threadId }: Props) {
         }}
         scrollEventThrottle={100}
       >
-        {settings ? (
+        {settings || value.states.length === 0 ? (
           <MobileAdvisorConfiguration
+            key={threadId}
             environmentId={environmentId}
             fixedScope={{ type: "thread", threadId }}
           />
         ) : (
           <>
-            {value.states.length === 0 ? (
-              <View className="gap-3 py-4">
-                <Text className="text-sm text-foreground-muted">
-                  Get a second opinion while your agent works. Set up reusable advisors in Settings
-                  → Advisors, then choose them for this thread.
-                </Text>
-                <AdvisorButton
-                  title="Choose advisors for this thread"
-                  onPress={() => setSettings(true)}
-                />
-              </View>
-            ) : null}
             {value.states.length > 0 ? (
               <View className="flex-row flex-wrap gap-2">
                 <AdvisorButton title="All advisors" onPress={() => setFilter(null)} />
@@ -193,13 +265,6 @@ function AdvisorTimeline({ environmentId, threadId }: Props) {
                 ))}
               </View>
             ) : null}
-            {value.states
-              .filter((state) => state.reason)
-              .map((state) => (
-                <Text key={state.advisorId} className="text-sm text-foreground-muted">
-                  {state.name}: {state.reason}
-                </Text>
-              ))}
             {value.entries
               .filter((entry) => filter === null || entry.advisorId === filter)
               .map((entry) => (

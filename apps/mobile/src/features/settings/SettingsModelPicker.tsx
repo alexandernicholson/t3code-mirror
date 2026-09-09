@@ -11,11 +11,13 @@ export function SettingsModelPicker({
   environmentId,
   selection,
   onChange,
+  disabled = false,
 }: {
   config: ServerConfig;
   environmentId: EnvironmentId;
   selection: ModelSelection;
   onChange: (selection: ModelSelection) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const models = buildModelOptions(config, selection);
@@ -32,6 +34,7 @@ export function SettingsModelPicker({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Advisor account, model and options"
+        disabled={disabled}
         onPress={() => setOpen(true)}
         className="min-h-11 justify-center rounded-lg border border-border px-3 py-2"
       >

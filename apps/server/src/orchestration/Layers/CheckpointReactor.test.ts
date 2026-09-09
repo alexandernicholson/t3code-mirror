@@ -814,6 +814,33 @@ describe("CheckpointReactor", () => {
       }),
   );
 
+  it("ignores temporary reviewer sessions without dispatching thread commands", async () => {
+    const harness = await createHarness({ seedFilesystemCheckpoints: false });
+    const dispatch = vi.spyOn(harness.engine, "dispatch");
+    for (const prefix of ["advisor", "reviewer"]) {
+      const event = {
+        provider: ProviderDriverKind.make("codex"),
+        createdAt: "2026-01-01T00:00:00.000Z",
+        threadId: ThreadId.make(`${prefix}:temporary`),
+        turnId: asTurnId(`${prefix}-turn`),
+      };
+      harness.provider.emit({
+        ...event,
+        type: "turn.started",
+        eventId: EventId.make(`${prefix}-start`),
+      });
+      harness.provider.emit({
+        ...event,
+        type: "turn.completed",
+        eventId: EventId.make(`${prefix}-complete`),
+        payload: { state: "completed" },
+      });
+    }
+    await harness.drain();
+    expect(dispatch).not.toHaveBeenCalled();
+    dispatch.mockRestore();
+  });
+
   it("does not capture an aborted turn without a matching start or active session", async () => {
     const harness = await createHarness({ seedFilesystemCheckpoints: false });
     harness.provider.emit({

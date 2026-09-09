@@ -6,6 +6,7 @@ import {
 } from "@t3tools/contracts";
 import { Context, Crypto, Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { ProviderAdapterRegistry } from "../provider/Services/ProviderAdapterRegistry.ts";
+import { ProviderService } from "../provider/Services/ProviderService.ts";
 
 export const ReviewerOutput = Schema.Struct({
   summary: Schema.String.check(Schema.isMaxLength(4_000)),
@@ -40,6 +41,7 @@ export function extractReviewerJson(text: string): string {
 
 export const make = Effect.gen(function* () {
   const registry = yield* ProviderAdapterRegistry;
+  const providers = yield* ProviderService;
   const crypto = yield* Crypto.Crypto;
 
   const generate = Effect.fn("ReviewerRunner.generate")(
@@ -57,7 +59,7 @@ export const make = Effect.gen(function* () {
       const result = yield* Deferred.make<string, ReviewerError>();
       let text = "";
       const pull = yield* Stream.toPull(
-        adapter.streamEvents.pipe(Stream.filter((event) => event.threadId === threadId)),
+        providers.streamEvents.pipe(Stream.filter((event) => event.threadId === threadId)),
       );
       yield* Effect.addFinalizer(() => adapter.stopSession(threadId).pipe(Effect.ignore));
       yield* Stream.fromPull(Effect.succeed(pull)).pipe(
@@ -65,6 +67,11 @@ export const make = Effect.gen(function* () {
           Effect.gen(function* () {
             if (event.type === "content.delta" && event.payload.streamKind === "assistant_text") {
               text = (text + event.payload.delta).slice(-80_000);
+            } else if (
+              event.type === "item.started" &&
+              event.payload.itemType === "assistant_message"
+            ) {
+              text = "";
             } else if (event.type === "request.opened" && event.requestId) {
               yield* adapter.respondToRequest(
                 threadId,
@@ -109,8 +116,9 @@ export const make = Effect.gen(function* () {
         modelSelection: input.modelSelection,
         input: input.prompt.slice(0, 115_000),
       });
-      return yield* Deferred.await(result).pipe(Effect.timeout(input.timeout));
+      return yield* Deferred.await(result);
     },
+    (effect, input) => effect.pipe(Effect.timeout(input.timeout)),
     Effect.scoped,
     Effect.mapError(
       (cause) =>

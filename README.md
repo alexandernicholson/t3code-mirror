@@ -45,13 +45,13 @@ This fork currently adds or changes the following:
   trials; rollback; progress; and release notes. It also permits updates when
   terminals are idle on systems without native process monitoring. See
   [Updates from this fork](./docs/user/updating.md#updates-from-this-fork).
-- Adds independent read-only advisors using any configured provider or model, with
-  project and thread selection, live review timelines, automatic guidance during
+- Adds independent read-only advisors with account and model selection directly
+  in the thread panel, project defaults, live review timelines, automatic guidance during
   active work, and pause/resume controls on web, desktop, and mobile. See
   [Advisors](./docs/user/composer.md#advisors).
 - Adds configurable on-demand reviewer agents for test strategy, unit, regression,
   integration, performance, benchmark, security/fuzz, concurrency, and acceptance reviews.
-  Full-access review runs surface file findings with fix/dismiss actions, backed by an editable,
+  Choose an account and model in the review panel. Full-access runs surface file findings with fix/dismiss actions, backed by an editable,
   model-optimized Markdown rule library in Settings. See
   [Reviewers](./docs/user/composer.md#reviewers).
 - Adds persistent, editable thread TODOs shared across web, desktop, and mobile.

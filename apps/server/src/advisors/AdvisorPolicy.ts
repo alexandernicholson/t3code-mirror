@@ -32,11 +32,17 @@ export function resolveAdvisors(
 export function advisorSourceText(event: OrchestrationEvent): string | null {
   if (event.type === "thread.message-sent") {
     if (event.payload.messageId.startsWith("advisor:")) return null;
-    if (event.payload.streaming) return null;
+    if (event.payload.streaming || !event.payload.text.trim()) return null;
     return `${event.payload.role}: ${event.payload.text}`;
   }
   if (event.type === "thread.activity-appended") {
     if (event.payload.activity.kind.startsWith("advisor")) return null;
+    // Usage and checkpoint bookkeeping add no new work for a reviewer to inspect.
+    if (
+      event.payload.activity.kind === "context-window.updated" ||
+      event.payload.activity.kind === "checkpoint.captured"
+    )
+      return null;
     return `${event.payload.activity.kind}: ${event.payload.activity.summary}\n${JSON.stringify(event.payload.activity.payload).slice(0, 12_000)}`;
   }
   return null;

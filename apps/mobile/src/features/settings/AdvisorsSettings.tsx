@@ -6,8 +6,10 @@ import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   inheritedAdvisorIds,
+  advisorDefinitionsForScope,
   advisorScopeKey,
   emptyAdvisorConfiguration,
+  setAdvisorDefinition,
   type AdvisorConfiguration,
   type AdvisorDefinition,
   type AdvisorScope,
@@ -117,10 +119,14 @@ export function MobileAdvisorConfiguration({
     configurations.find((item) => advisorScopeKey(item.scope) === advisorScopeKey(scope)) ??
     emptyAdvisorConfiguration(scope);
   const inheritedIds = inheritedAdvisorIds(configurations, scope, thread?.projectId);
-  const definitions =
-    scope.type === "environment"
-      ? value.definitions
-      : (configurations.find((item) => item.scope.type === "environment")?.definitions ?? []);
+  const definitions = advisorDefinitionsForScope(
+    [
+      ...configurations.filter((item) => advisorScopeKey(item.scope) !== advisorScopeKey(scope)),
+      value,
+    ],
+    scope,
+    thread?.projectId,
+  );
   const choices = (server?.providers ?? [])
     .filter(
       (provider) =>
@@ -135,11 +141,16 @@ export function MobileAdvisorConfiguration({
         selection: { instanceId: provider.instanceId, model: model.slug },
       })),
     );
+  const inheritedDefinitions = advisorDefinitionsForScope(
+    configurations.filter((item) => advisorScopeKey(item.scope) !== advisorScopeKey(scope)),
+    scope,
+    thread?.projectId,
+  );
   const update = (patch: Partial<AdvisorConfiguration>) => setDraft({ ...value, ...patch });
-  const change = (id: string, patch: Partial<AdvisorDefinition>) =>
-    update({
-      definitions: value.definitions.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    });
+  const change = (id: string, patch: Partial<AdvisorDefinition>) => {
+    const definition = definitions.find((item) => item.id === id);
+    if (definition) setDraft(setAdvisorDefinition(value, { ...definition, ...patch }));
+  };
   return (
     <View className="gap-4">
       {!fixedScope && (
@@ -198,7 +209,7 @@ export function MobileAdvisorConfiguration({
               }
             />
           </View>
-          {editing === definition.id && scope.type === "environment" && (
+          {editing === definition.id && (
             <>
               <TextInput
                 accessibilityLabel="Advisor name"
@@ -231,43 +242,50 @@ export function MobileAdvisorConfiguration({
                 onChangeText={(instructions) => change(definition.id, { instructions })}
                 className="min-h-24 rounded-lg border border-border p-3 text-foreground"
               />
-              <AdvisorButton
-                title="Remove advisor"
-                onPress={() =>
-                  update({
-                    definitions: value.definitions.filter((item) => item.id !== definition.id),
-                    advisorIds: value.advisorIds?.filter((id) => id !== definition.id) ?? null,
-                  })
-                }
-              />
+              {value.definitions.some((item) => item.id === definition.id) && (
+                <AdvisorButton
+                  title={
+                    inheritedDefinitions.some((item) => item.id === definition.id)
+                      ? "Use inherited settings"
+                      : "Remove advisor"
+                  }
+                  onPress={() =>
+                    update({
+                      definitions: value.definitions.filter((item) => item.id !== definition.id),
+                      advisorIds: inheritedDefinitions.some((item) => item.id === definition.id)
+                        ? value.advisorIds
+                        : (value.advisorIds?.filter((id) => id !== definition.id) ?? null),
+                    })
+                  }
+                />
+              )}
             </>
           )}
         </View>
       ))}
-      {scope.type === "environment" && (
-        <AdvisorButton
-          title="Add advisor"
-          disabled={!choices[0] || definitions.length >= 12}
-          onPress={() => {
-            const choice = choices[0];
-            if (!choice) return;
-            const id = uuidv4();
-            update({
-              definitions: [
-                ...value.definitions,
-                {
-                  id,
-                  name: "General reviewer",
-                  modelSelection: choice.selection,
-                  instructions: "Watch for correctness and missed requirements.",
-                  mode: "guide",
-                },
-              ],
-            });
-            setEditing(id);
-          }}
-        />
-      )}
+      <AdvisorButton
+        title="Add advisor"
+        disabled={!choices[0] || definitions.length >= 12}
+        onPress={() => {
+          const choice = choices[0];
+          if (!choice) return;
+          const id = uuidv4();
+          update({
+            advisorIds: [...(value.advisorIds ?? inheritedIds), id],
+            definitions: [
+              ...value.definitions,
+              {
+                id,
+                name: "General reviewer",
+                modelSelection: choice.selection,
+                instructions: "Watch for correctness and missed requirements.",
+                mode: "guide",
+              },
+            ],
+          });
+          setEditing(id);
+        }}
+      />
       {choices.length === 0 && (
         <Text className="text-sm text-foreground-muted">
           Set up a provider account before adding an advisor.

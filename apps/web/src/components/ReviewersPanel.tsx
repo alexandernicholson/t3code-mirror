@@ -22,6 +22,7 @@ import { serverEnvironment } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { Button } from "./ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
+import { SettingsModelPicker } from "./settings/SettingsModelPicker";
 
 function fallbackModel(config: ServerConfig | null | undefined): ModelSelection | null {
   if (!config) return null;
@@ -59,6 +60,11 @@ export function ReviewersPanel({
   const action = useAtomCommand(reviewers.action);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [depth, setDepth] = useState<"quick" | "deep">("quick");
+  const [modelOverride, setModelOverride] = useState<{
+    environmentId: EnvironmentId;
+    threadId: ThreadId;
+    selection: ModelSelection;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requestedIssueIndex, setIssueIndex] = useState(0);
@@ -67,7 +73,12 @@ export function ReviewersPanel({
   const value = AsyncResult.isSuccess(snapshot) ? snapshot.value : null;
   const rules = value?.configuration.definitions ?? [];
   const selectedRule = rules.find((rule) => rule.id === selectedRuleId) ?? rules[0] ?? null;
-  const selectedModel = selectedRule?.modelSelection ?? fallbackModel(config);
+  const selectedModel =
+    (modelOverride?.environmentId === environmentId && modelOverride.threadId === threadId
+      ? modelOverride.selection
+      : null) ??
+    selectedRule?.modelSelection ??
+    fallbackModel(config);
   const latestRun = value?.runs[0] ?? null;
   const latestFindings = (value?.findings ?? []).filter(
     (finding) => finding.runId === latestRun?.id,
@@ -214,6 +225,20 @@ export function ReviewersPanel({
           {latestRun?.status === "running" || busy ? "Reviewing…" : "Find issues"}
         </Button>
       </div>
+      {config && selectedModel && (
+        <fieldset
+          disabled={busy || latestRun?.status === "running"}
+          className="border-b border-border p-2"
+        >
+          <SettingsModelPicker
+            config={config}
+            selection={selectedModel}
+            purpose="advisor"
+            label="Reviewer account and model"
+            onChange={(selection) => setModelOverride({ environmentId, threadId, selection })}
+          />
+        </fieldset>
+      )}
       {error && <p className="p-3 text-xs text-destructive-foreground">{error}</p>}
       <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
         {latestRun?.status === "running" && (

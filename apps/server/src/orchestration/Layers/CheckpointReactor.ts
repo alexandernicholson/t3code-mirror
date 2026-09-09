@@ -865,6 +865,12 @@ const make = Effect.gen(function* () {
     if (event.type === "turn.completed" || event.type === "turn.aborted") {
       const turnId = toTurnId(event.turnId);
       const thread = yield* resolveThreadDetail(event.threadId);
+      // Temporary reviewer sessions have no thread to checkpoint or resume.
+      if (thread === undefined) {
+        startedTurns.delete(event.threadId);
+        pending.delete(event.threadId);
+        return;
+      }
       const startedTurnId = startedTurns.get(event.threadId);
       const isTrackedTurn = sameId(startedTurnId, turnId);
       if (isTrackedTurn) startedTurns.delete(event.threadId);
@@ -873,7 +879,6 @@ const make = Effect.gen(function* () {
       }
       if (
         turnId !== null &&
-        thread !== undefined &&
         (isTrackedTurn ||
           sameId(thread.session?.activeTurnId, turnId) ||
           (startedTurnId === undefined && !thread.session?.activeTurnId))
@@ -884,7 +889,7 @@ const make = Effect.gen(function* () {
       if (
         event.type === "turn.aborted" &&
         !isTrackedTurn &&
-        !sameId(thread?.session?.activeTurnId, turnId)
+        !sameId(thread.session?.activeTurnId, turnId)
       ) {
         return;
       }
