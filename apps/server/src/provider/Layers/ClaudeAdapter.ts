@@ -4443,6 +4443,12 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           } satisfies PermissionResult;
         }
 
+        if (input.reviewer) {
+          return ["Read", "Glob", "Grep"].includes(toolName)
+            ? { behavior: "allow" as const, updatedInput: toolInput }
+            : { behavior: "deny" as const, message: "Advisors have read-only inspection tools." };
+        }
+
         // Handle AskUserQuestion: surface clarifying questions to the
         // user via the user-input runtime event channel, regardless of
         // runtime mode (plan mode relies on this heavily).
@@ -4676,7 +4682,8 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           // Model and effort can change after this session-level prompt is set.
           append: buildRuntimeInstructions({ harness: "Claude Code" }),
         },
-        settingSources: [...CLAUDE_SETTING_SOURCES],
+        settingSources: input.reviewer ? [] : [...CLAUDE_SETTING_SOURCES],
+        ...(input.reviewer ? { tools: ["Read", "Glob", "Grep"] } : {}),
         // `ultracode` is a Claude Code setting, not an API effort level. It is
         // normalized to `xhigh` above and paired with `settings.ultracode`.
         ...(effectiveEffort
@@ -4698,18 +4705,20 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         env: claudeEnvironment,
         additionalDirectories,
         ...(Object.keys(extraArgs).length > 0 ? { extraArgs } : {}),
-        mcpServers: {
-          ...managedMcpConfig,
-          ...(mcpSession
-            ? {
-                "t3-code": {
-                  type: "http" as const,
-                  url: mcpSession.endpoint,
-                  headers: { Authorization: mcpSession.authorizationHeader },
-                },
-              }
-            : {}),
-        },
+        mcpServers: input.reviewer
+          ? {}
+          : {
+              ...managedMcpConfig,
+              ...(mcpSession
+                ? {
+                    "t3-code": {
+                      type: "http" as const,
+                      url: mcpSession.endpoint,
+                      headers: { Authorization: mcpSession.authorizationHeader },
+                    },
+                  }
+                : {}),
+            },
       };
 
       yield* Effect.annotateCurrentSpan({

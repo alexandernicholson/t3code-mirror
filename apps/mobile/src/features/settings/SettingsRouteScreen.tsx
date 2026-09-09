@@ -1,3 +1,4 @@
+import { AdvisorsSettings } from "./AdvisorsSettings";
 import { NarrationSettings } from "../narration/NarrationSettings";
 import { SecretsSettings } from "./SecretsSettings";
 import { useAuth, useUser } from "@clerk/expo";
@@ -549,6 +550,7 @@ function ConfiguredSettingsRouteScreen() {
 function GeneralSettingsSection() {
   return (
     <SettingsSection title="General">
+      <AdvisorsSettings />
       <SecretsSettings />
       <SettingsRow icon="folder" label="Project Grouping" target="SettingsProjectGrouping" />
       <AutoSettleSettingsRows />

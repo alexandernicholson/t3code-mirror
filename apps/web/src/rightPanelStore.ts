@@ -28,6 +28,7 @@ const RIGHT_PANEL_KINDS = [
   "pull-request",
   "agents",
   "todos",
+  "advisors",
 ] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
@@ -74,7 +75,8 @@ export type RightPanelSurface =
       url?: string;
     }
   | { id: "agents"; kind: "agents" }
-  | { id: "todos"; kind: "todos" };
+  | { id: "todos"; kind: "todos" }
+  | { id: "advisors"; kind: "advisors" };
 
 const RIGHT_PANEL_STORAGE_KEY = "t3code:right-panel-state:v2";
 // v9 removed the "plan" surface kind (plans render inline in the transcript).
@@ -171,6 +173,8 @@ const singletonSurface = (
       return { id: "diff", kind };
     case "files":
       return { id: "files", kind };
+    case "advisors":
+      return { id: "advisors", kind };
     case "todos":
       return { id: "todos", kind };
     case "agents":

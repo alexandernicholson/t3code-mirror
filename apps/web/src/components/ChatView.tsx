@@ -1,3 +1,5 @@
+import { advisors } from "~/state/advisors";
+import { AdvisorIndicator, AdvisorsPanel } from "./AdvisorsPanel";
 import { ThreadTodos } from "./chat/ThreadTodos";
 import { useLoadBalancedEnvironment } from "../hooks/useLoadBalancedEnvironment";
 import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
@@ -6377,6 +6379,7 @@ export default function ChatView(props: ChatViewProps) {
     ],
   );
 
+  const advisorAction = useAtomCommand(advisors.action);
   const onSend = async (
     e?: { preventDefault: () => void },
     submissionIntent: ComposerSubmissionIntent = "foreground",
@@ -6387,6 +6390,35 @@ export default function ChatView(props: ChatViewProps) {
     deliveryOverride?: TurnDelivery,
   ) => {
     e?.preventDefault();
+    const advisorCommand = promptRef.current.trim().toLowerCase();
+    if (
+      activeThreadRef &&
+      !directAnnotation &&
+      !composerHasNonPromptContent &&
+      ["/advisor", "/advisor pause", "/advisor resume"].includes(advisorCommand)
+    ) {
+      if (advisorCommand !== "/advisor") {
+        const result = await advisorAction({
+          environmentId: activeThreadRef.environmentId,
+          input: {
+            threadId: activeThreadRef.threadId,
+            action: advisorCommand.endsWith("pause") ? "pause" : "resume",
+          },
+        });
+        if (result._tag !== "Success") {
+          setThreadError(
+            activeThread?.id ?? null,
+            "Could not update advisors. Reconnect and try again.",
+          );
+          return;
+        }
+      }
+      useRightPanelStore.getState().open(activeThreadRef, "advisors");
+      promptRef.current = "";
+      setComposerDraftPrompt(composerDraftTarget, "");
+      composerRef.current?.resetCursorState();
+      return;
+    }
     const delivery = isServerThread
       ? (deliveryOverride ?? (phase === "running" ? turnDelivery : "steer"))
       : "steer";
@@ -8051,21 +8083,33 @@ export default function ChatView(props: ChatViewProps) {
   }
 
   const panelToggleControls = (
-    <PanelLayoutControls
-      terminalAvailable={activeProject !== null}
-      terminalOpen={terminalUiState.terminalOpen}
-      terminalShortcutLabel={shortcutLabelForCommand(keybindings, "terminal.toggle")}
-      rightPanelAvailable={activeProject !== null}
-      rightPanelOpen={rightPanelOpen}
-      rightPanelShortcutLabel={shortcutLabelForCommand(keybindings, "rightPanel.toggle")}
-      // Suppressed while the Agents surface is visible: the roster itself is
-      // on screen, so the toggle badge would be pointing at nothing.
-      liveAgentCount={
-        rightPanelOpen && activeRightPanelSurface?.kind === "agents" ? 0 : agentPanelModel.liveCount
-      }
-      onToggleTerminal={toggleTerminalVisibility}
-      onToggleRightPanel={toggleRightPanel}
-    />
+    <>
+      {activeThreadRef && (
+        <AdvisorIndicator
+          panelOpen={rightPanelOpen && activeRightPanelSurface?.kind === "advisors"}
+          environmentId={activeThreadRef.environmentId}
+          threadId={activeThreadRef.threadId}
+          onOpen={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
+        />
+      )}
+      <PanelLayoutControls
+        terminalAvailable={activeProject !== null}
+        terminalOpen={terminalUiState.terminalOpen}
+        terminalShortcutLabel={shortcutLabelForCommand(keybindings, "terminal.toggle")}
+        rightPanelAvailable={activeProject !== null}
+        rightPanelOpen={rightPanelOpen}
+        rightPanelShortcutLabel={shortcutLabelForCommand(keybindings, "rightPanel.toggle")}
+        // Suppressed while the Agents surface is visible: the roster itself is
+        // on screen, so the toggle badge would be pointing at nothing.
+        liveAgentCount={
+          rightPanelOpen && activeRightPanelSurface?.kind === "agents"
+            ? 0
+            : agentPanelModel.liveCount
+        }
+        onToggleTerminal={toggleTerminalVisibility}
+        onToggleRightPanel={toggleRightPanel}
+      />
+    </>
   );
   const panelLayoutControls = (
     <div
@@ -8178,6 +8222,12 @@ export default function ChatView(props: ChatViewProps) {
             : "page"
         }
         composerDraftTarget={composerDraftTarget}
+      />
+    ) : renderedRightPanelSurface?.kind === "advisors" ? (
+      <AdvisorsPanel
+        key={`${activeThreadRef.environmentId}:${activeThreadRef.threadId}`}
+        environmentId={activeThreadRef.environmentId}
+        threadId={activeThreadRef.threadId}
       />
     ) : renderedRightPanelSurface?.kind === "todos" ? (
       serverConfig?.environment.capabilities.threadTodos === true ? (
@@ -8789,6 +8839,7 @@ export default function ChatView(props: ChatViewProps) {
           onAddFiles={addFilesSurface}
           onAddPullRequest={addPullRequestSurface}
           onAddAgents={addAgentsSurface}
+          onAddAdvisors={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
           onAddTodos={addTodosSurface}
           todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
           browserAvailable={isPreviewSupportedInRuntime()}
@@ -8841,6 +8892,7 @@ export default function ChatView(props: ChatViewProps) {
             onAddFiles={addFilesSurface}
             onAddPullRequest={addPullRequestSurface}
             onAddAgents={addAgentsSurface}
+            onAddAdvisors={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
             onAddTodos={addTodosSurface}
             todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
             browserAvailable={isPreviewSupportedInRuntime()}

@@ -1,3 +1,4 @@
+import { ThreadAdvisors } from "./ThreadAdvisors";
 import { ThreadTodos } from "./ThreadTodos";
 import { ThreadNarration } from "../narration/ThreadNarration";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
@@ -447,6 +448,7 @@ function ThreadRouteContent(
   const inspectorHeaderInset = Platform.OS === "ios" ? 0 : safeAreaInsets.top;
   const supportsTodos =
     routeEnvironmentRuntime?.serverConfig?.environment.capabilities.threadTodos === true;
+  const [advisorOpenRequest, setAdvisorOpenRequest] = useState(0);
   const [todosSheetThread, setTodosSheetThread] = useState<string | null>(null);
   const openTodos = useCallback(() => {
     if (!supportsTodos) return;
@@ -916,6 +918,12 @@ function ThreadRouteContent(
           ) : null}
         </View>
       </Modal>
+      <ThreadAdvisors
+        openRequest={advisorOpenRequest}
+        key={routeThreadIdentity}
+        environmentId={selectedThread.environmentId}
+        threadId={selectedThread.id}
+      />
       <ThreadGitControls {...threadGitControlProps} showActionControls={showActionControls} />
 
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
@@ -940,6 +948,7 @@ function ThreadRouteContent(
           />
         ) : null}
         <ThreadDetailScreen
+          onOpenAdvisors={() => setAdvisorOpenRequest((value) => value + 1)}
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
           contentPresentation={contentPresentation}
           screenTone={connectionTone(routeConnectionState)}

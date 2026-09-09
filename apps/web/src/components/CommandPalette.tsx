@@ -449,6 +449,11 @@ export function CommandPalette({ children }: { children: ReactNode }) {
           previewOpen,
         },
       });
+      if (command === "advisors.toggle") {
+        event.preventDefault();
+        if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "advisors");
+        return;
+      }
       if (command === "todos.toggle") {
         event.preventDefault();
         if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "todos");
@@ -1697,6 +1702,24 @@ function OpenCommandPaletteDialog(props: {
           .toggle(
             { environmentId: activeThread.environmentId, threadId: activeThread.id },
             "todos",
+          );
+      },
+    });
+
+  if (activeThread)
+    actionItems.push({
+      kind: "action",
+      value: "action:advisors",
+      searchTerms: ["advisor", "reviewer", "watchdog"],
+      title: "Open advisors",
+      icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "advisors.toggle",
+      run: async () => {
+        useRightPanelStore
+          .getState()
+          .open(
+            { environmentId: activeThread.environmentId, threadId: activeThread.id },
+            "advisors",
           );
       },
     });

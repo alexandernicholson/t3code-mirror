@@ -46,3 +46,5 @@ export * from "./managedMcp.ts";
 
 export * from "./sourceUpdates.ts";
 export * from "./secrets.ts";
+
+export * from "./advisors.ts";

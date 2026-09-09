@@ -1,3 +1,4 @@
+import Migration0052 from "./Migrations/052_Advisors.ts";
 /**
  * Migration runner with an inline loader.
  *
@@ -126,6 +127,7 @@ const migrationEntries = [
   [47, "ProjectionProjectIcon", Migration0047],
   [48, "ProjectionThreadBranchPullRequest", Migration0048],
   [49, "ProjectionThreadsActiveOrderKey", Migration0049],
+  [52, "Advisors", Migration0052],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

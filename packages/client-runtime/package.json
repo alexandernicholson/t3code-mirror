@@ -175,6 +175,10 @@
       "types": "./src/state/usage.ts",
       "default": "./src/state/usage.ts"
     },
+    "./state/advisors": {
+      "types": "./src/state/advisors.ts",
+      "default": "./src/state/advisors.ts"
+    },
     "./state/secrets": {
       "types": "./src/state/secrets.ts",
       "default": "./src/state/secrets.ts"
