@@ -242,6 +242,14 @@
     "./work-log/scroll-anchor": {
       "types": "./src/work-log/scrollAnchor.ts",
       "default": "./src/work-log/scrollAnchor.ts"
+    },
+    "./narration": {
+      "types": "./src/narration/controller.ts",
+      "default": "./src/narration/controller.ts"
+    },
+    "./narration/kitten": {
+      "types": "./src/narration/kitten.ts",
+      "default": "./src/narration/kitten.ts"
     }
   },
   "scripts": {

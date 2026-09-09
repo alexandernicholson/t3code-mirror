@@ -90,6 +90,18 @@ function OverlayContent(props: { readonly progress: GitActionProgress }) {
             {progress.description}
           </Text>
         ) : null}
+        {progress.fraction !== undefined ? (
+          <View
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: 100, now: Math.round(progress.fraction * 100) }}
+            className="mt-1 h-1 overflow-hidden rounded-full bg-border"
+          >
+            <View
+              className="h-full bg-foreground"
+              style={{ width: `${Math.round(progress.fraction * 100)}%` }}
+            />
+          </View>
+        ) : null}
       </View>
 
       {progress.prUrl ? (

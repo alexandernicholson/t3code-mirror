@@ -153,3 +153,11 @@ automatically. HTML previews cannot access your T3 Code session.
 
 On mobile, select a PDF attachment or link to open it. iOS uses the native viewer;
 Android opens the system chooser.
+
+## Voice narration
+
+Select **Narrate** in a thread to hear short excerpts from new agent messages as work progresses. Select it again to stop immediately. Leaving the thread stops narration; returning does not replay earlier messages. Code blocks and tool output are skipped. On mobile, narration also stops when the app goes into the background.
+
+Kitten Nano generates English speech on your device without a GPU or a speech-service account. The first preview or narration downloads about 28 MB of model and voice files from Hugging Face, with progress shown while downloading. Web uses a browser cache; mobile stores the model and pronunciation data on the device. Later speech works offline with those downloads. Clearing browser/site data or removing the download means it must be downloaded again.
+
+Choose among eight voices, adjust speed, preview speech, or remove the downloaded model in **Settings → General → Voice narration** on web/desktop, or **Settings → Voice narration** on mobile. On web/desktop you can also choose **System voices**; their availability depends on the device and browser, and some use an online speech service. Preferences apply on this device the next time you start narration.

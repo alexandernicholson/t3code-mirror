@@ -1,6 +1,6 @@
 {
   "name": "@t3tools/web",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -40,6 +40,8 @@
     "jszip": "3.10.1",
     "lexical": "^0.41.0",
     "lucide-react": "^0.564.0",
+    "onnxruntime-web": "1.24.3",
+    "phonemizer": "1.2.1",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-markdown": "^10.1.0",

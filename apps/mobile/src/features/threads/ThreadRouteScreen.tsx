@@ -1,3 +1,4 @@
+import { ThreadNarration } from "../narration/ThreadNarration";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import {
   StackActions,
@@ -855,6 +856,12 @@ function ThreadRouteContent(
             : undefined
         }
       >
+        {selectedThreadDetail ? (
+          <ThreadNarration
+            key={`${selectedThread?.environmentId}:${selectedThreadDetail.id}`}
+            messages={selectedThreadDetail.messages}
+          />
+        ) : null}
         <ThreadDetailScreen
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
           contentPresentation={contentPresentation}
