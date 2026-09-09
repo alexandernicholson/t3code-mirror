@@ -31,7 +31,7 @@ jobs:
         run: |
           files="$(git ls-files .github/pr-assets)"
           if test -n "$files"; then
-            printf 'PR evidence must be uploaded to GitHub, not committed:\n%s\n' "$files" >&2
+            printf 'PR evidence must be attached directly to a PR, not committed or hosted in releases:\n%s\n' "$files" >&2
             exit 1
           fi
 
