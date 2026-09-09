@@ -41,6 +41,7 @@ import {
   MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS,
   MIN_TERMINAL_FONT_SIZE,
   type QuitConfirmationMode,
+  MAX_SIDEBAR_BRAND_TEXT_LENGTH,
 } from "@t3tools/contracts/settings";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
 import { createModelSelection } from "@t3tools/shared/model";
@@ -514,6 +515,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode
         ? ["Environment identification"]
         : []),
+      ...(settings.sidebarBrandText !== DEFAULT_UNIFIED_SETTINGS.sidebarBrandText
+        ? ["Sidebar title"]
+        : []),
       ...(settings.timestampFormat !== DEFAULT_UNIFIED_SETTINGS.timestampFormat
         ? ["Time format"]
         : []),
@@ -617,6 +621,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.diffLayout,
       settings.proactivePanelsEnabled,
       settings.environmentIdentificationMode,
+      settings.sidebarBrandText,
       settings.contextWindowMeterEnabled,
       settings.fontFamilyCode,
       settings.fontFamilyComposer,
@@ -717,6 +722,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       composerCollapseOnScroll: DEFAULT_UNIFIED_SETTINGS.composerCollapseOnScroll,
       contextWindowMeterEnabled: DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled,
       environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
+      sidebarBrandText: DEFAULT_UNIFIED_SETTINGS.sidebarBrandText,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
       panelAnimationDurationMs: DEFAULT_UNIFIED_SETTINGS.panelAnimationDurationMs,
       sidebarThreadPreviewCount: DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount,
@@ -1201,6 +1207,46 @@ export function AppearanceSettingsPanel() {
                 value={settings.glassOpacity}
               />
             </div>
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("sidebar-title")}
+          description={
+            <>
+              Replace the T3 Code wordmark at the top of the sidebar. Inline Markdown and emoji
+              work: <code>**bold**</code>, <code>_italic_</code>, <code>~~strike~~</code>,{" "}
+              <code>&lt;u&gt;underline&lt;/u&gt;</code>. Leave empty for the default.
+            </>
+          }
+          resetAction={
+            settings.sidebarBrandText !== DEFAULT_UNIFIED_SETTINGS.sidebarBrandText ? (
+              <SettingResetButton
+                label="sidebar title"
+                onClick={() =>
+                  updateSettings({ sidebarBrandText: DEFAULT_UNIFIED_SETTINGS.sidebarBrandText })
+                }
+              />
+            ) : null
+          }
+          control={
+            <DraftInput
+              aria-label="Sidebar title"
+              autoCapitalize="off"
+              autoComplete="off"
+              className="w-full sm:w-64"
+              maxLength={MAX_SIDEBAR_BRAND_TEXT_LENGTH}
+              placeholder="T3 Code"
+              size="sm"
+              spellCheck={false}
+              value={settings.sidebarBrandText}
+              onCommit={(next) => {
+                const sidebarBrandText = next.slice(0, MAX_SIDEBAR_BRAND_TEXT_LENGTH);
+                if (sidebarBrandText !== settings.sidebarBrandText) {
+                  updateSettings({ sidebarBrandText });
+                }
+              }}
+            />
           }
         />
 

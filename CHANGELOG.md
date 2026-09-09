@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1] - 2026-09-09
+
+- Let web and desktop clients replace the sidebar's T3 Code wordmark with custom text from Settings → Appearance → Sidebar title, including inline Markdown (bold, italics, strikethrough, underline, code) and emoji. Not shown in the mobile app.
+
+---
+
 ## [0.4.0] - 2026-09-09
 
 - Make delegated agents inspectable and messageable across web, desktop, and mobile, with durable per-agent process logs and complete Codex child tool history.

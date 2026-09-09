@@ -353,6 +353,20 @@ describe("ClientSettings panel animations", () => {
   });
 });
 
+describe("ClientSettings sidebar brand text", () => {
+  it("defaults to empty and keeps inline markdown and emoji verbatim", () => {
+    expect(decodeClientSettings({}).sidebarBrandText).toBe("");
+    const text = "**Acme** _Labs_ ~~old~~ <u>new</u> 🚀";
+    expect(decodeClientSettingsPatch({ sidebarBrandText: text }).sidebarBrandText).toBe(text);
+  });
+
+  it("rejects text over the length limit", () => {
+    const tooLong = "x".repeat(121);
+    expect(() => decodeClientSettings({ sidebarBrandText: tooLong })).toThrow();
+    expect(() => decodeClientSettingsPatch({ sidebarBrandText: tooLong })).toThrow();
+  });
+});
+
 describe("ClientSettings environment identification", () => {
   it("defaults to artwork and accepts each presentation mode", () => {
     expect(decodeClientSettings({}).environmentIdentificationMode).toBe("artwork");

@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
 import { Link, useCanGoBack, useLocation, useNavigate } from "@tanstack/react-router";
 
-import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
+import { useEnvironmentIdentificationMode, useSidebarBrandText } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { useEnvironments } from "../../state/environments";
 import { T3Wordmark } from "../T3Wordmark";
@@ -32,6 +32,7 @@ import {
 } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { readPullRequestListPreferences } from "../pullRequest/pullRequestListPreferences";
+import { SidebarBrandMarkdown } from "./SidebarBrandMarkdown";
 import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
 
@@ -83,26 +84,38 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
 });
 
 function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
+  const brandText = useSidebarBrandText();
+  const customBrand = brandText !== null && brandText.trim().length > 0;
   return (
     <Link
       aria-label="Go to threads"
       className={cn(
-        "relative z-10 ml-[var(--workspace-titlebar-content-left)] hidden h-7 w-fit min-w-0 shrink-0 items-center overflow-hidden rounded-md outline-hidden ring-ring focus-visible:ring-2 md:flex",
+        "relative z-10 ml-[var(--workspace-titlebar-content-left)] hidden h-7 min-w-0 shrink items-center overflow-hidden rounded-md outline-hidden ring-ring focus-visible:ring-2 md:flex",
+        customBrand ? "max-w-full" : "w-fit shrink-0",
         onBackdrop ? "text-white" : "text-foreground",
       )}
       to="/"
     >
-      <span className="inline-flex min-w-0 items-baseline gap-1">
-        <T3Wordmark aria-label="T3" className="h-2.5 w-auto shrink-0" />
+      {brandText === null ? null : customBrand ? (
         <span
-          className={cn(
-            "truncate text-sm font-medium tracking-tight",
-            onBackdrop ? "text-white/70" : "text-muted-foreground",
-          )}
+          className="block min-w-0 truncate text-sm font-medium tracking-tight whitespace-nowrap"
+          data-sidebar-brand="custom"
         >
-          Code
+          <SidebarBrandMarkdown text={brandText} />
         </span>
-      </span>
+      ) : (
+        <span className="inline-flex min-w-0 items-baseline gap-1">
+          <T3Wordmark aria-label="T3" className="h-2.5 w-auto shrink-0" />
+          <span
+            className={cn(
+              "truncate text-sm font-medium tracking-tight",
+              onBackdrop ? "text-white/70" : "text-muted-foreground",
+            )}
+          >
+            Code
+          </span>
+        </span>
+      )}
     </Link>
   );
 }

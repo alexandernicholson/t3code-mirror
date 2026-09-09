@@ -13,6 +13,14 @@ can be selected separately for light and dark appearances.
 Android also offers **Material You Layout**, which changes shapes and spacing independently
 of the selected theme.
 
+## Sidebar title
+
+On web and desktop, **Settings → Appearance → Sidebar title** replaces the T3 Code wordmark at the
+top of the sidebar with your own text. Inline Markdown renders: `**bold**`, `_italic_`,
+`~~strikethrough~~`, `` `code` ``, and `<u>underline</u>`. Emoji work as typed. Links, images, and
+headings are shown as plain text so the title stays on one line. Clear the field to restore the
+wordmark. The title is saved per device or browser and is not shown in the mobile app.
+
 ## Motion
 
 The main sidebar, right panel, and terminal drawer open and close immediately by default. Move the
