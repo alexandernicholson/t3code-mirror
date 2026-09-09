@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.6] - 2026-09-09
+
+- Reduce personal-fork CI overhead with one standard Linux validation job, optional extended and native checks, and fewer PR automation jobs.
+
+---
+
 ## [0.1.5] - 2026-09-09
 
 - Show steer and queue in a compact delivery selector only while the agent is working, and display queued messages as single lines above the editor on web, desktop, and mobile.

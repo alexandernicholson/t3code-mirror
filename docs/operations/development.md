@@ -66,8 +66,21 @@ vp lint <files>
 vp run --filter <package> typecheck
 ```
 
-Use `vp run lint:mobile` for native mobile changes. CI owns the full suite; see
-[ci.yml](../../.github/workflows/ci.yml) for its current jobs.
+[CI](../../.github/workflows/ci.yml) runs formatting, lint, typechecking, release metadata
+validation, and the JavaScript/TypeScript test suites in one standard Ubuntu job on PRs
+and pushes to `main`. New commits cancel superseded runs. Server tests run serially
+without runner sharding; this favors fewer runner setups over shorter wall-clock time.
+
+For unused-code audits, desktop build/preload validation, release smoke tests, and Rust
+formatting/tests, run CI manually with `extended` enabled. For Swift/Kotlin lint, enable
+`mobile_native` to add a macOS job, or run `vp run lint:mobile` locally. These checks
+are opt-in in this personal fork; ordinary CI does not validate native code or bundling.
+PR size/vouch labels and transfer-report comments are disabled; transfer budgets remain
+in the tests and the CI job summary. Mobile fingerprint checks run only when
+`T3CODE_DEPLOYMENTS_ENABLED` is `true`, like the existing deployment workflows.
+
+If branch protection requires the old Test, Test Server, Rust, or Release Smoke jobs,
+replace those requirements with `Check` when adopting this workflow.
 The [manual Windows lane](../../.github/workflows/windows-tests.yml) is available for focused
 Windows investigation while that suite is not a required gate.
 
@@ -110,7 +123,7 @@ script examples, and environment reuse. The runner uses the repository-pinned
 
 `vp run knip:check` checks unused files and dependencies across the repo, then
 unused runtime exports in `apps/server`, `apps/desktop`, `apps/web`, and every internal package under
-`packages/`. CI enforces both checks.
+`packages/`. The manual extended CI run enforces both checks.
 Exported types and Effect schemas are allowed without consumers. The schema preprocessor
 recognizes schema types, including aliases and schema classes; functions that create or decode
 schemas remain checked. Canonical Effect service construction APIs stay exported with an explicit
