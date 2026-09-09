@@ -24,6 +24,8 @@ import {
   type SettleThreadInput,
   type SnoozeThreadInput,
   type StartThreadTurnInput,
+  type UpdateThreadQueueInput,
+  updateThreadQueue,
   type StopThreadSessionInput,
   type UnarchiveThreadInput,
   type UnpinThreadInput,
@@ -90,6 +92,12 @@ export function createThreadEnvironmentAtoms<R, E>(
       JSON.stringify([environmentId, input.threadId]),
   };
   return {
+    updateQueue: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:update-queue",
+      execute: (input: UpdateThreadQueueInput) => updateThreadQueue(input),
+      scheduler,
+      concurrency,
+    }),
     create: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:create",
       execute: (input: CreateThreadInput) => createThread(input),

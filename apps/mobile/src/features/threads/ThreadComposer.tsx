@@ -1,5 +1,7 @@
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAtomValue } from "@effect/atom-react";
+import { TurnQueueControls } from "./TurnQueueControls";
+import { useComposerDraft } from "../../state/use-composer-drafts";
 import type {
   EnvironmentId,
   MessageId,
@@ -99,13 +101,13 @@ import {
  * Height of the collapsed composer (pill + vertical padding, excluding safe-area inset).
  * Exported so the parent can compute feed overlap / content insets.
  */
-export const COMPOSER_COLLAPSED_CHROME = 60;
+export const COMPOSER_COLLAPSED_CHROME = 112;
 
 /**
  * Height of the expanded composer (card + toolbar + vertical padding, excluding safe-area inset).
  * Used by the parent to compute the larger feed bottom inset when the composer is focused.
  */
-export const COMPOSER_EXPANDED_CHROME = 156;
+export const COMPOSER_EXPANDED_CHROME = 208;
 
 export interface ThreadComposerProps {
   readonly draftMessage: string;
@@ -265,6 +267,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
       props.selectedThread.session?.status === "starting");
 
   const uploadStates = useAtomValue(composerAttachmentUploadsAtom);
+  const deliveryDraft = useComposerDraft(
+    scopedThreadKey(props.environmentId, props.selectedThread.id),
+  );
   const attachmentsUploading =
     props.connectionState === "connected" &&
     composerAttachmentsStillUploading({
@@ -277,8 +282,12 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   // or waits (for the connection, an earlier queued message, or an upload).
   const sendLabel =
     props.connectionState !== "connected" || props.queueCount > 0 || attachmentsUploading
-      ? "Queue"
-      : "Send";
+      ? "Waiting for connection or upload"
+      : deliveryDraft.delivery === "queue"
+        ? "Queue"
+        : props.selectedThread.session?.status === "running"
+          ? "Steer"
+          : "Send";
   const currentModelSelection = props.selectedThread.modelSelection;
   const currentRuntimeMode = props.selectedThread.runtimeMode;
   const modelUnavailable =
@@ -591,6 +600,19 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
           </Pressable>
         ) : null}
 
+        <TurnQueueControls
+          environmentId={props.environmentId}
+          threadId={props.selectedThread.id}
+          supported={
+            props.connectionState !== "connected" ||
+            props.serverConfig?.environment.capabilities.turnQueue === true
+          }
+          connected={props.connectionState === "connected"}
+          onRestored={() => {
+            setIsFocused(true);
+            inputRef.current?.focus();
+          }}
+        />
         <ComposerSurface
           style={
             isExpanded

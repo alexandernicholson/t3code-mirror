@@ -17,6 +17,7 @@ import {
   ThreadLinkedPullRequest,
   ThreadId,
   TurnId,
+  TurnQueue,
 } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -48,6 +49,7 @@ export const ProjectionThread = Schema.Struct({
   pinnedAt: Schema.NullOr(IsoDateTime),
   pinOrderKey: Schema.optional(Schema.NullOr(Schema.String)),
   activeOrderKey: Schema.optional(Schema.NullOr(Schema.String)),
+  turnQueue: Schema.optional(Schema.NullOr(TurnQueue)),
   titleRegenerationRequestId: Schema.optional(Schema.NullOr(CommandId)),
   titleRegenerationStartedAt: Schema.optional(Schema.NullOr(IsoDateTime)),
   latestUserMessageAt: Schema.NullOr(IsoDateTime),

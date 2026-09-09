@@ -221,9 +221,30 @@ const makeOrchestrationEngine = Effect.gen(function* () {
           envelope.command.type === "thread.user-input.dismiss"
             ? yield* projectionSnapshotQuery.getUserInputActivity(envelope.command)
             : Option.none();
+        // Queue admission needs the durable turn/checkpoint boundary after a restart.
+        const queueThread =
+          envelope.command.type === "thread.turn.queue.drain"
+            ? yield* projectionSnapshotQuery.getThreadDetailById(envelope.command.threadId)
+            : Option.none();
+        const decisionReadModel = Option.isSome(queueThread)
+          ? {
+              ...commandReadModel,
+              threads: commandReadModel.threads.map((thread) =>
+                thread.id === queueThread.value.id
+                  ? {
+                      ...thread,
+                      latestTurn: queueThread.value.latestTurn,
+                      messages: queueThread.value.messages,
+                      activities: queueThread.value.activities,
+                      checkpoints: queueThread.value.checkpoints,
+                    }
+                  : thread,
+              ),
+            }
+          : commandReadModel;
         const eventBase = yield* decideOrchestrationCommand({
           command: envelope.command,
-          readModel: commandReadModel,
+          readModel: decisionReadModel,
           ...(Option.isSome(userInputActivity)
             ? { userInputActivity: userInputActivity.value }
             : {}),

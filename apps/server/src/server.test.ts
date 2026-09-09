@@ -9290,6 +9290,48 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
+  for (const includeTurnQueue of [false, true]) {
+    it.effect(
+      `replays queued messages only to clients that support them (${includeTurnQueue})`,
+      () =>
+        Effect.gen(function* () {
+          const event = {
+            ...makeLiveToolActivityEvent(6, "tool.completed"),
+            type: "thread.turn-queue-updated" as const,
+            payload: { threadId: defaultThreadId, queue: { items: [], paused: true } },
+          };
+          yield* buildAppUnderTest({
+            layers: {
+              orchestrationEngine: {
+                latestSequence: Effect.succeed(6),
+                getThreadReplayStats: () =>
+                  Effect.succeed({ eventCount: 1, payloadBytes: 100, hasCreateEvent: false }),
+                readThreadEvents: () => Stream.make(event),
+              },
+            },
+          });
+          const wsUrl = yield* getWsServerUrl("/ws");
+          const items = yield* Effect.scoped(
+            withWsRpcClient(wsUrl, (client) =>
+              client[ORCHESTRATION_WS_METHODS.subscribeThread]({
+                threadId: defaultThreadId,
+                afterSequence: 5,
+                requestCompletionMarker: true,
+                ...(includeTurnQueue ? { includeTurnQueue: true } : {}),
+              }).pipe(
+                Stream.takeUntil((item) => item.kind === "synchronized"),
+                Stream.runCollect,
+              ),
+            ),
+          );
+          assert.deepEqual(
+            items.map((item) => (item.kind === "event" ? item.event.type : item.kind)),
+            includeTurnQueue ? ["thread.turn-queue-updated", "synchronized"] : ["synchronized"],
+          );
+        }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+    );
+  }
+
   for (const { createBeforeDelete, oversized } of [
     { createBeforeDelete: false, oversized: false },
     { createBeforeDelete: true, oversized: false },

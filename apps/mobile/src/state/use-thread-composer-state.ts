@@ -328,6 +328,18 @@ export function useThreadComposerState() {
 
     const modelSelection = draft.modelSelection ?? thread.modelSelection;
     const serverConfig = selectedEnvironmentRuntime?.serverConfig;
+    if (draft.delivery === "queue" && text.startsWith("/")) {
+      Alert.alert("Send commands directly", "Switch to Steer to send this command.");
+      return null;
+    }
+    if (
+      draft.delivery === "queue" &&
+      selectedEnvironmentRuntime?.connectionState === "connected" &&
+      serverConfig?.environment.capabilities.turnQueue !== true
+    ) {
+      Alert.alert("Queue unavailable", "Connect to an updated environment to queue messages.");
+      return null;
+    }
     if (
       selectedEnvironmentRuntime?.connectionState === "connected" &&
       isModelSelectionUnavailable(serverConfig, modelSelection)
@@ -391,6 +403,7 @@ export function useThreadComposerState() {
     // is rolled out of the queue and the content is merged back into the
     // draft, preserving anything typed since.
     const enqueuePromise = enqueueThreadOutboxMessage({
+      delivery: draft.delivery ?? "steer",
       environmentId: selectedThreadShell.environmentId,
       threadId: selectedThreadShell.id,
       messageId,

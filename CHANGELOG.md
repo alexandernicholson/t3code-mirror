@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.1] - 2026-09-09
+
+- Choose Steer or Queue across web, desktop, and mobile. Queued follow-ups persist on the environment, pause when stopped, and can be restored with attachments to the editor.
+
+---
+
 ## [0.1.0] - 2026-09-08
 
 ### Added

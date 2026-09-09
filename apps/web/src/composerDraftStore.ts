@@ -602,9 +602,17 @@ interface ComposerDraftStoreState {
     interactionMode: ProviderInteractionMode | null | undefined,
   ) => void;
   addImage: (threadRef: ComposerThreadTarget, image: ComposerImageAttachment) => boolean;
-  addImages: (threadRef: ComposerThreadTarget, images: ComposerImageAttachment[]) => void;
+  addImages: (
+    threadRef: ComposerThreadTarget,
+    images: ComposerImageAttachment[],
+    options?: { allowOverflow?: boolean },
+  ) => void;
   removeImage: (threadRef: ComposerThreadTarget, imageId: string) => void;
-  addFiles: (threadRef: ComposerThreadTarget, files: ComposerFileAttachment[]) => void;
+  addFiles: (
+    threadRef: ComposerThreadTarget,
+    files: ComposerFileAttachment[],
+    options?: { allowOverflow?: boolean },
+  ) => void;
   removeFile: (threadRef: ComposerThreadTarget, fileId: string) => void;
   setFileUpload: (
     threadRef: ComposerThreadTarget,
@@ -3289,7 +3297,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             (get().draftsByThreadKey[threadKey]?.images.some(({ id }) => id === image.id) ?? false)
           );
         },
-        addImages: (threadRef, images) => {
+        addImages: (threadRef, images, options) => {
           const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
           if (threadKey.length === 0 || images.length === 0) {
             return;
@@ -3312,8 +3320,9 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
                 continue;
               }
               if (
+                options?.allowOverflow !== true &&
                 existing.images.length + existing.files.length + dedupedIncoming.length >=
-                PROVIDER_SEND_TURN_MAX_ATTACHMENTS
+                  PROVIDER_SEND_TURN_MAX_ATTACHMENTS
               ) {
                 if (!acceptedPreviewUrls.has(image.previewUrl)) {
                   revokeObjectPreviewUrl(image.previewUrl);
@@ -3374,7 +3383,7 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
             return { draftsByThreadKey: nextDraftsByThreadKey };
           });
         },
-        addFiles: (threadRef, files) => {
+        addFiles: (threadRef, files, options) => {
           const threadKey = resolveComposerDraftKey(get(), threadRef) ?? "";
           if (threadKey.length === 0 || files.length === 0) {
             return;
@@ -3413,8 +3422,9 @@ const composerDraftStore = create<ComposerDraftStoreState>()(
                 continue;
               }
               if (
+                options?.allowOverflow !== true &&
                 existing.images.length + existing.files.length + accepted.length >=
-                PROVIDER_SEND_TURN_MAX_ATTACHMENTS
+                  PROVIDER_SEND_TURN_MAX_ATTACHMENTS
               ) {
                 break;
               }

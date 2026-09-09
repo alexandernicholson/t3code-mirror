@@ -23,12 +23,29 @@ T3 Code through another app's system share sheet.
 
 See [images and videos](#images-and-videos-in-messages) for previewing and saving media.
 
-## Queue messages offline on mobile
+## Steer or queue a message
+
+Choose **Steer** to send a correction into the agent's current work. Choose
+**Queue** to let the current turn finish first. Queued messages run in order,
+one at a time, and remain on the environment when you close a client.
+On web and desktop, Cmd/Ctrl+Enter queues the current draft directly.
+
+Open **Next up** to edit, remove, or send a queued message immediately. **Edit**
+returns its text, attachments, and settings to the composer, preserving any
+existing draft. Once a message has started, it can no longer be taken back.
+Stopping pauses pending messages; use **Resume queue** when ready to continue.
+Commands such as `/compact` must be sent directly.
+
+## Send messages offline on mobile
 
 Mobile keeps local copies of draft attachments, so you can preview them and queue
 messages while disconnected. Uploads resume when you reconnect. Drafts and queued
 messages survive app restarts. Signing out of T3 Connect keeps that work on your
 device until you sign back into the same account.
+
+The Steer/Queue selector keeps your delivery choice when reconnecting. A message
+waiting for a connection has not yet reached the environment's queue. Queueing
+requires an environment version that supports the feature.
 
 ## Custom models
 

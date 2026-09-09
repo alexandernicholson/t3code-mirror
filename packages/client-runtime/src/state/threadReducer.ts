@@ -274,6 +274,11 @@ export function applyThreadDetailEvent(
       };
 
     // ── Turn lifecycle ──────────────────────────────────────────────
+    case "thread.turn-queue-updated":
+      return {
+        kind: "updated",
+        thread: { ...thread, turnQueue: event.payload.queue, updatedAt: event.occurredAt },
+      };
     case "thread.turn-start-requested":
       return {
         kind: "updated",
