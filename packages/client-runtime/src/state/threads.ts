@@ -760,6 +760,7 @@ export const makeEnvironmentThreadState = Effect.fn("EnvironmentThreadState.make
         return {
           threadId,
           includeTurnQueue: true,
+          includeTodos: true,
           ...(canResume ? { afterSequence: sequence } : {}),
           ...(supportsCompletionMarker ? { requestCompletionMarker: true as const } : {}),
           // The WS fallback snapshot (sent when afterSequence is missing or

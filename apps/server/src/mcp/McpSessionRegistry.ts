@@ -12,6 +12,7 @@ import * as McpInvocationContext from "./McpInvocationContext.ts";
 import * as McpProviderSession from "./McpProviderSession.ts";
 
 export interface McpCredentialRequest {
+  readonly previewEnabled?: boolean;
   readonly threadId: ThreadId;
   readonly providerInstanceId: ProviderInstanceId;
 }
@@ -128,7 +129,9 @@ const makeWithOptions = Effect.fn("McpSessionRegistry.make")(function* (
         threadId: ThreadId.make(request.threadId),
         providerSessionId,
         providerInstanceId: ProviderInstanceId.make(request.providerInstanceId),
-        capabilities: new Set(["preview", "secrets"]),
+        capabilities: new Set(
+          request.previewEnabled === false ? ["todos"] : ["preview", "secrets", "todos"],
+        ),
         issuedAt,
       };
       yield* SynchronizedRef.update(state, ({ records }) => {

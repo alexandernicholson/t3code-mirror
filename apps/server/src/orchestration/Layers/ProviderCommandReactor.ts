@@ -1,3 +1,4 @@
+import { appendTodoContext } from "@t3tools/shared/todos";
 import {
   type ChatAttachment,
   CommandId,
@@ -865,7 +866,10 @@ const make = Effect.gen(function* () {
     if (input.modelSelection !== undefined) {
       threadModelSelections.set(input.threadId, input.modelSelection);
     }
-    const normalizedInput = toNonEmptyProviderInput(input.messageText);
+    const todoThread = yield* projectionSnapshotQuery.getThreadTodos(input.threadId);
+    const normalizedInput = toNonEmptyProviderInput(
+      appendTodoContext(input.messageText, Option.getOrUndefined(todoThread)),
+    );
     const normalizedAttachments = input.attachments ?? [];
     const activeSession = yield* providerService
       .listSessions()

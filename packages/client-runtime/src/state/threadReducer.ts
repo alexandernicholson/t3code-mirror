@@ -274,6 +274,11 @@ export function applyThreadDetailEvent(
       };
 
     // ── Turn lifecycle ──────────────────────────────────────────────
+    case "thread.todos-updated":
+      return {
+        kind: "updated",
+        thread: { ...thread, todos: event.payload.todos, updatedAt: event.occurredAt },
+      };
     case "thread.turn-queue-updated":
       return {
         kind: "updated",

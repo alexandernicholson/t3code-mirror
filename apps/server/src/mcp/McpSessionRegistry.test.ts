@@ -127,3 +127,16 @@ it.effect("does not keep credentials of other threads alive", () =>
     expect(yield* registry.resolve(token)).toBeUndefined();
   }),
 );
+
+it.effect("issues TODO-only credentials without browser capability", () =>
+  Effect.gen(function* () {
+    const registry = yield* makeRegistry(() => 1000);
+    const issued = yield* registry.issue({
+      threadId: ThreadId.make("todos-only"),
+      providerInstanceId: ProviderInstanceId.make("codex"),
+      previewEnabled: false,
+    });
+    const token = issued.config.authorizationHeader.replace(/^Bearer\s+/, "");
+    expect((yield* registry.resolve(token))?.capabilities).toEqual(new Set(["todos"]));
+  }),
+);

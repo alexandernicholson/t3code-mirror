@@ -1,3 +1,4 @@
+import { ThreadTodos } from "@t3tools/contracts";
 import {
   AgentSessionImportSource,
   ApprovalRequestId,
@@ -116,6 +117,7 @@ const ProjectionThreadProposedPlanDbRowSchema = ProjectionThreadProposedPlan;
 const ProjectionThreadDbRowSchema = ProjectionThread.mapFields(
   Struct.assign({
     turnQueue: Schema.NullOr(Schema.fromJsonString(TurnQueue)),
+    todos: Schema.NullOr(Schema.fromJsonString(ThreadTodos)),
     modelSelection: Schema.fromJsonString(ModelSelection),
     linkedPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
     branchPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
@@ -517,6 +519,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
           turn_queue_json AS "turnQueue",
+          todos_json AS "todos",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -558,6 +561,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
           turn_queue_json AS "turnQueue",
+          todos_json AS "todos",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -601,6 +605,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
           turn_queue_json AS "turnQueue",
+          todos_json AS "todos",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -1093,6 +1098,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
           turn_queue_json AS "turnQueue",
+          todos_json AS "todos",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -1106,6 +1112,26 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           AND archived_at IS NULL
         LIMIT 1
       `,
+  });
+
+  const getThreadTodosRow = SqlSchema.findOneOption({
+    Request: ThreadIdLookupInput,
+    Result: Schema.Struct({ todos: Schema.NullOr(Schema.fromJsonString(ThreadTodos)) }),
+    execute: ({ threadId }) =>
+      sql`SELECT todos_json AS todos FROM projection_threads WHERE thread_id = ${threadId} AND deleted_at IS NULL`,
+  });
+  const getThreadTodos: ProjectionSnapshotQueryShape["getThreadTodos"] = Effect.fn(
+    "ProjectionSnapshotQuery.getThreadTodos",
+  )(function* (threadId) {
+    const row = yield* getThreadTodosRow({ threadId }).pipe(
+      Effect.mapError(
+        toPersistenceSqlOrDecodeError(
+          "ProjectionSnapshotQuery.getThreadTodos:query",
+          "ProjectionSnapshotQuery.getThreadTodos:decodeRow",
+        ),
+      ),
+    );
+    return Option.flatMap(row, (value) => Option.fromNullishOr(value.todos));
   });
 
   const getThreadRuntimeContextRow = SqlSchema.findOneOption({
@@ -2094,6 +2120,7 @@ pending_approval_requests AS (
                 pinOrderKey: row.pinOrderKey ?? null,
                 activeOrderKey: row.activeOrderKey ?? null,
                 ...(row.turnQueue ? { turnQueue: row.turnQueue } : {}),
+                ...(row.todos ? { todos: row.todos } : {}),
                 titleRegeneration: mapTitleRegeneration(row),
                 deletedAt: row.deletedAt,
                 messages: messagesByThread.get(row.threadId) ?? [],
@@ -2310,6 +2337,7 @@ pending_approval_requests AS (
                   pinOrderKey: row.pinOrderKey ?? null,
                   activeOrderKey: row.activeOrderKey ?? null,
                   ...(row.turnQueue ? { turnQueue: row.turnQueue } : {}),
+                  ...(row.todos ? { todos: row.todos } : {}),
                   titleRegeneration: mapTitleRegeneration(row),
                   deletedAt: row.deletedAt,
                   messages: [],
@@ -3218,6 +3246,7 @@ pending_approval_requests AS (
         pinOrderKey: threadRow.value.pinOrderKey ?? null,
         activeOrderKey: threadRow.value.activeOrderKey ?? null,
         ...(threadRow.value.turnQueue ? { turnQueue: threadRow.value.turnQueue } : {}),
+        ...(threadRow.value.todos ? { todos: threadRow.value.todos } : {}),
         titleRegeneration: mapTitleRegeneration(threadRow.value),
         deletedAt: null,
         messages: messageRows.map((row) => {
@@ -3432,6 +3461,7 @@ pending_approval_requests AS (
     getFullThreadDiffContext,
     getThreadShellById,
     getThreadRuntimeContext,
+    getThreadTodos,
     getTurnStartMessage,
     getThreadDetailById,
     getThreadDetailSnapshot,

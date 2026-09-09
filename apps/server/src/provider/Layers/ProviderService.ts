@@ -917,18 +917,15 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         ),
       );
       ManagedMcp.setManagedMcpServers(threadId, managedServers);
-      if (!(yield* agentBrowserAccessEnabled(threadId))) {
-        // Revoke as well as clear. Every other prepare path reaches
-        // `issueActiveMcpCredential`, which revokes the thread first, so
-        // skipping it here would leave a previously issued bearer token valid
-        // against `/mcp` for the rest of its liveness window — and later turns
-        // would keep refreshing it. A session restart (runtime mode, cwd,
-        // model) re-prepares without stopping, so it relies on this.
-        yield* revokeMcpCredential(threadId);
-        yield* Effect.sync(() => McpProviderSession.clearMcpProviderSession(threadId));
-        return undefined;
-      }
-      const credential = yield* issueMcpCredential({ threadId, providerInstanceId });
+      const previewEnabled = yield* agentBrowserAccessEnabled(threadId);
+      if (!previewEnabled) yield* revokeMcpCredential(threadId);
+      // TODOs are available independently of browser access. The issued scope
+      // omits preview/secrets when that access is disabled.
+      const credential = yield* issueMcpCredential({
+        threadId,
+        providerInstanceId,
+        previewEnabled,
+      });
       if (credential) {
         yield* Effect.sync(() => McpProviderSession.setMcpProviderSession(credential.config));
       }

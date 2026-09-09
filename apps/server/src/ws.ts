@@ -324,6 +324,7 @@ export function isThreadDetailEvent(event: OrchestrationEvent): event is Extract
       | "thread.activity-appended"
       | "thread.turn-diff-completed"
       | "thread.turn-queue-updated"
+      | "thread.todos-updated"
       | "thread.reverted"
       | "thread.session-set";
   }
@@ -334,6 +335,7 @@ export function isThreadDetailEvent(event: OrchestrationEvent): event is Extract
     event.type === "thread.activity-appended" ||
     event.type === "thread.turn-diff-completed" ||
     event.type === "thread.turn-queue-updated" ||
+    event.type === "thread.todos-updated" ||
     event.type === "thread.reverted" ||
     event.type === "thread.session-set"
   );
@@ -1615,6 +1617,7 @@ const makeWsRpcLayer = (
                 event.aggregateKind === "thread" &&
                 event.aggregateId === input.threadId &&
                 (event.type !== "thread.turn-queue-updated" || input.includeTurnQueue === true) &&
+                (event.type !== "thread.todos-updated" || input.includeTodos === true) &&
                 isThreadDetailEvent(event);
 
               const liveStream = orchestrationEngine.streamDomainEvents.pipe(

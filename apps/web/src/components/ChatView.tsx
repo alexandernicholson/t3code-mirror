@@ -1,3 +1,4 @@
+import { ThreadTodos } from "./chat/ThreadTodos";
 import { useLoadBalancedEnvironment } from "../hooks/useLoadBalancedEnvironment";
 import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
 import {
@@ -8423,6 +8424,14 @@ export default function ChatView(props: ChatViewProps) {
                 className="w-full ps-[calc(env(safe-area-inset-left)+0.75rem)] pe-[calc(env(safe-area-inset-right)+0.75rem)] sm:ps-[calc(env(safe-area-inset-left)+1.25rem)] sm:pe-[calc(env(safe-area-inset-right)+1.25rem)]"
               >
                 <div className="group/composer-stack pointer-events-auto relative z-10 mx-auto w-full max-w-3xl">
+                  {activeThreadRef &&
+                    serverConfig?.environment.capabilities.threadTodos === true && (
+                      <ThreadTodos
+                        key={`${activeThreadRef.environmentId}:${activeThreadRef.threadId}`}
+                        environmentId={activeThreadRef.environmentId}
+                        threadId={activeThreadRef.threadId}
+                      />
+                    )}
                   {isDraftHeroState ? (
                     <div className="absolute inset-x-0 bottom-full z-0">
                       <div
@@ -8507,8 +8516,16 @@ export default function ChatView(props: ChatViewProps) {
                             respondingRequestIds={respondingRequestIds}
                             showPlanFollowUpPrompt={showPlanFollowUpPrompt}
                             activeProposedPlan={activeProposedPlan}
-                            activeTasksProgress={activeComposerTasksProgress}
-                            activeTaskSteps={activeComposerTaskSteps}
+                            activeTasksProgress={
+                              serverConfig?.environment.capabilities.threadTodos === true
+                                ? null
+                                : activeComposerTasksProgress
+                            }
+                            activeTaskSteps={
+                              serverConfig?.environment.capabilities.threadTodos === true
+                                ? null
+                                : activeComposerTaskSteps
+                            }
                             threadSyncPhase={activeEnvironmentUnavailable ? null : threadSyncPhase}
                             runtimeMode={runtimeMode}
                             interactionMode={interactionMode}

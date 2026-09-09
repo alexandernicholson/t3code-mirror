@@ -13,6 +13,12 @@ import {
   type OrchestrationThreadActivity,
   type TurnQueue,
 } from "@t3tools/contracts";
+import {
+  applyTodoOperation,
+  emptyTodos,
+  reconcileNativeTodos,
+  validateTodoItems,
+} from "@t3tools/shared/todos";
 import { compareDateTimeStrings } from "@t3tools/shared/dateTime";
 import * as DateTime from "effect/DateTime";
 import * as Crypto from "effect/Crypto";
@@ -1925,6 +1931,63 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           threadId: command.threadId,
           turnCount: command.turnCount,
         },
+      };
+    }
+
+    case "thread.todos.edit":
+    case "thread.todos.tool":
+    case "thread.todos.native": {
+      const thread = yield* requireThread({ readModel, command, threadId: command.threadId });
+      const current = thread.todos ?? emptyTodos;
+      let todos = current;
+      if (command.type === "thread.todos.edit") {
+        const error = validateTodoItems(command.items);
+        if (error || command.expectedRevision !== current.revision) {
+          return yield* new OrchestrationCommandInvariantError({
+            commandType: command.type,
+            detail:
+              error ??
+              "TODOs changed on another client or by the agent. Reload the list and retry.",
+          });
+        }
+        todos = {
+          ...current,
+          revision: current.revision + 1,
+          items: command.items,
+          userEdited: true,
+        };
+      } else if (command.type === "thread.todos.tool") {
+        const result = applyTodoOperation(current, command.operation);
+        if (typeof result === "string")
+          return yield* new OrchestrationCommandInvariantError({
+            commandType: command.type,
+            detail: result,
+          });
+        todos = result;
+      } else {
+        if (
+          command.turnId &&
+          thread.session?.activeTurnId &&
+          command.turnId !== thread.session.activeTurnId
+        )
+          return [];
+        todos = reconcileNativeTodos(current, command.steps);
+      }
+      const validationError = validateTodoItems(todos.items);
+      if (validationError)
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: validationError,
+        });
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "thread",
+          aggregateId: command.threadId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "thread.todos-updated",
+        payload: { threadId: command.threadId, todos },
       };
     }
 

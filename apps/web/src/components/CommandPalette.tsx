@@ -449,6 +449,11 @@ export function CommandPalette({ children }: { children: ReactNode }) {
           previewOpen,
         },
       });
+      if (command === "todos.toggle") {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("t3code:toggle-todos", { detail: routeThreadRef }));
+        return;
+      }
       if (command === "themeEditor.toggle") {
         event.preventDefault();
         event.stopPropagation();
@@ -469,7 +474,16 @@ export function CommandPalette({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [keybindings, previewOpen, resolvedTheme, terminalOpen, theme, themeHalves, toggleMode]);
+  }, [
+    keybindings,
+    previewOpen,
+    resolvedTheme,
+    routeThreadRef,
+    terminalOpen,
+    theme,
+    themeHalves,
+    toggleMode,
+  ]);
 
   useEffect(
     () =>
@@ -1661,6 +1675,30 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  if (
+    activeThread &&
+    environments.some(
+      (environment) =>
+        environment.environmentId === activeThread.environmentId &&
+        environment.serverConfig?.environment.capabilities.threadTodos === true,
+    )
+  )
+    actionItems.push({
+      kind: "action",
+      value: "action:todos",
+      searchTerms: ["todo", "todos", "tasks", "checklist", "toggle todos"],
+      title: "Toggle TODOs",
+      icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "todos.toggle",
+      run: async () => {
+        window.dispatchEvent(
+          new CustomEvent("t3code:toggle-todos", {
+            detail: { environmentId: activeThread.environmentId, threadId: activeThread.id },
+          }),
+        );
+      },
+    });
 
   actionItems.push({
     kind: "action",

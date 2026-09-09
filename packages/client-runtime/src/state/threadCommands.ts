@@ -1,3 +1,4 @@
+import { editThreadTodos, type EditThreadTodosInput } from "../operations/commands.ts";
 import * as Crypto from "effect/Crypto";
 import { Atom } from "effect/unstable/reactivity";
 import { WS_METHODS } from "@t3tools/contracts";
@@ -92,6 +93,12 @@ export function createThreadEnvironmentAtoms<R, E>(
       JSON.stringify([environmentId, input.threadId]),
   };
   return {
+    editTodos: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:edit-todos",
+      execute: (input: EditThreadTodosInput) => editThreadTodos(input),
+      scheduler,
+      concurrency,
+    }),
     updateQueue: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:update-queue",
       execute: (input: UpdateThreadQueueInput) => updateThreadQueue(input),

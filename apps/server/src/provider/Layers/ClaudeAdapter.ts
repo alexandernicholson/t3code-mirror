@@ -975,6 +975,7 @@ function isTodoTool(toolName: string): boolean {
 }
 
 type PlanStep = {
+  id?: string;
   step: string;
   status: "pending" | "inProgress" | "completed";
 };
@@ -982,7 +983,7 @@ type PlanStep = {
 function extractPlanStepsFromTodoInput(input: Record<string, unknown>): PlanStep[] | null {
   // TodoWrite format: { todos: [{ content, status, activeForm? }] }
   const todos = input.todos;
-  if (!Array.isArray(todos) || todos.length === 0) {
+  if (!Array.isArray(todos)) {
     return null;
   }
   return todos
@@ -1071,7 +1072,7 @@ function applyClaudeTaskToolResult(
         blockedBy: new Set(readStringArray(task.blockedBy)),
       });
     }
-    return tasks.size > 0;
+    return true;
   }
 
   if (tool.toolName === "TaskCreate") {
@@ -1094,6 +1095,7 @@ function applyClaudeTaskToolResult(
   if (!taskId) {
     return false;
   }
+  if (tool.input.status === "deleted") return tasks.delete(taskId);
   const task = tasks.get(taskId);
   if (!task) {
     return false;
@@ -1129,6 +1131,7 @@ function planStepsFromClaudeTasks(tasks: Map<string, ClaudeTaskState>): PlanStep
     const blockedBy = Array.from(task.blockedBy);
     const blockedSuffix = blockedBy.length > 0 ? ` (blocked by #${blockedBy.join(", #")})` : "";
     return {
+      id: task.id,
       step: `${task.subject}${blockedSuffix}`,
       status: task.status,
     };
@@ -2416,10 +2419,6 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
     },
   ) {
     const plan = planStepsFromClaudeTasks(context.claudeTasks);
-    if (plan.length === 0) {
-      return;
-    }
-
     const stamp = yield* makeEventStamp();
     yield* offerRuntimeEvent({
       type: "turn.plan.updated",
@@ -2822,30 +2821,6 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
             payload: message,
           },
         });
-
-        // Emit plan update when TodoWrite input is parsed
-        if (parsedInput && isTodoTool(nextTool.toolName)) {
-          const planSteps = extractPlanStepsFromTodoInput(parsedInput);
-          if (planSteps && planSteps.length > 0) {
-            const planStamp = yield* makeEventStamp();
-            yield* offerRuntimeEvent({
-              type: "turn.plan.updated",
-              eventId: planStamp.eventId,
-              provider: PROVIDER,
-              createdAt: planStamp.createdAt,
-              threadId: context.session.threadId,
-              ...(context.turnState
-                ? {
-                    turnId: asCanonicalTurnId(context.turnState.turnId),
-                  }
-                : {}),
-              payload: {
-                plan: planSteps,
-              },
-              providerRefs: nativeProviderRefs(context),
-            });
-          }
-        }
       }
       return;
     }
@@ -3094,6 +3069,23 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
             owningAgentId: existing?.owningAgentId,
             model: existing?.model,
             effort: existing?.effort,
+          });
+        }
+      }
+
+      if (!toolResult.isError && isTodoTool(tool.toolName)) {
+        const plan = extractPlanStepsFromTodoInput(tool.input);
+        if (plan !== null) {
+          const stamp = yield* makeEventStamp();
+          yield* offerRuntimeEvent({
+            type: "turn.plan.updated",
+            eventId: stamp.eventId,
+            provider: PROVIDER,
+            createdAt: stamp.createdAt,
+            threadId: context.session.threadId,
+            ...(context.turnState ? { turnId: asCanonicalTurnId(context.turnState.turnId) } : {}),
+            payload: { plan },
+            providerRefs: nativeProviderRefs(context),
           });
         }
       }

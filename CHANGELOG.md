@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-09-09
+
+- Add persistent, editable thread TODOs on web, desktop, and mobile, using native agent checklists with an OMP-style fallback. Existing checklists are migrated; user edits are shared on the next message.
+
+---
+
 ## [0.1.7] - 2026-09-09
 
 - Allow source updates to restart with idle terminals when native process monitoring is unavailable, while still blocking on active commands or failed process inspection.

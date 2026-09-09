@@ -1,3 +1,4 @@
+import { ThreadTodos } from "@t3tools/contracts";
 /**
  * ProjectionThreadRepository - Projection repository interface for threads.
  *
@@ -50,6 +51,7 @@ export const ProjectionThread = Schema.Struct({
   pinOrderKey: Schema.optional(Schema.NullOr(Schema.String)),
   activeOrderKey: Schema.optional(Schema.NullOr(Schema.String)),
   turnQueue: Schema.optional(Schema.NullOr(TurnQueue)),
+  todos: Schema.optional(Schema.NullOr(ThreadTodos)),
   titleRegenerationRequestId: Schema.optional(Schema.NullOr(CommandId)),
   titleRegenerationStartedAt: Schema.optional(Schema.NullOr(IsoDateTime)),
   latestUserMessageAt: Schema.NullOr(IsoDateTime),

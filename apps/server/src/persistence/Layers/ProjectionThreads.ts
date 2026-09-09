@@ -1,3 +1,4 @@
+import { ThreadTodos } from "@t3tools/contracts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 import * as Effect from "effect/Effect";
@@ -20,6 +21,7 @@ const ProjectionThreadDbRow = ProjectionThread.mapFields(
   Struct.assign({
     modelSelection: Schema.fromJsonString(ModelSelection),
     turnQueue: Schema.NullOr(Schema.fromJsonString(TurnQueue)),
+    todos: Schema.NullOr(Schema.fromJsonString(ThreadTodos)),
     linkedPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
     branchPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
   }),
@@ -57,6 +59,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           pin_order_key,
           active_order_key,
           turn_queue_json,
+          todos_json,
           title_regeneration_request_id,
           title_regeneration_started_at,
           latest_user_message_at,
@@ -89,6 +92,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           ${row.pinOrderKey ?? null},
           ${row.activeOrderKey ?? null},
           ${row.turnQueue == null ? null : JSON.stringify(row.turnQueue)},
+          ${row.todos == null ? null : JSON.stringify(row.todos)},
           ${row.titleRegenerationRequestId ?? null},
           ${row.titleRegenerationStartedAt ?? null},
           ${row.latestUserMessageAt},
@@ -121,6 +125,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           pin_order_key = excluded.pin_order_key,
           active_order_key = excluded.active_order_key,
           turn_queue_json = excluded.turn_queue_json,
+          todos_json = excluded.todos_json,
           title_regeneration_request_id = excluded.title_regeneration_request_id,
           title_regeneration_started_at = excluded.title_regeneration_started_at,
           latest_user_message_at = excluded.latest_user_message_at,
@@ -160,6 +165,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
           turn_queue_json AS "turnQueue",
+          todos_json AS "todos",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
@@ -201,6 +207,7 @@ const makeProjectionThreadRepository = Effect.gen(function* () {
           pin_order_key AS "pinOrderKey",
           active_order_key AS "activeOrderKey",
           turn_queue_json AS "turnQueue",
+          todos_json AS "todos",
           title_regeneration_request_id AS "titleRegenerationRequestId",
           title_regeneration_started_at AS "titleRegenerationStartedAt",
           latest_user_message_at AS "latestUserMessageAt",
