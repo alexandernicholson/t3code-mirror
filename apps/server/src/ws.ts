@@ -1,3 +1,4 @@
+import { Advisors } from "./advisors/Advisors.ts";
 import { makeSummarizeNarration } from "./textGeneration/Narration.ts";
 import { makeTextGenerationFromRegistry } from "./textGeneration/TextGeneration.ts";
 import { SourceUpdates } from "./sourceUpdates/controller.ts";
@@ -481,6 +482,7 @@ const makeWsRpcLayer = (
   clientAnalyticsProps: Readonly<Record<string, unknown>>,
   previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
   secrets: Secrets.Secrets["Service"],
+  advisors: Advisors["Service"],
 ) =>
   WsRpcGroup.toLayer(
     Effect.gen(function* () {
@@ -2698,6 +2700,12 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.previewReportStatus, previewManager.reportStatus(input), {
             "rpc.aggregate": "preview",
           }),
+        [WS_METHODS.advisorsSave]: (input) =>
+          observeRpcEffect(WS_METHODS.advisorsSave, advisors.save(input)),
+        [WS_METHODS.advisorsAction]: (input) =>
+          observeRpcEffect(WS_METHODS.advisorsAction, advisors.action(input)),
+        [WS_METHODS.advisorsSubscribe]: (input) =>
+          observeRpcStream(WS_METHODS.advisorsSubscribe, advisors.subscribe(input)),
         [WS_METHODS.secretsCreate]: (input) =>
           observeRpcEffect(WS_METHODS.secretsCreate, secrets.create(input)),
         [WS_METHODS.secretsUpdate]: (input) =>
@@ -2963,6 +2971,7 @@ const makeWsRpcLayer = (
 export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
     const secrets = yield* Secrets.Secrets;
+    const advisors = yield* Advisors;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const baseServerSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const sourceUpdates = yield* SourceUpdates;
@@ -3025,6 +3034,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               clientAnalyticsProps,
               previewAutomationBroker,
               secrets,
+              advisors,
             ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(AgentSessionScanner.layer),

@@ -179,3 +179,30 @@ Edits are saved to the environment and synchronized across connected clients.
 The agent receives your current list with your next ordinary message; send a
 follow-up if it should act on the changes now. Changing a checkbox does not stop
 running work. TODO edits require a connected environment with TODO support.
+
+## Advisors
+
+Advisors provide an independent review while an agent works. In **Settings → Agents**
+on web or desktop, or **Settings → Advisors** on mobile, add a reviewer, choose its
+account and model, and enable it for all projects or selected projects. Review
+activity is sent to that account's provider. Read-only reviewer sessions currently
+require Claude Code; they can watch threads using any T3 provider.
+
+Open **Advisors** from the right panel, the command palette, or `/advisor`. An enabled
+advisor's status remains visible with the panel closed. On mobile, tap the advisor
+status to open its timeline. The timeline shows review activity, findings, delivery
+status, and reported usage. Opening a finding does not mean it has been resolved.
+
+Choose **Guide automatically** to send concerns and blockers into active work, or
+**Observe only** to decide yourself. Finished or stopped threads stay stopped; use
+**Ask agent to address** to continue with a finding. Plan mode also waits for your
+input. Closing the panel does not stop reviews. Use Pause/Resume in the panel, or
+`/advisor pause` and `/advisor resume`. A project-level pause still applies when a
+thread is resumed.
+
+Use the panel's settings control to override the thread's selected advisors.
+Project guidance can be entered in Settings or loaded from a workspace file such
+as `WATCHDOG.md`. Changes apply to subsequent reviews. An unavailable reviewer
+shows its reason; correct its settings and resume it to retry. Reviews and history
+live on the environment and continue when a client disconnects. Enabling an advisor
+starts watching current activity rather than reviewing the entire old conversation.

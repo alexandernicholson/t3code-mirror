@@ -8,6 +8,7 @@ import type {
 import { getTerminalLabel } from "@t3tools/shared/terminalLabels";
 import {
   Bot,
+  Eye,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -107,6 +108,7 @@ interface RightPanelTabsProps {
   onAddPullRequest: () => void;
   onAddAgents: () => void;
   onAddTodos: () => void;
+  onAddAdvisors?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -305,6 +307,7 @@ function RightPanelEmptyState(props: {
   onAddPullRequest: () => void;
   onAddAgents: () => void;
   onAddTodos: () => void;
+  onAddAdvisors?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -366,6 +369,16 @@ function RightPanelEmptyState(props: {
       available: props.pullRequestAvailable,
       disabledReason: SURFACE_UNAVAILABLE_HINTS.pullRequest,
       onClick: props.onAddPullRequest,
+      badgeCount: 0,
+    },
+    {
+      label: "Advisors",
+      description: "Follow independent reviews.",
+      icon: Eye,
+      shortcut: "V",
+      available: !!props.onAddAdvisors,
+      disabledReason: "Available from a thread.",
+      onClick: () => props.onAddAdvisors?.(),
       badgeCount: 0,
     },
     {
@@ -619,6 +632,8 @@ function surfaceTitle(
       );
     case "pull-request":
       return `#${surface.number}`;
+    case "advisors":
+      return "Advisors";
     case "todos":
       return "TODOs";
     case "agents":
@@ -702,6 +717,8 @@ function SurfaceIcon({
           seed={pullRequestStatusSeeds?.[surface.id]}
         />
       );
+    case "advisors":
+      return <Eye className="size-3 shrink-0" />;
     case "todos":
       return <ListTodo className="size-3 shrink-0" />;
     case "agents":
@@ -826,6 +843,16 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       available: props.pullRequestAvailable,
       disabledReason: SURFACE_DISABLED_REASONS.pullRequest,
       onClick: props.onAddPullRequest,
+    },
+    {
+      label: "Advisors",
+      description: "Follow independent reviews.",
+      icon: Eye,
+      shortcut: "V",
+      available: !!props.onAddAdvisors,
+      disabledReason: "Available from a thread.",
+      onClick: () => props.onAddAdvisors?.(),
+      badgeCount: 0,
     },
     {
       label: "TODOs",
@@ -1281,6 +1308,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddDiff={props.onAddDiff}
             onAddFiles={props.onAddFiles}
             onAddPullRequest={props.onAddPullRequest}
+            {...(props.onAddAdvisors ? { onAddAdvisors: props.onAddAdvisors } : {})}
             onAddTodos={props.onAddTodos}
             todosAvailable={props.todosAvailable}
             onAddAgents={props.onAddAgents}

@@ -1,3 +1,6 @@
+import * as Advisors from "./advisors/Advisors.ts";
+import * as AdvisorStore from "./advisors/AdvisorStore.ts";
+import * as AdvisorRunner from "./advisors/AdvisorRunner.ts";
 import * as SourceUpdates from "./sourceUpdates/service.ts";
 import * as Secrets from "./secrets/Secrets.ts";
 import * as SecretApprovals from "./secrets/SecretApprovals.ts";
@@ -278,6 +281,12 @@ const PlatformServicesLive = Layer.unwrap(
 
 const ReactorLayerLive = Layer.empty.pipe(
   Layer.provideMerge(OrchestrationReactorLive),
+  Layer.provideMerge(
+    Advisors.layer.pipe(
+      Layer.provide(AdvisorStore.layer),
+      Layer.provide(AdvisorRunner.layer.pipe(Layer.provide(ProviderAdapterRegistryLive))),
+    ),
+  ),
   Layer.provideMerge(ProviderRuntimeIngestionLive),
   Layer.provideMerge(ProviderCommandReactorLive),
   Layer.provideMerge(CheckpointReactorLive),

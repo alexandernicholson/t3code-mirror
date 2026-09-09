@@ -1433,6 +1433,20 @@ const make = Effect.gen(function* () {
         "Wait for context compaction to finish before sending another message.",
       );
     }
+    if (event.payload.expectedActiveTurnId !== undefined) {
+      const current = yield* resolveThreadShell(event.payload.threadId);
+      if (
+        stoppingThreadIds.has(event.payload.threadId) ||
+        current?.session?.status !== "running" ||
+        current.session.activeTurnId !== event.payload.expectedActiveTurnId ||
+        current.interactionMode === "plan"
+      ) {
+        return yield* appendTurnStartFailure(
+          "Advisor guidance waiting",
+          "The reviewed turn has stopped. Ask the agent to address the finding when ready.",
+        );
+      }
+    }
     const sendTurnRequest = yield* buildSendTurnRequestForThread({
       threadId: event.payload.threadId,
       messageText: message.text,
@@ -1451,9 +1465,30 @@ const make = Effect.gen(function* () {
       return;
     }
 
-    yield* providerService
-      .sendTurn(sendTurnRequest.value)
-      .pipe(Effect.asVoid, Effect.catchCause(recoverTurnStartFailure), Effect.forkScoped);
+    yield* providerService.sendTurn(sendTurnRequest.value).pipe(
+      Effect.tap(() =>
+        event.payload.messageId.startsWith("advisor:")
+          ? orchestrationEngine.dispatch({
+              type: "thread.activity.append",
+              commandId: CommandId.make(`${event.payload.messageId}:delivered`),
+              threadId: event.payload.threadId,
+              activity: {
+                id: EventId.make(`${event.payload.messageId}:delivered`),
+                tone: "info",
+                kind: "advisor.delivered",
+                summary: "Advisor guidance delivered",
+                payload: { findingId: event.payload.messageId.slice(8).split(":")[0] },
+                turnId: null,
+                createdAt: event.payload.createdAt,
+              },
+              createdAt: event.payload.createdAt,
+            })
+          : Effect.void,
+      ),
+      Effect.asVoid,
+      Effect.catchCause(recoverTurnStartFailure),
+      Effect.forkScoped,
+    );
   });
 
   const processTurnInterruptRequested = Effect.fn("processTurnInterruptRequested")(function* (

@@ -1094,6 +1094,18 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
+      if (
+        command.expectedActiveTurnId !== undefined &&
+        (targetThread.session?.status !== "running" ||
+          targetThread.session.activeTurnId !== command.expectedActiveTurnId ||
+          targetThread.latestTurn?.state !== "running" ||
+          targetThread.interactionMode === "plan")
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "The reviewed turn is no longer running. Advisor guidance was not sent.",
+        });
+      }
       let queuedEvent: PlannedOrchestrationEvent | undefined;
       if (command.delivery === "queue") {
         const queue = targetThread.turnQueue ?? { items: [], paused: false };
@@ -1180,6 +1192,9 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         type: "thread.turn-start-requested",
         payload: {
           threadId: command.threadId,
+          ...(command.expectedActiveTurnId
+            ? { expectedActiveTurnId: command.expectedActiveTurnId }
+            : {}),
           messageId: command.message.messageId,
           ...(command.modelSelection !== undefined
             ? { modelSelection: command.modelSelection }

@@ -81,6 +81,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/keybindings": KeyboardIcon,
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BotIcon,
+  "/settings/agents": BotIcon,
   "/settings/tools": PlugIcon,
   "/settings/secrets": KeyRoundIcon,
   "/settings/integrations": BlocksIcon,

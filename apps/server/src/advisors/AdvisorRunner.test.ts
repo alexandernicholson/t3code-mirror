@@ -1,0 +1,126 @@
+import { assert, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { Effect, PubSub, Stream } from "effect";
+import {
+  EventId,
+  ProviderDriverKind,
+  RuntimeRequestId,
+  ProviderInstanceId,
+  TurnId,
+  type ProviderRuntimeEvent,
+  type ProviderSessionStartInput,
+} from "@t3tools/contracts";
+import { make } from "./AdvisorRunner.ts";
+import { ProviderAdapterRegistry } from "../provider/Services/ProviderAdapterRegistry.ts";
+import { makeAdapterRegistryMock } from "../provider/testUtils/providerAdapterRegistryMock.ts";
+import type { ProviderAdapterShape } from "../provider/Services/ProviderAdapter.ts";
+import type { ProviderAdapterError } from "../provider/Errors.ts";
+
+it.effect(
+  "observes early events, denies approvals, captures findings and closes its reviewer session",
+  () =>
+    Effect.gen(function* () {
+      const events = yield* PubSub.unbounded<ProviderRuntimeEvent>();
+      let started: ProviderSessionStartInput | undefined;
+      let stopped = false;
+      let denied = false;
+      const adapter: ProviderAdapterShape<ProviderAdapterError> = {
+        provider: ProviderDriverKind.make("claudeAgent"),
+        capabilities: { sessionModelSwitch: "in-session" },
+        startSession: (input) =>
+          Effect.sync(() => {
+            started = input;
+            return {
+              threadId: input.threadId,
+              provider: ProviderDriverKind.make("claudeAgent"),
+              status: "ready" as const,
+              runtimeMode: input.runtimeMode,
+              createdAt: "2026-09-09T00:00:00.000Z",
+              updatedAt: "2026-09-09T00:00:00.000Z",
+            };
+          }),
+        sendTurn: (input) =>
+          Effect.gen(function* () {
+            const base = {
+              threadId: input.threadId,
+              provider: ProviderDriverKind.make("claudeAgent"),
+              createdAt: "2026-09-09T00:00:00.000Z",
+            };
+            yield* PubSub.publish(events, {
+              ...base,
+              eventId: EventId.make("approval"),
+              type: "request.opened",
+              requestId: RuntimeRequestId.make("request"),
+              payload: { requestType: "command_execution_approval" },
+            });
+            yield* PubSub.publish(events, {
+              ...base,
+              eventId: EventId.make("content"),
+              type: "content.delta",
+              payload: {
+                streamKind: "assistant_text",
+                delta:
+                  '{"summary":"Checked cancellation","findings":[{"severity":"concern","text":"Worker.ts:12 leaves a receipt unresolved"}]}',
+              },
+            });
+            yield* PubSub.publish(events, {
+              ...base,
+              eventId: EventId.make("completed"),
+              type: "turn.completed",
+              payload: {
+                state: "completed",
+                totalCostUsd: 0.01,
+                tokenUsage: {
+                  usageScope: "main_agent",
+                  usageStatus: "complete",
+                  hasSubagents: false,
+                  inputTokens: 100,
+                  outputTokens: 30,
+                },
+              },
+            });
+            return { threadId: input.threadId, turnId: TurnId.make("review") };
+          }),
+        stopSession: () =>
+          Effect.sync(() => {
+            stopped = true;
+          }),
+        respondToRequest: (_thread, _request, decision) =>
+          Effect.sync(() => {
+            denied = decision === "decline";
+          }),
+        interruptTurn: () => Effect.void,
+        respondToUserInput: () => Effect.void,
+        listSessions: () => Effect.succeed([]),
+        hasSession: () => Effect.succeed(false),
+        readThread: (threadId) => Effect.succeed({ threadId, turns: [] }),
+        rollbackThread: (threadId) => Effect.succeed({ threadId, turns: [] }),
+        stopAll: () => Effect.void,
+        streamEvents: Stream.fromPubSub(events),
+      };
+      const runner = yield* make.pipe(
+        Effect.provideService(
+          ProviderAdapterRegistry,
+          makeAdapterRegistryMock({ [ProviderDriverKind.make("claudeAgent")]: adapter }),
+        ),
+      );
+      const result = yield* runner.review({
+        definition: {
+          id: "reviewer",
+          name: "Reviewer",
+          modelSelection: { instanceId: ProviderInstanceId.make("claudeAgent"), model: "sonnet" },
+          instructions: "Review cancellation",
+          mode: "guide",
+        },
+        cwd: "/tmp",
+        context: "Review this task",
+        onActivity: () => Effect.void,
+      });
+      assert.strictEqual(started?.reviewer, true);
+      assert.strictEqual(started?.runtimeMode, "approval-required");
+      assert.strictEqual(denied, true);
+      assert.strictEqual(stopped, true);
+      assert.strictEqual(result.findings[0]?.severity, "concern");
+      assert.strictEqual(result.inputTokens, 100);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);

@@ -1,3 +1,10 @@
+import {
+  AdvisorConfiguration,
+  AdvisorAction,
+  AdvisorSubscriptionInput,
+  AdvisorSnapshot,
+  AdvisorError,
+} from "./advisors.ts";
 import { SourceUpdateAction, SourceUpdateError, SourceUpdateStatus } from "./sourceUpdates.ts";
 import {
   SecretRevokeInput,
@@ -326,6 +333,9 @@ export const WS_METHODS = {
   previewClose: "preview.close",
   previewList: "preview.list",
   previewReportStatus: "preview.reportStatus",
+  advisorsSave: "advisors.save",
+  advisorsAction: "advisors.action",
+  advisorsSubscribe: "advisors.subscribe",
   secretsCreate: "secrets.create",
   secretsUpdate: "secrets.update",
   secretsDelete: "secrets.delete",
@@ -1074,6 +1084,21 @@ const WsPreviewReportStatusRpc = Rpc.make(WS_METHODS.previewReportStatus, {
   error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
 });
 
+const WsAdvisorsSaveRpc = Rpc.make(WS_METHODS.advisorsSave, {
+  payload: AdvisorConfiguration,
+  error: Schema.Union([AdvisorError, EnvironmentAuthorizationError]),
+});
+const WsAdvisorsActionRpc = Rpc.make(WS_METHODS.advisorsAction, {
+  payload: AdvisorAction,
+  error: Schema.Union([AdvisorError, EnvironmentAuthorizationError]),
+});
+const WsAdvisorsSubscribeRpc = Rpc.make(WS_METHODS.advisorsSubscribe, {
+  payload: AdvisorSubscriptionInput,
+  success: AdvisorSnapshot,
+  stream: true,
+  error: Schema.Union([AdvisorError, EnvironmentAuthorizationError]),
+});
+
 const WsSecretsCreateRpc = Rpc.make(WS_METHODS.secretsCreate, {
   payload: SecretWriteInput,
   error: Schema.Union([SecretsError, EnvironmentAuthorizationError]),
@@ -1371,6 +1396,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsPreviewCloseRpc,
   WsPreviewListRpc,
   WsPreviewReportStatusRpc,
+  WsAdvisorsSaveRpc,
+  WsAdvisorsActionRpc,
+  WsAdvisorsSubscribeRpc,
   WsSecretsCreateRpc,
   WsSecretsUpdateRpc,
   WsSecretsDeleteRpc,

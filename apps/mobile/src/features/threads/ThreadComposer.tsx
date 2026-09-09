@@ -1,3 +1,5 @@
+import { useAtomCommand } from "../../state/use-atom-command";
+import { advisors } from "../../state/advisors";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAtomValue } from "@effect/atom-react";
 import { TurnDeliverySelector, TurnQueueControls } from "./TurnQueueControls";
@@ -132,6 +134,7 @@ export interface ThreadComposerProps {
   readonly onNativePasteImages: (uris: ReadonlyArray<string>) => Promise<void>;
   readonly onRemoveDraftImage: (imageId: string) => void;
   readonly onStopThread: () => void;
+  readonly onOpenAdvisors?: () => void;
   readonly onSendMessage: () => Promise<MessageId | null>;
   /** `/usage-limits` resolves locally; the host decides where the report shows. Null clears it. */
   readonly onShowUsageLimits: (report: UsageLimitsReport | null) => void;
@@ -427,7 +430,28 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     }
     onEditorFocusChange?.(false);
   }, [onEditorFocusChange, onExpandedChange, settingsSheetPresentation.isActive]);
+  const advisorAction = useAtomCommand(advisors.action);
   const handleSend = useCallback(async () => {
+    const command = props.draftMessage.trim().toLowerCase();
+    if (
+      props.onOpenAdvisors &&
+      props.draftAttachments.length === 0 &&
+      ["/advisor", "/advisor pause", "/advisor resume"].includes(command)
+    ) {
+      if (command !== "/advisor") {
+        const result = await advisorAction({
+          environmentId: props.environmentId,
+          input: {
+            threadId: props.selectedThread.id,
+            action: command.endsWith("pause") ? "pause" : "resume",
+          },
+        });
+        if (result._tag !== "Success") return;
+      }
+      props.onOpenAdvisors();
+      onChangeDraftMessage("");
+      return;
+    }
     // Typed out in full rather than picked from the menu. Attachments mean the
     // user is sending a prompt, so those go through as usual.
     if (
@@ -466,6 +490,8 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     openUsageLimits,
     usageLimitsOffered,
     onSendMessage,
+    advisorAction,
+    props.onOpenAdvisors,
     props.environmentId,
     props.environmentLabel,
     props.selectedThread.id,

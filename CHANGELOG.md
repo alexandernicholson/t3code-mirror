@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2026-09-09
+
+- Add independent advisors with project and thread controls, private review timelines, live status, and pause/resume across web, desktop, and mobile. Read-only reviewer sessions currently use Claude Code and can watch any provider. Includes a database migration for advisor settings and history.
+
+---
+
 ## [0.2.3] - 2026-09-09
 
 - Web and desktop narration now use a configurable model and custom instructions to turn agent updates into brief spoken summaries. Summaries require a connection to the environment’s model provider. Mobile narration delivery is unchanged.

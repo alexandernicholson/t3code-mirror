@@ -8,6 +8,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/agents"
   | "/settings/secrets"
   | "/settings/tools"
   | "/settings/integrations"
@@ -58,6 +59,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/agents": "Agents",
   "/settings/secrets": "Secrets",
   "/settings/tools": "Tools & MCP servers",
   "/settings/integrations": "Integrations",

@@ -377,6 +377,54 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
+  it.effect(
+    "advisor sessions deny mutations and shell tools while allowing file inspection",
+    () => {
+      const harness = makeHarness();
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          runtimeMode: "approval-required",
+          reviewer: true,
+        });
+        const permission = harness.getLastCreateQueryInput()?.options.canUseTool;
+        assert.ok(permission);
+        if (!permission) return;
+        for (const tool of ["Bash", "Write", "Edit", "Task", "mcp__server__write"]) {
+          const result = yield* Effect.promise(() =>
+            permission(
+              tool,
+              {},
+              {
+                signal: new AbortController().signal,
+                requestId: `advisor-${tool}`,
+                toolUseID: `advisor-${tool}`,
+              },
+            ),
+          );
+          assert.equal(result?.behavior, "deny");
+        }
+        const read = yield* Effect.promise(() =>
+          permission(
+            "Read",
+            { file_path: "/tmp/example.ts" },
+            {
+              signal: new AbortController().signal,
+              requestId: "advisor-read",
+              toolUseID: "advisor-read",
+            },
+          ),
+        );
+        assert.equal(read?.behavior, "allow");
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
+
   it.effect("derives bypass permission mode from full-access runtime policy", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
