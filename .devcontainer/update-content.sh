@@ -12,6 +12,8 @@ for dir in "$HOME/.cache" "$HOME/.cache/pnpm" node_modules; do
 done
 
 CI=true vp i
+# Provision browser libraries while sudo is available, before restricted agent runs.
+vp run browser:install --with-deps
 # Repairs electron's path.txt and exec bits after install, same as CI.
 vp run --filter @t3tools/desktop ensure:electron
 # Pre-warms Vite's dep optimizer (cache is keyed on the absolute path, which
