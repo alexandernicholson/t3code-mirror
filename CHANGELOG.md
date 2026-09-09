@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.7] - 2026-09-09
+
+- Allow source updates to restart with idle terminals when native process monitoring is unavailable, while still blocking on active commands or failed process inspection.
+
+---
+
 ## [0.1.6] - 2026-09-09
 
 - Reduce personal-fork CI overhead with one standard Linux validation job, optional extended and native checks, and fewer PR automation jobs.

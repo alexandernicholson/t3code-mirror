@@ -3046,7 +3046,7 @@ export const makeWithOptions = Effect.fn("TerminalManager.makeWithOptions")(func
       );
       if (sessions.length === 0) return false;
       const snapshot = yield* acquireSubprocessInspector;
-      if (!snapshot.snapshotSucceeded) return true;
+      // A successful fallback is authoritative; snapshotSucceeded only controls polling backoff.
       for (const session of sessions) {
         if (session.pid === null || (yield* snapshot.inspector(session.pid)).hasRunningSubprocess)
           return true;

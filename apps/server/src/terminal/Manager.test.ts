@@ -1030,6 +1030,49 @@ it.layer(
     }),
   );
 
+  it.effect("uses a complete fallback process table for source-update job checks", () =>
+    Effect.gen(function* () {
+      let stdout = "  9000  1 bash";
+      let code = 0;
+      let stdoutTruncated = false;
+      const processRunner: ProcessRunner.ProcessRunner["Service"] = {
+        run: () =>
+          Effect.sync(() => ({
+            stdout,
+            stderr: "",
+            code: ChildProcessSpawner.ExitCode(code),
+            timedOut: false,
+            stdoutTruncated,
+            stderrInvalidUtf8: false,
+            stdoutInvalidUtf8: false,
+            stderrTruncated: false,
+          })),
+      };
+      const { manager } = yield* createManager(5, {
+        processTable: Effect.fail("sidecar unavailable").pipe(
+          Effect.mapError((cause) => cause as never),
+        ),
+      }).pipe(
+        Effect.provideService(ProcessRunner.ProcessRunner, processRunner),
+        Effect.provide(withHostPlatform("linux")),
+      );
+      yield* manager.open(openInput());
+      expect(yield* manager.hasRunningJobs!).toBe(false);
+
+      stdout += "\n  9001  9000 build";
+      expect(yield* manager.hasRunningJobs!).toBe(true);
+
+      stdout = "  9000  1 bash";
+      code = 1;
+      expect(yield* manager.hasRunningJobs!).toBe(true);
+      code = 0;
+      stdoutTruncated = true;
+      expect(yield* manager.hasRunningJobs!).toBe(true);
+      stdoutTruncated = false;
+      expect(yield* manager.hasRunningJobs!).toBe(false);
+    }),
+  );
+
   it.effect("emits subprocess activity events when child-process state changes", () =>
     Effect.gen(function* () {
       let inspect: {
