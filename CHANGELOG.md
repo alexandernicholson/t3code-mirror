@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 2026-09-09
+
+- Add scheduled quota recovery charts to Usage Limits on web, desktop, and mobile, showing when provider account resets restore headroom without repeating cost details.
+
+---
+
 ## [0.1.2] - 2026-09-09
 
 - Listen to concise agent progress updates with on-device voice narration across web, desktop, and mobile. The Kitten TTS model downloads on first use, shows progress, and remains cached for offline playback.

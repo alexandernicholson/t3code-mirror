@@ -23,6 +23,7 @@ import { ProviderIcon } from "../../components/ProviderIcon";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { environmentPresentations } from "../../state/presentation";
 import { ResetCredits } from "./UsageLimitsSection";
+import { UsageRecoveryChart } from "./UsageRecoveryChart";
 import { useProviderColors } from "./usageProviders";
 
 const DRIVER_LABEL: Partial<Record<string, string>> = { codex: "Codex", claudeAgent: "Claude" };
@@ -189,6 +190,7 @@ function PoolWindowCard({
           );
         })}
       </View>
+      <UsageRecoveryChart pool={pool} color={color} now={now} />
     </View>
   );
 }

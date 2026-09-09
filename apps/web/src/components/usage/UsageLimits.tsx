@@ -321,12 +321,12 @@ export function ResetCredits({
  */
 export function UsageLimitsSection({
   selectedEnvironmentIds,
+  now,
 }: {
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
+  readonly now: number;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
-  // Anchored once per mount on purpose: countdowns must not tick (see above).
-  const [now] = useState(() => Date.now());
   const selected =
     selectedEnvironmentIds === null
       ? presentations
