@@ -379,6 +379,26 @@ export interface LimitPool {
   readonly windows: readonly LimitPoolWindow[];
 }
 
+/** Scheduled quota recovery with no further use. Overdue resets need a fresh snapshot. */
+export function limitRecovery(windows: readonly ServerProviderUsageWindow[], now: number) {
+  if (windows.length === 0) return [];
+  const used = (window: ServerProviderUsageWindow) =>
+    Math.max(0, Math.min(100, window.usedPercent));
+  let remaining = 100 - windows.reduce((sum, window) => sum + used(window), 0) / windows.length;
+  const points = [{ at: now, remainingPercent: remaining }];
+  const resets = new Map<number, number>();
+  for (const window of windows) {
+    const at = resetMillis(window);
+    if (at === null || at <= now || used(window) === 0) continue;
+    resets.set(at, (resets.get(at) ?? 0) + used(window) / windows.length);
+  }
+  for (const [at, restored] of [...resets].sort(([left], [right]) => left - right)) {
+    remaining = Math.min(100, remaining + restored);
+    points.push({ at, remainingPercent: remaining });
+  }
+  return points;
+}
+
 const WINDOW_KIND_ORDER: Record<ServerProviderUsageWindow["kind"], number> = {
   session: 0,
   weekly: 1,
