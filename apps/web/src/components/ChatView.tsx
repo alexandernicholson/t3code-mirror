@@ -7216,6 +7216,47 @@ export default function ChatView(props: ChatViewProps) {
     }
   };
 
+  const onSendAgentMessage = async (
+    agent: import("@t3tools/client-runtime/state/subagentRuntime").RuntimeSubagent,
+    text: string,
+  ) => {
+    if (!activeThread || sendInFlightRef.current || isConnecting) return;
+    const createdAt = new Date().toISOString();
+    const instruction = [
+      `<subagent-message target-id=${JSON.stringify(agent.id)} target-name=${JSON.stringify(agent.title)}>`,
+      text,
+      "</subagent-message>",
+      "Deliver this message to the existing subagent with the provider's native agent messaging tool. Do not answer the message yourself. Preserve the subagent's context and let its activity continue to appear in Agents.",
+    ].join("\n");
+    const result = await startThreadTurn({
+      environmentId,
+      input: {
+        threadId: activeThread.id,
+        ...(phase === "running" ? { delivery: "steer" as const } : {}),
+        message: {
+          messageId: newMessageId(),
+          role: "user",
+          text: instruction,
+          attachments: [],
+        },
+        ...(activeThread.modelSelection ? { modelSelection: activeThread.modelSelection } : {}),
+        titleSeed: activeThread.title,
+        runtimeMode,
+        interactionMode,
+        createdAt,
+      },
+    });
+    if (result._tag === "Failure") {
+      const error = squashAtomCommandFailure(result);
+      toastManager.add({
+        type: "error",
+        title: `Could not message ${agent.title}`,
+        description: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+
   const onTurnQueueAction = async (
     action: "cancel" | "steer" | "resume",
     messageId?: MessageId,
@@ -8248,6 +8289,8 @@ export default function ChatView(props: ChatViewProps) {
         model={agentPanelModel}
         environmentId={activeThreadRef?.environmentId ?? null}
         threadId={activeThreadRef?.threadId ?? null}
+        activities={threadActivities}
+        onSendMessage={onSendAgentMessage}
       />
     ) : (renderedRightPanelSurface?.kind === "files" ||
         renderedRightPanelSurface?.kind === "file") &&

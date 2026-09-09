@@ -111,7 +111,11 @@ for custom configuration.
 
 ## Inspect agent work
 
-On web and desktop, use **Agents** to follow work delegated to subagents.
+Use **Agents** on web, desktop, or mobile to follow work delegated to subagents.
+Select an agent to open its retained lifecycle, command, tool, and nested-agent
+activity. You can send a message from that view; T3 asks the active provider to
+deliver it through its native agent-messaging capability, preserving the child
+agent's context.
 
 Expand a tool call in the conversation to see its full command and output.
 Summaries shorten shell wrappers and can still describe the latest call after it

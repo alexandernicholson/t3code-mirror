@@ -1714,6 +1714,7 @@ export const makeCodexSessionRuntime = (
               payload: {
                 ...childIdentity,
                 item: notification.params.item,
+                itemEvent: notification.method,
               },
             });
             return true;

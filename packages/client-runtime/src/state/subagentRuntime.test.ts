@@ -5,6 +5,7 @@ import {
   foldSubagentActivities,
   formatSubagentModelLabel,
   formatSubagentTokenCount,
+  selectSubagentTranscript,
 } from "./subagentRuntime.ts";
 
 let sequence = 0;
@@ -370,6 +371,29 @@ describe("foldSubagentActivities", () => {
     ]);
     expect(agents[0]!.runHandles?.sessionUrl).toBeUndefined();
     expect(agents[0]!.runHandles?.runId).toBe("run-1");
+  });
+});
+
+describe("selectSubagentTranscript", () => {
+  it("keeps lifecycle, owned tools, and nested spawns in chronological order", () => {
+    const started = activity("task.started", { taskId: "agent-1", title: "Scout" });
+    const tool = activity("tool.completed", {
+      agentId: "agent-1",
+      detail: "Read src/app.ts",
+      data: { path: "src/app.ts" },
+    });
+    const nested = activity("task.started", {
+      taskId: "agent-2",
+      parentAgentId: "agent-1",
+      title: "Nested reviewer",
+    });
+    const unrelated = activity("tool.completed", { agentId: "agent-9", detail: "Other" });
+
+    expect(selectSubagentTranscript([unrelated, nested, tool, started], "agent-1")).toEqual([
+      expect.objectContaining({ id: String(started.id), kind: "task.started" }),
+      expect.objectContaining({ id: String(tool.id), detail: "Read src/app.ts" }),
+      expect.objectContaining({ id: String(nested.id), kind: "task.started" }),
+    ]);
   });
 });
 

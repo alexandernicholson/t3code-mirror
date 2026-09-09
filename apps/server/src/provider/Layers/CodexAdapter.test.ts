@@ -1248,6 +1248,42 @@ lifecycleLayer("CodexAdapterLive lifecycle", (it) => {
     }),
   );
 
+  it.effect("preserves child tool items as agent-owned lifecycle history", () =>
+    Effect.gen(function* () {
+      const { adapter, runtime } = yield* startLifecycleRuntime();
+      const eventsFiber = yield* Stream.runCollect(Stream.take(adapter.streamEvents, 2)).pipe(
+        Effect.forkChild,
+      );
+      yield* runtime.emit({
+        id: asEventId("evt-child-command"),
+        kind: "notification",
+        provider: ProviderDriverKind.make("codex"),
+        createdAt: "2026-01-01T00:00:00.000Z",
+        method: "collabAgent/item",
+        threadId: asThreadId("thread-1"),
+        turnId: asTurnId("turn-1"),
+        payload: {
+          agentThreadId: "child-1",
+          agentPath: "/root/scout",
+          itemEvent: "item/completed",
+          item: {
+            type: "commandExecution",
+            id: "command-1",
+            command: "pwd",
+            commandActions: [],
+            cwd: "/tmp",
+            exitCode: 0,
+            status: "completed",
+          },
+        },
+      });
+      const events = Array.from(yield* Fiber.join(eventsFiber));
+      NodeAssert.equal(events[0]?.type, "item.completed");
+      NodeAssert.equal((events[0]?.payload as { agentId?: string }).agentId, "child-1");
+      NodeAssert.equal(events[1]?.type, "task.progress");
+    }),
+  );
+
   it.effect("maps completed agent message items to canonical item.completed events", () =>
     Effect.gen(function* () {
       const { adapter, runtime } = yield* startLifecycleRuntime();

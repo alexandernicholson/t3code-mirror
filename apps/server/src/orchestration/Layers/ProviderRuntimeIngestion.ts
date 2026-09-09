@@ -827,15 +827,16 @@ export function runtimeEventToActivities(
     }
 
     case "item.completed": {
-      if (!isToolLifecycleItemType(event.payload.itemType)) {
+      const isTool = isToolLifecycleItemType(event.payload.itemType);
+      if (!isTool && event.payload.agentId === undefined) {
         return [];
       }
       return [
         {
           id: event.eventId,
           createdAt: event.createdAt,
-          tone: "tool",
-          kind: "tool.completed",
+          tone: isTool ? "tool" : "info",
+          kind: isTool ? "tool.completed" : "agent.item.completed",
           summary: event.payload.title ?? "Tool",
           payload: {
             itemType: event.payload.itemType,
@@ -859,15 +860,16 @@ export function runtimeEventToActivities(
     }
 
     case "item.started": {
-      if (!isToolLifecycleItemType(event.payload.itemType)) {
+      const isTool = isToolLifecycleItemType(event.payload.itemType);
+      if (!isTool && event.payload.agentId === undefined) {
         return [];
       }
       return [
         {
           id: event.eventId,
           createdAt: event.createdAt,
-          tone: "tool",
-          kind: "tool.started",
+          tone: isTool ? "tool" : "info",
+          kind: isTool ? "tool.started" : "agent.item.started",
           summary: `${event.payload.title ?? "Tool"} started`,
           payload: {
             itemType: event.payload.itemType,

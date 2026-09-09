@@ -1273,7 +1273,32 @@ function mapCollabAgentEvent(
         (typeof item?.query === "string" ? item.query : undefined);
       const canonical = toCanonicalItemType(itemTypeRaw);
       const summary = looseSummary ?? canonical.replaceAll("_", " ");
+      const itemEvent = payload.itemEvent === "item/started" ? "item.started" : "item.completed";
+      const lifecycle = mapItemLifecycle(
+        {
+          ...event,
+          method: payload.itemEvent === "item/started" ? "item/started" : "item/completed",
+          payload: {
+            item,
+            threadId: agentThreadId,
+            turnId: event.turnId ?? "unknown-child-turn",
+            ...(payload.itemEvent === "item/started"
+              ? { startedAtMs: Date.parse(event.createdAt) }
+              : { completedAtMs: Date.parse(event.createdAt) }),
+          },
+        },
+        canonicalThreadId,
+        itemEvent,
+      );
       return [
+        ...(lifecycle
+          ? [
+              {
+                ...lifecycle,
+                payload: { ...lifecycle.payload, agentId: agentThreadId },
+              } as ProviderRuntimeEvent,
+            ]
+          : []),
         {
           ...base,
           type: "task.progress",

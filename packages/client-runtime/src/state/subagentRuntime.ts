@@ -44,6 +44,16 @@ export interface SubagentActivityEntry {
   readonly summary: string;
 }
 
+export interface SubagentTranscriptEntry {
+  readonly id: string;
+  readonly at: string;
+  readonly kind: string;
+  readonly tone: OrchestrationThreadActivity["tone"];
+  readonly summary: string;
+  readonly detail: string | null;
+  readonly data: unknown;
+}
+
 export interface SubagentWorkflowPhase {
   readonly index: number;
   readonly title: string;
@@ -889,4 +899,46 @@ export function formatSubagentTokenCount(totalTokens: number): string {
     return `${value >= 100 ? Math.round(value) : value.toFixed(1)}k`;
   }
   return `${(totalTokens / 1_000_000).toFixed(1)}M`;
+}
+
+function transcriptPayload(activity: OrchestrationThreadActivity): Record<string, unknown> {
+  return activity.payload !== null && typeof activity.payload === "object"
+    ? (activity.payload as Record<string, unknown>)
+    : {};
+}
+
+/**
+ * Selects the durable process log for one agent from the parent thread's
+ * normalized activity stream. Provider adapters already stamp child-owned
+ * tools with agentId and child lifecycle/progress with taskId, so this stays
+ * provider-neutral and automatically includes new provider item types.
+ */
+export function selectSubagentTranscript(
+  activities: ReadonlyArray<OrchestrationThreadActivity>,
+  agentId: string,
+): ReadonlyArray<SubagentTranscriptEntry> {
+  const rows: SubagentTranscriptEntry[] = [];
+  for (const activity of activities) {
+    const payload = transcriptPayload(activity);
+    const ownsActivity = payload.agentId === agentId || payload.taskId === agentId;
+    const isChildAgent = payload.parentAgentId === agentId;
+    if (!ownsActivity && !isChildAgent) continue;
+
+    const detail =
+      typeof payload.detail === "string"
+        ? payload.detail
+        : typeof payload.summary === "string"
+          ? payload.summary
+          : null;
+    rows.push({
+      id: String(activity.id),
+      at: activity.createdAt,
+      kind: activity.kind,
+      tone: activity.tone,
+      summary: activity.summary,
+      detail,
+      data: payload.data,
+    });
+  }
+  return rows.toSorted((left, right) => left.at.localeCompare(right.at));
 }

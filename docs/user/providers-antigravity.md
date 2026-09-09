@@ -100,10 +100,11 @@ mean this provider can use it.
 
 ### Subagents
 
-Antigravity groups subagent activity into batches. You cannot open or control
-individual subagents, and an idle batch does not confirm that every child
-succeeded. See [agent work](./thread-sidebar.md#inspect-agent-work) for where to
-inspect activity.
+Antigravity groups subagent activity into batches. You can open the batch's
+retained process log and ask the coordinator to pass it another message, but
+Antigravity does not expose individual child identities. An idle batch does not
+confirm that every child succeeded. See
+[agent work](./thread-sidebar.md#inspect-agent-work) for where to inspect activity.
 
 ## Accounts and removal
 

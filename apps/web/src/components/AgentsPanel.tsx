@@ -20,15 +20,18 @@ import type {
 import {
   formatSubagentModelLabel,
   formatSubagentTokenCount,
+  selectSubagentTranscript,
 } from "@t3tools/client-runtime/state/subagentRuntime";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { Bot, Braces, Check, ChevronDown, ChevronRight, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import type { EnvironmentId, OrchestrationThreadActivity, ThreadId } from "@t3tools/contracts";
+import { ArrowLeft, Bot, Braces, Check, ChevronDown, ChevronRight, Send, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "~/lib/utils";
 import { orchestrationEnvironment } from "~/state/orchestration";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Button } from "~/components/ui/button";
+
+const EMPTY_ACTIVITIES: ReadonlyArray<OrchestrationThreadActivity> = [];
 
 /**
  * In-flight states all present as Working (one steady state, per the
@@ -138,7 +141,7 @@ function agentActivityText(agent: RuntimeSubagent): string | null {
 }
 
 /** Flat, non-interactive agent status line. No unfold. */
-function AgentRow({ agent }: { agent: RuntimeSubagent }) {
+function AgentRow({ agent, onSelect }: { agent: RuntimeSubagent; onSelect?: () => void }) {
   const visuals = STATUS_VISUALS[agent.status];
   const statusLabel =
     agent.kind === "subagent_batch" && agent.status === "idle" ? "Idle" : visuals.label;
@@ -156,7 +159,11 @@ function AgentRow({ agent }: { agent: RuntimeSubagent }) {
   ].filter((value): value is string => value !== null);
 
   return (
-    <div className="grid h-[3.875rem] grid-cols-[0.375rem_minmax(0,1fr)_auto] grid-rows-[1.25rem_1.125rem_1rem] items-center gap-x-2 rounded-md px-1.5 py-1">
+    <button
+      type="button"
+      onClick={onSelect}
+      className="grid h-[3.875rem] w-full grid-cols-[0.375rem_minmax(0,1fr)_auto] grid-rows-[1.25rem_1.125rem_1rem] items-center gap-x-2 rounded-md px-1.5 py-1 text-left hover:bg-accent/40"
+    >
       <span className="col-start-1 row-start-1 flex items-center">
         <StatusDot status={agent.status} />
       </span>
@@ -188,7 +195,7 @@ function AgentRow({ agent }: { agent: RuntimeSubagent }) {
         {metadata.join(" · ")}
       </span>
       <span className="sr-only">{statusLabel}</span>
-    </div>
+    </button>
   );
 }
 
@@ -319,9 +326,11 @@ function WorkflowScriptView({
 function PhaseSection({
   phase,
   defaultOpen = false,
+  onSelectAgent,
 }: {
   phase: AgentPanelWorkflowGroup["phases"][number];
   defaultOpen?: boolean;
+  onSelectAgent: (agent: RuntimeSubagent) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen || phase.state === "running");
   const previousState = useRef(phase.state);
@@ -370,7 +379,11 @@ function PhaseSection({
           </span>
         ) : null}
       </button>
-      {open ? phase.members.map((member) => <AgentRow key={member.id} agent={member} />) : null}
+      {open
+        ? phase.members.map((member) => (
+            <AgentRow key={member.id} agent={member} onSelect={() => onSelectAgent(member)} />
+          ))
+        : null}
     </div>
   );
 }
@@ -381,11 +394,13 @@ function ExpandedWorkflowSection({
   environmentId,
   threadId,
   onCollapse,
+  onSelectAgent,
 }: {
   group: AgentPanelWorkflowGroup;
   environmentId: EnvironmentId | null;
   threadId: ThreadId | null;
   onCollapse: () => void;
+  onSelectAgent: (agent: RuntimeSubagent) => void;
 }) {
   const [scriptOpen, setScriptOpen] = useState(false);
   const members = workflowMembers(group);
@@ -440,13 +455,18 @@ function ExpandedWorkflowSection({
         />
       ) : null}
       {group.phases.map((phase) => (
-        <PhaseSection key={phase.index} phase={phase} defaultOpen={!workflowIsLive(group)} />
+        <PhaseSection
+          key={phase.index}
+          phase={phase}
+          defaultOpen={!workflowIsLive(group)}
+          onSelectAgent={onSelectAgent}
+        />
       ))}
       {group.unphasedMembers.map((member) => (
-        <AgentRow key={member.id} agent={member} />
+        <AgentRow key={member.id} agent={member} onSelect={() => onSelectAgent(member)} />
       ))}
       {group.phases.length === 0 && group.unphasedMembers.length === 0 ? (
-        <AgentRow agent={group.workflow} />
+        <AgentRow agent={group.workflow} onSelect={() => onSelectAgent(group.workflow)} />
       ) : null}
     </section>
   );
@@ -504,10 +524,12 @@ function WorkflowSection({
   group,
   environmentId,
   threadId,
+  onSelectAgent,
 }: {
   group: AgentPanelWorkflowGroup;
   environmentId: EnvironmentId | null;
   threadId: ThreadId | null;
+  onSelectAgent: (agent: RuntimeSubagent) => void;
 }) {
   const [open, setOpen] = useState(() => workflowIsLive(group));
   return open ? (
@@ -516,9 +538,120 @@ function WorkflowSection({
       environmentId={environmentId}
       threadId={threadId}
       onCollapse={() => setOpen(false)}
+      onSelectAgent={onSelectAgent}
     />
   ) : (
     <CollapsedWorkflowSection group={group} onExpand={() => setOpen(true)} />
+  );
+}
+
+function AgentTranscript({
+  agent,
+  activities,
+  onBack,
+  onSend,
+}: {
+  agent: RuntimeSubagent;
+  activities: ReadonlyArray<OrchestrationThreadActivity>;
+  onBack: () => void;
+  onSend?: (agent: RuntimeSubagent, message: string) => Promise<void>;
+}) {
+  const entries = useMemo(
+    () => selectSubagentTranscript(activities, agent.id),
+    [activities, agent.id],
+  );
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const submit = async () => {
+    const text = message.trim();
+    if (!text || !onSend || sending) return;
+    setSending(true);
+    try {
+      await onSend(agent, text);
+      setMessage("");
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex items-center gap-2 border-b border-border/60 px-2 py-2">
+        <Button size="icon-sm" variant="ghost-muted" onClick={onBack} aria-label="Back to agents">
+          <ArrowLeft className="size-4" />
+        </Button>
+        <StatusDot status={agent.status} />
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">{agent.title}</div>
+          <div className="truncate text-[.7rem] text-muted-foreground">
+            {agent.role ?? "Agent"} · {STATUS_VISUALS[agent.status].label}
+          </div>
+        </div>
+      </header>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-3 p-3">
+          {entries.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No retained activity for this agent.</p>
+          ) : (
+            entries.map((entry) => (
+              <article
+                key={entry.id}
+                className={cn(
+                  "border-l-2 pl-3",
+                  entry.tone === "error"
+                    ? "border-destructive"
+                    : entry.tone === "tool"
+                      ? "border-info/50"
+                      : "border-border",
+                )}
+              >
+                <div className="text-[.65rem] text-muted-foreground">
+                  {entry.kind} · {new Date(entry.at).toLocaleTimeString()}
+                </div>
+                <div className="mt-0.5 text-xs font-medium">{entry.summary}</div>
+                {entry.detail && entry.detail !== entry.summary ? (
+                  <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs text-muted-foreground">
+                    {entry.detail}
+                  </pre>
+                ) : null}
+                {entry.data !== undefined ? (
+                  <pre className="mt-1 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 font-mono text-[.65rem]">
+                    {typeof entry.data === "string"
+                      ? entry.data
+                      : JSON.stringify(entry.data, null, 2)}
+                  </pre>
+                ) : null}
+              </article>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+      {onSend ? (
+        <form
+          className="flex gap-2 border-t border-border/60 p-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <textarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder={`Message ${agent.title}`}
+            aria-label={`Message ${agent.title}`}
+            rows={2}
+            className="min-h-10 flex-1 resize-none rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+          />
+          <Button
+            type="submit"
+            size="icon-sm"
+            disabled={!message.trim() || sending}
+            aria-label="Send to agent"
+          >
+            <Send className="size-4" />
+          </Button>
+        </form>
+      ) : null}
+    </div>
   );
 }
 
@@ -526,11 +659,37 @@ export function AgentsPanel({
   model,
   environmentId = null,
   threadId = null,
+  activities = EMPTY_ACTIVITIES,
+  onSendMessage,
 }: {
   model: AgentPanelModel;
   environmentId?: EnvironmentId | null;
   threadId?: ThreadId | null;
+  activities?: ReadonlyArray<OrchestrationThreadActivity>;
+  onSendMessage?: (agent: RuntimeSubagent, message: string) => Promise<void>;
 }) {
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgent = useMemo(() => {
+    if (!selectedAgentId) return null;
+    const workflowAgents = model.workflows.flatMap((group) => [
+      group.workflow,
+      ...group.phases.flatMap((phase) => phase.members),
+      ...group.unphasedMembers,
+    ]);
+    return (
+      [...model.directAgents, ...workflowAgents].find((agent) => agent.id === selectedAgentId) ??
+      null
+    );
+  }, [model, selectedAgentId]);
+  if (selectedAgent)
+    return (
+      <AgentTranscript
+        agent={selectedAgent}
+        activities={activities}
+        onBack={() => setSelectedAgentId(null)}
+        {...(onSendMessage ? { onSend: onSendMessage } : {})}
+      />
+    );
   if (!model.hasAgents) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -554,6 +713,7 @@ export function AgentsPanel({
               group={group}
               environmentId={environmentId}
               threadId={threadId}
+              onSelectAgent={(agent) => setSelectedAgentId(agent.id)}
             />
           ))}
           {model.directAgents.length > 0 ? (
@@ -562,7 +722,11 @@ export function AgentsPanel({
                 Direct spawns
               </div>
               {model.directAgents.map((agent) => (
-                <AgentRow key={agent.id} agent={agent} />
+                <AgentRow
+                  key={agent.id}
+                  agent={agent}
+                  onSelect={() => setSelectedAgentId(agent.id)}
+                />
               ))}
             </section>
           ) : null}

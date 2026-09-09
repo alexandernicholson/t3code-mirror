@@ -1,4 +1,5 @@
 import { ThreadAdvisors } from "./ThreadAdvisors";
+import { ThreadAgents } from "./ThreadAgents";
 import { ThreadTodos } from "./ThreadTodos";
 import { ThreadNarration } from "../narration/ThreadNarration";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
@@ -932,6 +933,12 @@ function ThreadRouteContent(
         environmentId={selectedThread.environmentId}
         threadId={selectedThread.id}
       />
+      {selectedThreadDetail ? (
+        <ThreadAgents
+          activities={selectedThreadDetail.activities}
+          onComposeMessage={composer.onChangeDraftMessage}
+        />
+      ) : null}
       <ThreadGitControls {...threadGitControlProps} showActionControls={showActionControls} />
 
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />

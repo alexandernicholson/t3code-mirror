@@ -399,6 +399,37 @@ describe("ProviderRuntimeIngestion", () => {
     };
   }
 
+  it("persists non-tool child items in the owning agent transcript", async () => {
+    const harness = await createHarness();
+    await harness.emitAndDrain([
+      {
+        type: "item.completed",
+        eventId: asEventId("evt-child-reasoning"),
+        provider: ProviderDriverKind.make("codex"),
+        threadId: asThreadId("thread-1"),
+        createdAt: "2026-01-01T00:00:01.000Z",
+        itemId: asItemId("child-reasoning"),
+        payload: {
+          itemType: "reasoning",
+          status: "completed",
+          title: "Reasoning",
+          detail: "Inspected the parser and compared both call sites.",
+          agentId: "agent-1",
+        },
+      },
+    ]);
+
+    const thread = await waitForThread(harness.readModel, (entry) =>
+      entry.activities.some((activity) => activity.kind === "agent.item.completed"),
+    );
+    expect(thread.activities).toContainEqual(
+      expect.objectContaining({
+        kind: "agent.item.completed",
+        payload: expect.objectContaining({ agentId: "agent-1" }),
+      }),
+    );
+  });
+
   it("maps turn started/completed events into thread session updates", async () => {
     const harness = await createHarness();
     const now = "2026-01-01T00:00:00.000Z";

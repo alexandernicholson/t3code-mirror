@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0] - 2026-09-09
+
+- Make delegated agents inspectable and messageable across web, desktop, and mobile, with durable per-agent process logs and complete Codex child tool history.
+
+---
+
 ## [0.3.3] - 2026-09-09
 
 - Let advisors use any configured provider and model. Reviewer sessions enforce read-only inspection, disable MCP access, and dismiss write or interaction requests across Codex, Claude, Cursor, Grok, OpenCode, and Antigravity. Improve advisor setup actions on web and mobile.
