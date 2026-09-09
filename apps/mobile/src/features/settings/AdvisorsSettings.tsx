@@ -1,3 +1,4 @@
+import { SettingsModelPicker } from "./SettingsModelPicker";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useState } from "react";
@@ -199,13 +200,14 @@ export function MobileAdvisorConfiguration({
                 onChangeText={(name) => change(definition.id, { name })}
                 className="rounded-lg border border-border p-3 text-foreground"
               />
-              {choices.map((choice) => (
-                <AdvisorButton
-                  key={`${choice.selection.instanceId}/${choice.selection.model}`}
-                  title={`${choice.selection.instanceId === definition.modelSelection.instanceId && choice.selection.model === definition.modelSelection.model ? "✓ " : ""}${choice.label}`}
-                  onPress={() => change(definition.id, { modelSelection: choice.selection })}
+              {server && (
+                <SettingsModelPicker
+                  config={server}
+                  environmentId={environmentId}
+                  selection={definition.modelSelection}
+                  onChange={(modelSelection) => change(definition.id, { modelSelection })}
                 />
-              ))}
+              )}
               <AdvisorButton
                 title={
                   definition.mode === "guide"

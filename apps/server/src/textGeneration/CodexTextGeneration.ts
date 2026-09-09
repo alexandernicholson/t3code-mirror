@@ -1,3 +1,7 @@
+import {
+  readCodexContextWindows,
+  resolveCodexContextWindow,
+} from "../provider/CodexContextWindow.ts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -187,6 +191,43 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
         getModelSelectionStringOptionValue(modelSelection, "reasoningEffort") ??
         DEFAULT_TEXT_GENERATION_REASONING_EFFORT;
       const serviceTier = getCodexServiceTierOptionValue(modelSelection);
+      const contextWindowSelection = getModelSelectionStringOptionValue(
+        modelSelection,
+        "contextWindow",
+      );
+      const contextWindow =
+        contextWindowSelection === undefined
+          ? undefined
+          : yield* Effect.gen(function* () {
+              const contexts = yield* readCodexContextWindows({
+                homePath: codexConfig.homePath,
+                environment: resolvedEnvironment,
+                cwd,
+              });
+              return yield* Effect.try({
+                try: () =>
+                  resolveCodexContextWindow(
+                    contextWindowSelection,
+                    contexts.get(modelSelection.model) ?? {},
+                  ),
+                catch: (cause) =>
+                  new TextGenerationError({
+                    operation,
+                    detail: "Invalid model context window for text generation.",
+                    cause,
+                  }),
+              });
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new TextGenerationError({
+                    operation,
+                    detail: "Could not resolve the model context window.",
+                    cause,
+                  }),
+              ),
+            );
+
       const spawnCommand = yield* resolveSpawnCommand(
         codexConfig.binaryPath || "codex",
         [
@@ -201,6 +242,9 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           "--config",
           `model_reasoning_effort="${reasoningEffort}"`,
           ...(serviceTier ? ["--config", `service_tier="${serviceTier}"`] : []),
+          ...(contextWindow !== undefined
+            ? ["--config", `model_context_window=${contextWindow}`]
+            : []),
           "--output-schema",
           schemaPath,
           "--output-last-message",

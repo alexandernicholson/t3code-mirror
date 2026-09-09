@@ -16,6 +16,7 @@ import * as TextGeneration from "./TextGeneration.ts";
 import { makeCodexTextGeneration } from "./CodexTextGeneration.ts";
 import { writeFakeCli } from "../testUtils/fakeCli.ts";
 const decodeCodexSettings = Schema.decodeSync(CodexSettings);
+const encodeContextCatalog = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const DEFAULT_TEST_MODEL_SELECTION = createModelSelection(
   ProviderInstanceId.make("codex"),
@@ -134,6 +135,9 @@ function withFakeCodexEnv<A, E, R>(
   input: FakeCodexInput & {
     launchArgs?: string;
     environment?: NodeJS.ProcessEnv;
+    contextCatalog?: {
+      models: Array<{ slug: string; context_window: number; max_context_window: number }>;
+    };
   },
   effectFn: (textGeneration: TextGeneration.TextGeneration["Service"]) => Effect.Effect<A, E, R>,
 ) {
@@ -141,7 +145,16 @@ function withFakeCodexEnv<A, E, R>(
     const fs = yield* FileSystem.FileSystem;
     const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3code-codex-text-" });
     const codexPath = yield* makeFakeCodexBinary(tempDir, input);
-    const config = decodeCodexSettings({ binaryPath: codexPath, launchArgs: input.launchArgs });
+    if (input.contextCatalog)
+      yield* fs.writeFileString(
+        `${tempDir}/models_cache.json`,
+        encodeContextCatalog(input.contextCatalog),
+      );
+    const config = decodeCodexSettings({
+      binaryPath: codexPath,
+      launchArgs: input.launchArgs,
+      ...(input.contextCatalog ? { homePath: tempDir } : {}),
+    });
     const textGeneration = yield* makeCodexTextGeneration(config, input.environment);
     return yield* effectFn(textGeneration);
   }).pipe(Effect.scoped);
@@ -201,6 +214,61 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGeneration", (it) => {
             ]),
           }),
       ),
+  );
+
+  for (const [selection, tokens] of [
+    ["default", 128000],
+    ["maximum", 1000000],
+    ["256000", 256000],
+  ] as const) {
+    it.effect(`narration forwards ${selection} context alongside effort and service tier`, () =>
+      withFakeCodexEnv(
+        {
+          output: JSON.stringify({ text: "Checking the tests." }),
+          requireArg: `model_context_window=${tokens}`,
+          requireReasoningEffort: "high",
+          requireServiceTier: "priority",
+          contextCatalog: {
+            models: [{ slug: "gpt-5.4", context_window: 128000, max_context_window: 1000000 }],
+          },
+        },
+        (generation) =>
+          generation.generateNarration({
+            cwd: process.cwd(),
+            message: "I am reviewing the tests",
+            instructions: "One sentence",
+            modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.4", [
+              { id: "contextWindow", value: selection },
+              { id: "reasoningEffort", value: "high" },
+              { id: "serviceTier", value: "priority" },
+            ]),
+          }),
+      ),
+    );
+  }
+  it.effect("rejects narration context above the selected model's maximum", () =>
+    withFakeCodexEnv(
+      {
+        output: JSON.stringify({ text: "Must not run" }),
+        contextCatalog: {
+          models: [{ slug: "gpt-5.4", context_window: 128000, max_context_window: 200000 }],
+        },
+      },
+      (generation) =>
+        generation
+          .generateNarration({
+            cwd: process.cwd(),
+            message: "Review",
+            instructions: "Brief",
+            modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.4", [
+              { id: "contextWindow", value: "256000" },
+            ]),
+          })
+          .pipe(
+            Effect.result,
+            Effect.tap((result) => Effect.sync(() => expect(result._tag).toBe("Failure"))),
+          ),
+    ),
   );
 
   it.effect("passes exec-safe launch args into codex exec", () =>

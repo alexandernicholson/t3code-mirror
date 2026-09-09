@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2026-09-09
+
+- Use the chat model picker and supported model options in advisor and voice-summary settings. Preserve effort, context window, and service tier selections; honor Codex context windows when generating voice summaries.
+
+---
+
 ## [0.3.0] - 2026-09-09
 
 - Add independent advisors with project and thread controls, private review timelines, live status, and pause/resume across web, desktop, and mobile. Read-only reviewer sessions currently use Claude Code and can watch any provider. Includes a database migration for advisor settings and history.

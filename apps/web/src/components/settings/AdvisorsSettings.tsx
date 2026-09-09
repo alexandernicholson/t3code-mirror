@@ -1,3 +1,4 @@
+import { SettingsModelPicker } from "./SettingsModelPicker";
 import { randomUUID } from "~/lib/utils";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -223,24 +224,20 @@ export function AdvisorConfigurationEditor({
                   }
                 />
               </label>
-              <label className="grid gap-1 text-xs">
-                Account and model
-                <select
-                  className={fieldClass}
-                  value={`${definition.modelSelection.instanceId}/${definition.modelSelection.model}`}
-                  onChange={(event) => {
-                    const choice = choices.find((item) => item.key === event.target.value);
-                    if (choice)
-                      changeDefinition(definition.id, { modelSelection: choice.selection });
-                  }}
-                >
-                  {choices.map((choice) => (
-                    <option key={choice.key} value={choice.key}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="grid gap-1 text-xs">
+                <span>Account and model</span>
+                {config && (
+                  <SettingsModelPicker
+                    config={config}
+                    selection={definition.modelSelection}
+                    purpose="advisor"
+                    label="Advisor account and model"
+                    onChange={(modelSelection) =>
+                      changeDefinition(definition.id, { modelSelection })
+                    }
+                  />
+                )}
+              </div>
               <label className="grid gap-1 text-xs">
                 Behavior
                 <select

@@ -164,7 +164,7 @@ Kitten Nano generates English speech on your device without a GPU or a speech-se
 
 Choose among eight voices, adjust speed, preview speech, or remove the downloaded model in **Settings → General → Voice narration** on web/desktop, or **Settings → Voice narration** on mobile. On web/desktop you can also choose **System voices**; their availability depends on the device and browser, and some use an online speech service. Preferences apply on this device the next time you start narration.
 
-In web/desktop Voice narration settings, choose a **Narration summary model** or use the environment’s text generation default. Customize **Narration instructions** to focus on the updates you care about. The default asks for one plain-language sentence of at most 20 words. These settings apply to the next update in the web and desktop clients connected to that environment. Reset the model or instructions to return to the defaults.
+In web/desktop Voice narration settings, choose a **Narration summary model** or use the environment’s text generation default. The model and option controls match chat, including reasoning effort, context window, and service tier where supported. Customize **Narration instructions** to focus on the updates you care about. The default asks for one plain-language sentence of at most 20 words. These settings apply to the next update in the web and desktop clients connected to that environment. Reset the model or instructions to return to the defaults.
 
 ## TODOs
 
@@ -186,7 +186,7 @@ Advisors provide an independent review while an agent works. In **Settings → A
 on web or desktop, or **Settings → Advisors** on mobile, add a reviewer, choose its
 account and model, and enable it for all projects or selected projects. Review
 activity is sent to that account's provider. Read-only reviewer sessions currently
-require Claude Code; they can watch threads using any T3 provider.
+require Claude Code; they can watch threads using any T3 provider. Use the same model picker as chat to choose the account, model, and supported options such as effort and context window.
 
 Open **Advisors** from the right panel, the command palette, or `/advisor`. An enabled
 advisor's status remains visible with the panel closed. On mobile, tap the advisor

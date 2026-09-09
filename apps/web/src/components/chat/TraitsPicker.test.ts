@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { ProviderDriverKind, type ProviderOptionDescriptor } from "@t3tools/contracts";
-import { buildTraitsTriggerDisplay, buildUnavailableModelOptionDescriptors } from "./TraitsPicker";
+import {
+  shouldRenderTraitsControls,
+  buildTraitsTriggerDisplay,
+  buildUnavailableModelOptionDescriptors,
+} from "./TraitsPicker";
 import { buildContextWindowDescriptor } from "@t3tools/shared/contextWindow";
 
 function selectDescriptor(
@@ -194,5 +198,49 @@ describe("buildUnavailableModelOptionDescriptors", () => {
         currentValue: true,
       },
     ]);
+  });
+});
+
+describe("settings model options", () => {
+  function visible(descriptors: ProviderOptionDescriptor[], allowPromptInjectedEffort: boolean) {
+    return shouldRenderTraitsControls({
+      provider: ProviderDriverKind.make("claudeAgent"),
+      model: "test-model",
+      models: [
+        {
+          slug: "test-model",
+          name: "Test",
+          isCustom: false,
+          capabilities: { optionDescriptors: descriptors },
+        },
+      ],
+      prompt: "",
+      modelOptions: [],
+      planModeEnabled: false,
+      allowPromptInjectedEffort,
+    });
+  }
+  it("hides prompt-only effort when no editable prompt exists", () => {
+    const descriptor = {
+      ...selectDescriptor("effort", [{ id: "ultrathink", label: "Ultrathink" }], "ultrathink"),
+      promptInjectedValues: ["ultrathink"],
+    };
+    expect(visible([descriptor], false)).toBe(false);
+    expect(visible([descriptor], true)).toBe(true);
+  });
+  it("exposes provider-defined boolean options without a hardcoded option name", () => {
+    expect(
+      visible(
+        [
+          {
+            id: "customCapability",
+            label: "Custom capability",
+            type: "boolean",
+            currentValue: false,
+          },
+        ],
+        false,
+      ),
+    ).toBe(true);
   });
 });
