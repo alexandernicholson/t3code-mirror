@@ -450,6 +450,29 @@ describe("workEntryIndicatesToolNeutralStatus", () => {
 });
 
 describe("deriveWorkLogEntries", () => {
+  it("keeps TODO progress and change details in conversation order", () => {
+    const entries = deriveWorkLogEntries([
+      makeActivity({
+        id: "todo-1",
+        kind: "todos.updated",
+        summary: "TODOs: 0/1 complete · Review",
+        sequence: 0,
+        payload: { detail: "in progress: Review (Tasks)" },
+      }),
+      makeActivity({ id: "tool", kind: "tool.completed", summary: "Read files", sequence: 1 }),
+      makeActivity({
+        id: "todo-2",
+        kind: "todos.updated",
+        summary: "TODOs: 1/1 complete",
+        sequence: 2,
+        payload: { detail: "completed: Review (Tasks)" },
+      }),
+    ]);
+    expect(entries.map((entry) => entry.id)).toEqual(["todo-1", "tool", "todo-2"]);
+    expect(entries[0]?.detail).toBe("in progress: Review (Tasks)");
+    expect(entries[2]?.label).toBe("TODOs: 1/1 complete");
+  });
+
   it("keeps the latest task progress without emitting plan-update log entries", () => {
     const activities = [
       makeActivity({ id: "before", kind: "tool.completed", summary: "Read files", sequence: 0 }),

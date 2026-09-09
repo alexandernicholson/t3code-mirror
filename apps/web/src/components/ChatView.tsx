@@ -4129,6 +4129,10 @@ export default function ChatView(props: ChatViewProps) {
     if (!activeThreadRef || !activeProject) return;
     useRightPanelStore.getState().open(activeThreadRef, "files");
   }, [activeProject, activeThreadRef]);
+  const addTodosSurface = useCallback(() => {
+    if (!activeThreadRef || serverConfig?.environment.capabilities.threadTodos !== true) return;
+    useRightPanelStore.getState().open(activeThreadRef, "todos");
+  }, [activeThreadRef, serverConfig?.environment.capabilities.threadTodos]);
   const addAgentsSurface = useCallback(() => {
     if (!activeThreadRef) return;
     useRightPanelStore.getState().open(activeThreadRef, "agents");
@@ -8175,6 +8179,18 @@ export default function ChatView(props: ChatViewProps) {
         }
         composerDraftTarget={composerDraftTarget}
       />
+    ) : renderedRightPanelSurface?.kind === "todos" ? (
+      serverConfig?.environment.capabilities.threadTodos === true ? (
+        <ThreadTodos
+          key={`${activeThreadRef.environmentId}:${activeThreadRef.threadId}`}
+          environmentId={activeThreadRef.environmentId}
+          threadId={activeThreadRef.threadId}
+        />
+      ) : (
+        <div className="p-4 text-sm text-muted-foreground">
+          TODOs are unavailable in this environment.
+        </div>
+      )
     ) : renderedRightPanelSurface?.kind === "agents" ? (
       <AgentsPanel
         model={agentPanelModel}
@@ -8424,14 +8440,6 @@ export default function ChatView(props: ChatViewProps) {
                 className="w-full ps-[calc(env(safe-area-inset-left)+0.75rem)] pe-[calc(env(safe-area-inset-right)+0.75rem)] sm:ps-[calc(env(safe-area-inset-left)+1.25rem)] sm:pe-[calc(env(safe-area-inset-right)+1.25rem)]"
               >
                 <div className="group/composer-stack pointer-events-auto relative z-10 mx-auto w-full max-w-3xl">
-                  {activeThreadRef &&
-                    serverConfig?.environment.capabilities.threadTodos === true && (
-                      <ThreadTodos
-                        key={`${activeThreadRef.environmentId}:${activeThreadRef.threadId}`}
-                        environmentId={activeThreadRef.environmentId}
-                        threadId={activeThreadRef.threadId}
-                      />
-                    )}
                   {isDraftHeroState ? (
                     <div className="absolute inset-x-0 bottom-full z-0">
                       <div
@@ -8779,6 +8787,8 @@ export default function ChatView(props: ChatViewProps) {
           onAddFiles={addFilesSurface}
           onAddPullRequest={addPullRequestSurface}
           onAddAgents={addAgentsSurface}
+          onAddTodos={addTodosSurface}
+          todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
           browserAvailable={isPreviewSupportedInRuntime()}
           terminalAvailable={activeProject !== null}
           diffAvailable={isServerThread && isGitRepo}
@@ -8829,6 +8839,8 @@ export default function ChatView(props: ChatViewProps) {
             onAddFiles={addFilesSurface}
             onAddPullRequest={addPullRequestSurface}
             onAddAgents={addAgentsSurface}
+            onAddTodos={addTodosSurface}
+            todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
             browserAvailable={isPreviewSupportedInRuntime()}
             terminalAvailable={activeProject !== null}
             diffAvailable={isServerThread && isGitRepo}

@@ -21,6 +21,25 @@ beforeEach(() => {
 });
 
 describe("rightPanelStore", () => {
+  it("opens, hides, reopens and closes TODOs independently per thread", () => {
+    const store = useRightPanelStore.getState();
+    store.open(refA, "files");
+    store.toggle(refA, "todos");
+    expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refA)).toBe("todos");
+    expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refB)).toBeNull();
+    store.toggle(refA, "todos");
+    expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refA)).toBeNull();
+    store.toggle(refA, "todos");
+    expect(
+      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA).surfaces,
+    ).toEqual([
+      { id: "files", kind: "files" },
+      { id: "todos", kind: "todos" },
+    ]);
+    store.closeSurface(refA, "todos");
+    expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refA)).toBe("files");
+  });
+
   const completedDiff = { id: "diff", kind: "diff" } as const;
   const linkedPullRequest = pullRequestSurface({
     projectId: "project-a",

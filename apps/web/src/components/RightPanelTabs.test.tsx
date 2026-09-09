@@ -120,6 +120,8 @@ function renderTabs(
       onAddDiff={() => undefined}
       onAddFiles={() => undefined}
       onAddAgents={() => undefined}
+      onAddTodos={() => undefined}
+      todosAvailable={false}
       liveAgentCount={0}
       browserAvailable
       terminalAvailable={false}

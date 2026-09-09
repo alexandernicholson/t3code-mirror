@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { View } from "react-native";
 
-export type ThreadInspectorMode = "route" | "git" | "files";
+export type ThreadInspectorMode = "route" | "git" | "files" | "todos";
 
 const INSPECTOR_PREWARM_DELAY_MS = 350;
 
@@ -37,6 +37,7 @@ export function ThreadInspectorContentStack(props: {
   readonly Git: ComponentType;
   readonly mode: ThreadInspectorMode;
   readonly Route?: ComponentType;
+  readonly Todos?: ComponentType;
 }) {
   const [mountedModes, setMountedModes] = useState<ReadonlySet<ThreadInspectorMode>>(
     () => new Set([props.mode]),
@@ -50,7 +51,7 @@ export function ThreadInspectorContentStack(props: {
       return new Set([...current, props.mode]);
     });
 
-    if (props.mode === "route") {
+    if (props.mode === "route" || props.mode === "todos") {
       return;
     }
 
@@ -73,6 +74,7 @@ export function ThreadInspectorContentStack(props: {
   const Files = props.Files;
   const Git = props.Git;
   const Route = props.Route;
+  const Todos = props.Todos;
 
   return (
     <View className="flex-1">
@@ -88,6 +90,7 @@ export function ThreadInspectorContentStack(props: {
       >
         <Git />
       </InspectorContentPane>
+      {Todos && props.mode === "todos" ? <Todos /> : null}
       {Route ? (
         <InspectorContentPane
           mounted={mountedModes.has("route") || props.mode === "route"}

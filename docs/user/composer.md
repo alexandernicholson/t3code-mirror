@@ -166,8 +166,9 @@ Choose among eight voices, adjust speed, preview speech, or remove the downloade
 
 ## TODOs
 
-Open **TODOs** above the composer to see the thread's checklist, including after
-an agent finishes. Ask the agent to create a checklist, or add items yourself.
+Open **TODOs** in the right sidebar to see the thread's checklist, including after
+an agent finishes. On mobile, open TODOs from the thread toolbar. Changes also
+appear in the conversation, so you can follow progress with the checklist closed. Ask the agent to create a checklist, or add items yourself.
 You can edit the text and phase, mark items complete or reopen them, move them up
 or down, and delete them. On web and desktop, use **Toggle TODOs** in the command
 palette or Cmd/Ctrl+Alt+T; customize the shortcut in Settings → Keybindings.
