@@ -59,6 +59,27 @@ export function getProviderOptionBooleanSelectionValue(
   return typeof value === "boolean" ? value : undefined;
 }
 
+/**
+ * Thinking is the one boolean model trait T3 opts into by default. Preserve
+ * an explicit user choice, including `false`, and only inject the default
+ * when the selected model advertises the capability.
+ */
+export function withImplicitThinkingDefault(
+  caps: ModelCapabilities,
+  selections: ReadonlyArray<ProviderOptionSelection> | null | undefined,
+): ReadonlyArray<ProviderOptionSelection> | undefined {
+  if (selections?.some((selection) => selection.id === "thinking")) {
+    return selections;
+  }
+  const supportsThinking = caps.optionDescriptors?.some(
+    (descriptor) => descriptor.type === "boolean" && descriptor.id === "thinking",
+  );
+  if (!supportsThinking) {
+    return selections ?? undefined;
+  }
+  return [...(selections ?? []), { id: "thinking", value: true }];
+}
+
 export function getModelSelectionStringOptionValue(
   modelSelection: ModelSelection | null | undefined,
   id: string,

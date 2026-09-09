@@ -847,6 +847,12 @@ describe("resolveCursorAcpConfigUpdates", () => {
     ).toEqual([{ configId: "thinking", value: false }]);
   });
 
+  it("defaults Cursor thinking on when the model exposes it separately", () => {
+    expect(resolveCursorAcpConfigUpdates(parameterizedClaudeConfigOptions, [])).toEqual([
+      { configId: "thinking", value: true },
+    ]);
+  });
+
   it("maps explicit fastMode: false so the adapter can clear a prior fast selection", () => {
     expect(
       resolveCursorAcpConfigUpdates(parameterizedGpt54ConfigOptions, [

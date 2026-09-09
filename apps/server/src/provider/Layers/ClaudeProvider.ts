@@ -12,6 +12,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { createModelCapabilities, readCustomModelEntries } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import {
   query as claudeQuery,
@@ -24,6 +25,8 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 
 import {
+  buildBooleanOptionDescriptor,
+  buildSelectOptionDescriptor,
   buildServerProvider,
   COMPACT_SLASH_COMMAND,
   DEFAULT_TIMEOUT_MS,
@@ -403,27 +406,89 @@ const probeClaudeCapabilities = (
   );
 };
 
-/** Keep catalog capabilities and user overrides; SDK-only rows remain opaque provider models. */
-function mergeClaudeDiscoveredModels(
+const CLAUDE_EFFORT_LABELS = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra High",
+  max: "Max",
+} as const;
+
+/** Turn the Agent SDK's live model flags into composer option descriptors. */
+export function capabilitiesFromClaudeModelInfo(model: ClaudeModelInfo): ModelCapabilities {
+  const reportedEffortLevels = model.supportedEffortLevels ?? [];
+  const effortLevels =
+    reportedEffortLevels.length > 0
+      ? reportedEffortLevels
+      : model.supportsEffort
+        ? (["low", "medium", "high"] as const)
+        : [];
+  const defaultEffort = effortLevels.includes("high") ? "high" : effortLevels[0];
+  const defaults = DEFAULT_CLAUDE_MODEL_CAPABILITIES.optionDescriptors ?? [];
+  const thinking = defaults.find((descriptor) => descriptor.id === "thinking");
+  const contextWindow = defaults.find((descriptor) => descriptor.id === "contextWindow");
+  return createModelCapabilities({
+    optionDescriptors: [
+      ...(effortLevels.length > 0
+        ? [
+            buildSelectOptionDescriptor({
+              id: "effort",
+              label: "Reasoning",
+              options: effortLevels.map((level) => ({
+                value: level,
+                label: CLAUDE_EFFORT_LABELS[level],
+                ...(level === defaultEffort ? { isDefault: true } : {}),
+              })),
+            }),
+          ]
+        : []),
+      ...(model.supportsFastMode
+        ? [buildBooleanOptionDescriptor({ id: "fastMode", label: "Fast Mode" })]
+        : []),
+      ...(thinking ? [thinking] : []),
+      ...(contextWindow ? [contextWindow] : []),
+    ],
+  });
+}
+
+/** Keep catalog capabilities and authored overrides; enrich bare/discovered custom rows live. */
+export function mergeClaudeDiscoveredModels(
   configuredModels: ReadonlyArray<ServerProviderModel>,
   discoveredModels: ReadonlyArray<ClaudeModelInfo>,
+  customModels: ClaudeSettings["customModels"] = [],
 ): ReadonlyArray<ServerProviderModel> {
   const models = [...configuredModels];
   const seen = new Set(configuredModels.map((model) => model.slug));
+  const bareCustomSlugs = new Set(
+    readCustomModelEntries(customModels)
+      .filter((model) => model.capabilities === null)
+      .map((model) => model.slug),
+  );
   const aliases = new Set(
     configuredModels.flatMap((model) => model.aliases ?? []).map((alias) => alias.toLowerCase()),
   );
   for (const model of discoveredModels) {
     const slug = nonEmptyProbeString(model.value);
     // `default` delegates to Claude's current default; T3 already owns that selection.
-    if (!slug || slug === "default" || seen.has(slug) || aliases.has(slug.toLowerCase())) continue;
+    if (!slug || slug === "default") continue;
+    if (seen.has(slug)) {
+      if (bareCustomSlugs.has(slug)) {
+        const index = models.findIndex((candidate) => candidate.slug === slug);
+        const existing = models[index];
+        if (existing) {
+          models[index] = { ...existing, capabilities: capabilitiesFromClaudeModelInfo(model) };
+        }
+      }
+      continue;
+    }
+    if (aliases.has(slug.toLowerCase())) continue;
     seen.add(slug);
     models.push({
       slug,
       name: nonEmptyProbeString(model.displayName) ?? slug,
       // isCustom denotes settings-authored entries, which clients reconcile against settings.
       isCustom: false,
-      capabilities: DEFAULT_CLAUDE_MODEL_CAPABILITIES,
+      capabilities: capabilitiesFromClaudeModelInfo(model),
     });
   }
   return models;
@@ -562,7 +627,11 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   const capabilities = resolveCapabilities
     ? yield* resolveCapabilities(claudeSettings).pipe(Effect.orElseSucceed(() => undefined))
     : undefined;
-  const models = mergeClaudeDiscoveredModels(configuredModels, capabilities?.models ?? []);
+  const models = mergeClaudeDiscoveredModels(
+    configuredModels,
+    capabilities?.models ?? [],
+    claudeSettings.customModels,
+  );
   const skills = yield* discoverClaudeSkills(claudeSettings, cwd, resolvedEnvironment);
   const slashCommands = [COMPACT_SLASH_COMMAND, ...(capabilities?.slashCommands ?? [])];
   const dedupedSlashCommands = dedupeSlashCommands(slashCommands);

@@ -12,6 +12,7 @@ import {
   getProviderOptionDescriptors,
   isClaudeUltrathinkPrompt,
   normalizeModelSlug,
+  withImplicitThinkingDefault,
 } from "@t3tools/shared/model";
 import type { VariantProps } from "class-variance-authority";
 import type { ReactNode } from "react";
@@ -99,7 +100,10 @@ function resolveComposerOptionSelections(
   selections: ReadonlyArray<ProviderOptionSelection> | undefined;
 } {
   const caps = getProviderModelCapabilities(models, model, provider, planModeEnabled);
-  return { caps, selections: withImplicitFastModeDefault(caps, modelOptions) };
+  return {
+    caps,
+    selections: withImplicitFastModeDefault(caps, withImplicitThinkingDefault(caps, modelOptions)),
+  };
 }
 
 export function getComposerProviderState(input: ComposerProviderStateInput): ComposerProviderState {

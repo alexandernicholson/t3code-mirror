@@ -106,3 +106,9 @@ or Claude configuration on the environment's machine. Models discovered by Claud
 appear in T3 Code on web, desktop, and mobile after the provider refreshes. If a
 model is not returned by discovery, add its exact gateway ID under **Settings >
 Providers > Models** on web or desktop.
+
+Discovered models use the effort levels and Fast Mode support reported by Claude
+Code. Manually added models start with Reasoning, Ultracode, Fast Mode, Thinking,
+and 200k/1M context controls; edit the model in provider settings if the gateway
+supports a different set. Thinking starts on whenever a model offers the toggle.
+Turning it off is an explicit model selection and remains off until changed.

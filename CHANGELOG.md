@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.3] - 2026-09-09
+
+- Default Thinking to on for every model that exposes it, preserve explicit opt-outs, and surface Claude custom-model Reasoning, Ultracode, Fast Mode, Thinking, and context controls using live SDK capabilities where available.
+
+---
+
 ## [0.5.2] - 2026-09-09
 
 - Claude custom models now expose Thinking and 200k/1M context-window controls, including correct 1M model dispatch.

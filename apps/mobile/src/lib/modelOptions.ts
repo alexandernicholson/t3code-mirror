@@ -6,6 +6,7 @@ import type {
 import {
   buildExplicitProviderOptionSelectionsFromDescriptors,
   getProviderOptionDescriptors,
+  withImplicitThinkingDefault,
 } from "@t3tools/shared/model";
 
 export type ModelOption = {
@@ -46,12 +47,13 @@ function normalizeSelectionOptions(
   if (!capabilities) {
     return selection;
   }
+  const selections = withImplicitThinkingDefault(capabilities, selection.options);
   const options = buildExplicitProviderOptionSelectionsFromDescriptors(
     getProviderOptionDescriptors({
       caps: capabilities,
-      selections: selection.options,
+      selections,
     }),
-    selection.options,
+    selections,
   );
   return options
     ? { ...selection, options }

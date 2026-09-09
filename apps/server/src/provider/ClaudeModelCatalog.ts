@@ -36,7 +36,28 @@ const EMPTY_CAPABILITIES: ModelCapabilities = { optionDescriptors: [] };
  */
 export const DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES: ModelCapabilities = {
   optionDescriptors: [
-    { id: "thinking", label: "Thinking", type: "boolean" },
+    {
+      id: "effort",
+      label: "Reasoning",
+      type: "select",
+      options: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High", isDefault: true },
+        { id: "xhigh", label: "Extra High" },
+        { id: "max", label: "Max" },
+        {
+          id: "ultracode",
+          label: "Ultracode",
+          description: "xhigh effort plus multi-agent workflow orchestration",
+        },
+        { id: "ultrathink", label: "Ultrathink" },
+      ],
+      currentValue: "high",
+      promptInjectedValues: ["ultrathink"],
+    },
+    { id: "fastMode", label: "Fast Mode", type: "boolean" },
+    { id: "thinking", label: "Thinking", type: "boolean", currentValue: true },
     {
       id: "contextWindow",
       label: "Context Window",
@@ -51,6 +72,7 @@ export const DEFAULT_CLAUDE_CUSTOM_MODEL_CAPABILITIES: ModelCapabilities = {
 };
 
 const DEFAULT_CLAUDE_CUSTOM_MODEL_RUNTIME: ClaudeCodeProfile = {
+  effortMap: { ultracode: "xhigh", ultrathink: null },
   modelSuffixes: { contextWindow: { "1m": "[1m]" } },
   contextWindowTokens: { "200k": 200_000, "1m": 1_000_000 },
 };
@@ -65,6 +87,42 @@ export interface ClaudeModelCatalog {
   readonly models: ReadonlyArray<ClaudeCatalogModel>;
 }
 
+function withDefaultThinkingEnabled(model: ServerProviderModel): ServerProviderModel {
+  const descriptors = model.capabilities?.optionDescriptors ?? [];
+  const thinkingIndex = descriptors.findIndex(
+    (descriptor) => descriptor.type === "boolean" && descriptor.id === "thinking",
+  );
+  if (thinkingIndex >= 0) {
+    const thinking = descriptors[thinkingIndex]!;
+    if (thinking.type !== "boolean" || thinking.currentValue === true) return model;
+    return {
+      ...model,
+      capabilities: {
+        optionDescriptors: descriptors.map((descriptor, index) =>
+          index === thinkingIndex ? { ...thinking, currentValue: true } : descriptor,
+        ),
+      },
+    };
+  }
+
+  // Claude effort is an adaptive/fixed-thinking control. Fable models always
+  // think and cannot be toggled off, so their effort descriptor intentionally
+  // remains the only control.
+  const supportsThinkingToggle =
+    !model.slug.toLowerCase().includes("fable") &&
+    descriptors.some((descriptor) => descriptor.type === "select" && descriptor.id === "effort");
+  if (!supportsThinkingToggle) return model;
+  return {
+    ...model,
+    capabilities: {
+      optionDescriptors: [
+        ...descriptors,
+        { id: "thinking", label: "Thinking", type: "boolean", currentValue: true },
+      ],
+    },
+  };
+}
+
 function tryResolveClaudeModelCatalog(manifest: ModelManifestData): ClaudeModelCatalog | null {
   const resolved = resolveProviderCatalog(manifest, CLAUDE);
   if (!resolved) return null;
@@ -75,7 +133,7 @@ function tryResolveClaudeModelCatalog(manifest: ModelManifestData): ClaudeModelC
     const adapter = decodeClaudeModelAdapter(entry.adapter ?? {});
     if (Option.isNone(profile) || Option.isNone(adapter)) return null;
     models.push({
-      model: entry.model,
+      model: withDefaultThinkingEnabled(entry.model),
       runtime: profile.value.claudeCode ?? {},
       compatibility: adapter.value.claudeCode ?? {},
     });

@@ -161,6 +161,17 @@ describe("customModelEditor.logic", () => {
     expect(
       presets.capabilities?.optionDescriptors?.some((option) => option.id === "contextWindow"),
     ).toBe(true);
+    expect(
+      presets.capabilities?.optionDescriptors?.find((option) => option.id === "thinking"),
+    ).toMatchObject({ currentValue: true });
+    const effort = presets.capabilities?.optionDescriptors?.find(
+      (option) => option.id === "effort",
+    );
+    expect(
+      effort?.type === "select"
+        ? effort.options.some((option) => option.id === "ultracode")
+        : false,
+    ).toBe(true);
     const cursorCopy = descriptorsFromCapabilities(capabilities);
     expect(cursorCopy.map((option) => option.id)).toEqual(["contextWindow", "thinking"]);
     const codexCopy = descriptorsFromCapabilities({
