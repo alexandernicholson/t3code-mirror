@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1] - 2026-09-09
+
+- Track provider usage-limit percentages for 90 days and replace scheduled recovery projections with account history charts on web, desktop, and mobile. History begins after this update and includes a database migration.
+
+---
+
 ## [0.5.0] - 2026-09-09
 
 - Add configurable on-demand Reviewer agents with Quick and Deep runs, surfaced file findings, Fix in chat, dismissal, and a Settings library of editable Markdown rules. The built-in library covers nine testing/quality review types plus attributed Cursor Team Kit and Matt Pocock rules. Reviewers and AI rule optimization support every configured provider/model and run with full tool access; rule naming uses the title-generation model.

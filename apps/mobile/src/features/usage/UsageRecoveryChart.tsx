@@ -1,6 +1,11 @@
-import { formatDuration, limitRecovery, type LimitPoolWindow } from "@t3tools/shared/usageLimits";
-import { useState } from "react";
-import { Pressable, View } from "react-native";
+import {
+  collectLimitHistoryLines,
+  type EnvironmentUsageLimitHistory,
+  type LimitAccount,
+  type LimitPoolWindow,
+} from "@t3tools/shared/usageLimits";
+import { useMemo } from "react";
+import { View } from "react-native";
 import { Circle, Line, Path, Svg } from "react-native-svg";
 
 import { AppText as Text } from "../../components/AppText";
@@ -8,40 +13,52 @@ import { AppText as Text } from "../../components/AppText";
 const WIDTH = 600;
 const HEIGHT = 120;
 
-export function UsageRecoveryChart({
+function lineColor(account: LimitAccount, index: number, fallback: string, count: number) {
+  if (count === 1) return fallback;
+  const key = account.email ?? account.displayName ?? account.key;
+  let hash = 0;
+  for (let position = 0; position < key.length; position += 1) {
+    hash = (hash * 31 + key.charCodeAt(position)) | 0;
+  }
+  return `hsl(${Math.abs(hash + index * 47) % 360}, 70%, 55%)`;
+}
+
+export function UsageHistoryChart({
   pool,
   color,
   now,
+  since,
+  histories,
 }: {
   readonly pool: LimitPoolWindow;
   readonly color: string;
   readonly now: number;
+  readonly since: number;
+  readonly histories: readonly EnvironmentUsageLimitHistory[];
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const points = limitRecovery(
-    pool.members.map((member) => member.window),
-    now,
+  const lines = useMemo(
+    () =>
+      collectLimitHistoryLines(pool, histories, since, now).map(({ account, points }, index) => {
+        return {
+          account,
+          label: account.displayName ?? `Account ${index + 1}`,
+          color: lineColor(account, index, color, pool.members.length),
+          points,
+        };
+      }),
+    [color, histories, now, pool, since],
   );
-  const last = points[points.length - 1];
-  if (!last || points.length < 2) return null;
-  const duration = (last.at - now) * 1.08;
-  const x = (at: number) => ((at - now) / duration) * WIDTH;
-  const y = (remaining: number) => HEIGHT - (remaining / 100) * HEIGHT;
-  const path =
-    points
-      .map(
-        (point, index) =>
-          `${index === 0 ? "M" : "H"}${x(point.at)}${index === 0 ? "," : "V"}${y(point.remainingPercent)}`,
-      )
-      .join(" ") + ` H${WIDTH}`;
-  const label = (at: number) => (at === now ? "Now" : `In ${formatDuration(at - now)}`);
+  const x = (at: number) => ((at - since) / Math.max(1, now - since)) * WIDTH;
+  const y = (used: number) => HEIGHT - (used / 100) * HEIGHT;
 
   return (
     <View className="gap-2 border-t border-border pt-3">
-      <Text className="text-xs font-t3-medium text-foreground">Scheduled recovery</Text>
-      <Text className="text-xs tabular-nums text-foreground-muted">
-        {label(last.at)} · {Math.round(last.remainingPercent)}% left
-      </Text>
+      <View className="flex-row items-baseline justify-between gap-2">
+        <Text className="text-xs font-t3-medium text-foreground">Usage history</Text>
+        <Text className="text-xs tabular-nums text-foreground-muted">
+          {Math.round(pool.usedPercent)}% used now
+        </Text>
+      </View>
       <View className="flex-row gap-2">
         <View className="h-32 w-8 justify-between">
           {[100, 50, 0].map((value) => (
@@ -57,7 +74,9 @@ export function UsageRecoveryChart({
           className="h-32 min-w-0 flex-1"
           accessible
           accessibilityRole="image"
-          accessibilityLabel={`${pool.label} scheduled quota recovery, assuming no further usage. ${points.map((point) => `${label(point.at)}, ${Math.round(point.remainingPercent)}% left`).join(". ")}`}
+          accessibilityLabel={`${pool.label} usage history. ${lines
+            .map((line) => `${line.label}, ${line.points.at(-1)?.usedPercent ?? 0}% used`)
+            .join(". ")}`}
         >
           <Svg
             width="100%"
@@ -78,57 +97,58 @@ export function UsageRecoveryChart({
                 vectorEffect="non-scaling-stroke"
               />
             ))}
-            <Path d={`${path} V${HEIGHT} H0 Z`} fill={color} fillOpacity={0.08} />
-            <Path
-              d={path}
-              fill="none"
-              stroke={color}
-              strokeWidth={2}
-              vectorEffect="non-scaling-stroke"
-            />
-            {points.map((point) => (
-              <Circle
-                key={point.at}
-                cx={x(point.at)}
-                cy={y(point.remainingPercent)}
-                r={3}
-                fill={color}
-              />
-            ))}
+            {lines.map((line) => {
+              const path = line.points
+                .map(
+                  (point, index) =>
+                    `${index === 0 ? "M" : "L"}${x(Date.parse(point.observedAt))},${y(point.usedPercent)}`,
+                )
+                .join(" ");
+              return (
+                <Path
+                  key={line.account.key}
+                  d={path}
+                  fill="none"
+                  stroke={line.color}
+                  strokeWidth={2}
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+            {lines.flatMap((line) =>
+              line.points.map((point) => (
+                <Circle
+                  key={`${line.account.key}:${point.observedAt}`}
+                  cx={x(Date.parse(point.observedAt))}
+                  cy={y(point.usedPercent)}
+                  r={2.5}
+                  fill={line.color}
+                />
+              )),
+            )}
           </Svg>
         </View>
       </View>
       <View className="flex-row justify-between pl-10">
+        <Text className="text-[10px] text-foreground-tertiary">
+          {new Date(since).toLocaleDateString()}
+        </Text>
         <Text className="text-[10px] text-foreground-tertiary">Now</Text>
-        <Text className="text-[10px] text-foreground-tertiary">{label(now + duration)}</Text>
       </View>
-      <Text className="text-xs text-foreground-tertiary">
-        Assumes no further usage. Accounts are weighted equally; only future reported resets are
-        included.
-      </Text>
-      {points.length > 2 ? (
-        <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            onPress={() => setExpanded((value) => !value)}
-            className="min-h-[44px] justify-center active:opacity-60"
-          >
-            <Text className="text-xs font-t3-medium text-foreground">
-              {expanded ? "Hide reset schedule" : "Show reset schedule"}
-            </Text>
-          </Pressable>
-          {expanded
-            ? points.slice(1).map((point) => (
-                <View key={point.at} className="flex-row justify-between gap-2">
-                  <Text className="text-xs text-foreground-muted">{label(point.at)}</Text>
-                  <Text className="text-xs tabular-nums text-foreground">
-                    {Math.round(point.remainingPercent)}% left
-                  </Text>
-                </View>
-              ))
-            : null}
-        </>
+      {lines.length > 1 ? (
+        <View className="flex-row flex-wrap gap-x-3 gap-y-1">
+          {lines.map((line) => (
+            <View key={line.account.key} className="flex-row items-center gap-1.5">
+              <View className="size-2 rounded-full" style={{ backgroundColor: line.color }} />
+              <Text className="text-xs text-foreground-muted">{line.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {lines.every((line) => line.points.length <= 1) ? (
+        <Text className="text-xs text-foreground-tertiary">
+          History starts as T3 observes new limit snapshots.
+        </Text>
       ) : null}
     </View>
   );

@@ -1,45 +1,70 @@
-import { formatDuration, limitRecovery, type LimitPoolWindow } from "@t3tools/shared/usageLimits";
-import { useState } from "react";
+import {
+  collectLimitHistoryLines,
+  type EnvironmentUsageLimitHistory,
+  type LimitAccount,
+  type LimitPoolWindow,
+} from "@t3tools/shared/usageLimits";
+import { useMemo, useState } from "react";
 
 const WIDTH = 600;
 const HEIGHT = 120;
 
-export function UsageRecoveryChart({
+function accountColor(account: LimitAccount, index: number, fallback: string, count: number) {
+  if (count === 1) return fallback;
+  const key = account.email ?? account.displayName ?? account.key;
+  let hash = 0;
+  for (let position = 0; position < key.length; position += 1) {
+    hash = (hash * 31 + key.charCodeAt(position)) | 0;
+  }
+  return `hsl(${Math.abs(hash + index * 47) % 360} 70% 55%)`;
+}
+
+function accountLabel(account: LimitAccount, index: number) {
+  return account.displayName ?? `Account ${index + 1}`;
+}
+
+export function UsageHistoryChart({
   pool,
   color,
   now,
+  since,
+  histories,
 }: {
   readonly pool: LimitPoolWindow;
   readonly color: string;
   readonly now: number;
+  readonly since: number;
+  readonly histories: readonly EnvironmentUsageLimitHistory[];
 }) {
-  const points = limitRecovery(
-    pool.members.map((member) => member.window),
-    now,
+  const [selected, setSelected] = useState<{
+    readonly line: number;
+    readonly point: number;
+  } | null>(null);
+  const lines = useMemo(
+    () =>
+      collectLimitHistoryLines(pool, histories, since, now).map(({ account, points }, index) => {
+        return {
+          account,
+          label: accountLabel(account, index),
+          color: accountColor(account, index, color, pool.members.length),
+          points,
+        };
+      }),
+    [color, histories, now, pool, since],
   );
-  const [selected, setSelected] = useState<number | null>(null);
-  const last = points.at(-1);
-  if (!last || points.length < 2) return null;
-  // Leave room after the final reset so its plateau is visible.
-  const duration = (last.at - now) * 1.08;
-  const x = (at: number) => ((at - now) / duration) * WIDTH;
-  const y = (remaining: number) => HEIGHT - (remaining / 100) * HEIGHT;
-  const path =
-    points
-      .map(
-        (point, index) =>
-          `${index === 0 ? "M" : "H"}${x(point.at)}${index === 0 ? "," : "V"}${y(point.remainingPercent)}`,
-      )
-      .join(" ") + ` H${WIDTH}`;
-  const active = points[selected ?? points.length - 1] ?? last;
-  const label = (at: number) => (at === now ? "Now" : `In ${formatDuration(at - now)}`);
+  const x = (at: number) => ((at - since) / Math.max(1, now - since)) * WIDTH;
+  const y = (used: number) => HEIGHT - (used / 100) * HEIGHT;
+  const active = selected ? lines[selected.line]?.points[selected.point] : undefined;
+  const activeLine = selected ? lines[selected.line] : undefined;
 
   return (
     <div className="min-w-0 border-t border-border/60 pt-3 md:col-start-2">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 text-xs">
-        <h3 className="font-medium text-foreground">Scheduled recovery</h3>
+        <h3 className="font-medium text-foreground">Usage history</h3>
         <span className="text-muted-foreground tabular-nums" aria-live="polite">
-          {label(active.at)} · {Math.round(active.remainingPercent)}% left
+          {active && activeLine
+            ? `${activeLine.label} · ${Math.round(active.usedPercent)}% used · ${new Date(active.observedAt).toLocaleString()}`
+            : `${Math.round(pool.usedPercent)}% used now`}
         </span>
       </div>
       <div className="flex gap-2">
@@ -53,7 +78,7 @@ export function UsageRecoveryChart({
           preserveAspectRatio="none"
           className="h-32 min-w-0 flex-1 overflow-visible"
           role="group"
-          aria-label={`${pool.label} scheduled quota recovery, assuming no further usage`}
+          aria-label={`${pool.label} usage history`}
           onMouseLeave={() => setSelected(null)}
         >
           {[0, 50, 100].map((value) => (
@@ -68,43 +93,64 @@ export function UsageRecoveryChart({
               vectorEffect="non-scaling-stroke"
             />
           ))}
-          <path d={`${path} V${HEIGHT} H0 Z`} fill={color} fillOpacity={0.08} />
-          <path
-            d={path}
-            fill="none"
-            stroke={color}
-            strokeWidth={2}
-            vectorEffect="non-scaling-stroke"
-          />
-          {points.map((point, index) => (
-            <g key={point.at}>
-              <circle cx={x(point.at)} cy={y(point.remainingPercent)} r={3} fill={color} />
-              <circle
-                cx={x(point.at)}
-                cy={y(point.remainingPercent)}
-                r={10}
-                fill="transparent"
-                tabIndex={0}
-                role="img"
-                aria-label={`${label(point.at)}, ${Math.round(point.remainingPercent)}% left`}
-                className="outline-none focus-visible:stroke-ring"
-                onFocus={() => setSelected(index)}
-                onBlur={() => setSelected(null)}
-                onMouseEnter={() => setSelected(index)}
-                onClick={() => setSelected(index)}
-              />
-            </g>
-          ))}
+          {lines.map((line, lineIndex) => {
+            const path = line.points
+              .map(
+                (point, pointIndex) =>
+                  `${pointIndex === 0 ? "M" : "L"}${x(Date.parse(point.observedAt))},${y(point.usedPercent)}`,
+              )
+              .join(" ");
+            return (
+              <g key={line.account.key}>
+                {path ? (
+                  <path
+                    d={path}
+                    fill="none"
+                    stroke={line.color}
+                    strokeWidth={2}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ) : null}
+                {line.points.map((point, pointIndex) => (
+                  <circle
+                    key={point.observedAt}
+                    cx={x(Date.parse(point.observedAt))}
+                    cy={y(point.usedPercent)}
+                    r={selected?.line === lineIndex && selected.point === pointIndex ? 4 : 2.5}
+                    fill={line.color}
+                    tabIndex={0}
+                    role="img"
+                    aria-label={`${line.label}, ${Math.round(point.usedPercent)}% used at ${new Date(point.observedAt).toLocaleString()}`}
+                    className="outline-none focus-visible:stroke-ring"
+                    onFocus={() => setSelected({ line: lineIndex, point: pointIndex })}
+                    onBlur={() => setSelected(null)}
+                    onMouseEnter={() => setSelected({ line: lineIndex, point: pointIndex })}
+                  />
+                ))}
+              </g>
+            );
+          })}
         </svg>
       </div>
       <div className="mt-1 flex justify-between pl-10 text-[10px] text-muted-foreground">
+        <span>{new Date(since).toLocaleDateString()}</span>
         <span>Now</span>
-        <span>{label(now + duration)}</span>
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        Assumes no further usage. Accounts are weighted equally; only future reported resets are
-        included.
-      </p>
+      {lines.length > 1 ? (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {lines.map((line) => (
+            <span key={line.account.key} className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-full" style={{ backgroundColor: line.color }} />
+              {line.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {lines.every((line) => line.points.length <= 1) ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          History starts as T3 observes new limit snapshots.
+        </p>
+      ) : null}
     </div>
   );
 }

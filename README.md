@@ -38,8 +38,8 @@ This fork currently adds or changes the following:
 - Adds on-device voice narration for concise agent progress updates, including
   downloadable offline voices and playback controls on web, desktop, and mobile.
   See [Voice narration](./docs/user/composer.md#voice-narration).
-- Adds scheduled quota-recovery charts for provider usage limits on web, desktop,
-  and mobile. See [Usage and cost](./docs/user/usage.md).
+- Tracks provider usage-limit percentages for 90 days and charts each account over
+  time on web, desktop, and mobile. See [Usage and cost](./docs/user/usage.md).
 - Adds branch-based source updates for Linux services, with automatic, manual,
   and notification-only policies; safe preparation and activation; migration
   trials; rollback; progress; and release notes. It also permits updates when

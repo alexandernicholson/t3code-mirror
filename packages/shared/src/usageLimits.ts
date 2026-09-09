@@ -8,6 +8,8 @@
 import {
   type EnvironmentId,
   type UsageLimitsReport,
+  type UsageLimitHistory,
+  type UsageLimitHistoryOrigin,
   type ProviderInstanceId,
   type ProviderConsumeResetCreditInput,
   type ServerProviderSlashCommand,
@@ -177,6 +179,11 @@ export interface LimitAccount {
     readonly input: ProviderConsumeResetCreditInput;
   } | null;
   readonly limits: ServerProviderUsageLimits;
+  /** Server-local origins used to attach persisted observations to this account. */
+  readonly historyKeys?: ReadonlyArray<{
+    readonly environmentId: EnvironmentId;
+    readonly key: string;
+  }>;
 }
 
 /**
@@ -226,6 +233,15 @@ export function collectLimitAccounts(
           !previous.environments.some((seen) => seen.environmentId === candidate.environmentId),
       ),
     ];
+    const historyKeys = [
+      ...(previous.historyKeys ?? []),
+      ...(next.historyKeys ?? []).filter(
+        (candidate) =>
+          !(previous.historyKeys ?? []).some(
+            (seen) => seen.environmentId === candidate.environmentId && seen.key === candidate.key,
+          ),
+      ),
+    ];
     const winner = fresher ? next : previous;
     // Credits and their redemption target travel together. A failed credit
     // probe must not erase a successful read from another environment.
@@ -236,6 +252,7 @@ export function collectLimitAccounts(
       plan: previous.plan ?? next.plan,
       accentColor: previous.accentColor ?? next.accentColor,
       environments,
+      historyKeys,
       // A hub only names the account when no environment has it natively.
       sourceLabel: environments.length > 0 ? null : (previous.sourceLabel ?? next.sourceLabel),
       redeem:
@@ -267,6 +284,7 @@ export function collectLimitAccounts(
           sourceLabel: null,
           redeem: { environmentId, input: { instanceId: provider.instanceId } },
           limits: provider.usageLimits,
+          historyKeys: [{ environmentId, key: `provider:${provider.instanceId}` }],
         },
       );
     }
@@ -302,6 +320,7 @@ export function collectLimitAccounts(
               }
             : null,
           limits: account.usageLimits,
+          historyKeys: [{ environmentId, key: `source:${source.id}:${account.id}` }],
         });
       }
     }
@@ -379,24 +398,56 @@ export interface LimitPool {
   readonly windows: readonly LimitPoolWindow[];
 }
 
-/** Scheduled quota recovery with no further use. Overdue resets need a fresh snapshot. */
-export function limitRecovery(windows: readonly ServerProviderUsageWindow[], now: number) {
-  if (windows.length === 0) return [];
-  const used = (window: ServerProviderUsageWindow) =>
-    Math.max(0, Math.min(100, window.usedPercent));
-  let remaining = 100 - windows.reduce((sum, window) => sum + used(window), 0) / windows.length;
-  const points = [{ at: now, remainingPercent: remaining }];
-  const resets = new Map<number, number>();
-  for (const window of windows) {
-    const at = resetMillis(window);
-    if (at === null || at <= now || used(window) === 0) continue;
-    resets.set(at, (resets.get(at) ?? 0) + used(window) / windows.length);
-  }
-  for (const [at, restored] of [...resets].sort(([left], [right]) => left - right)) {
-    remaining = Math.min(100, remaining + restored);
-    points.push({ at, remainingPercent: remaining });
-  }
-  return points;
+export interface EnvironmentUsageLimitHistory {
+  readonly environmentId: EnvironmentId;
+  readonly history: UsageLimitHistory | null;
+}
+
+function usageLimitHistoryOriginKey(origin: UsageLimitHistoryOrigin): string {
+  return origin.kind === "provider"
+    ? `provider:${origin.instanceId}`
+    : `source:${origin.sourceId}:${origin.accountId}`;
+}
+
+/** Attach persisted observations from every environment to the current pooled accounts. */
+export function collectLimitHistoryLines(
+  pool: LimitPoolWindow,
+  histories: readonly EnvironmentUsageLimitHistory[],
+  since: number,
+  now: number,
+) {
+  return pool.members.map((member) => {
+    const keys = new Set(
+      (member.account.historyKeys ?? []).map(
+        ({ environmentId, key }) => `${environmentId}\u0000${key}`,
+      ),
+    );
+    const points = histories
+      .flatMap(({ environmentId, history }) =>
+        (history?.series ?? []).flatMap((series) =>
+          keys.has(`${environmentId}\u0000${usageLimitHistoryOriginKey(series.origin)}`) &&
+          series.windowKind === pool.kind &&
+          series.windowId === pool.id
+            ? series.points
+            : [],
+        ),
+      )
+      .concat({
+        observedAt: member.account.limits.checkedAt,
+        usedPercent: member.window.usedPercent,
+        ...(member.window.resetsAt ? { resetsAt: member.window.resetsAt } : {}),
+      })
+      .filter((point) => {
+        const at = Date.parse(point.observedAt);
+        return Number.isFinite(at) && at >= since && at <= now;
+      })
+      .toSorted((left, right) => Date.parse(left.observedAt) - Date.parse(right.observedAt))
+      .filter(
+        (point, index, all) =>
+          index === all.length - 1 || point.observedAt !== all[index + 1]?.observedAt,
+      );
+    return { account: member.account, points };
+  });
 }
 
 const WINDOW_KIND_ORDER: Record<ServerProviderUsageWindow["kind"], number> = {

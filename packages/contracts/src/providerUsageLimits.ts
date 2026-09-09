@@ -105,6 +105,60 @@ export type UsageLimitSourceSnapshot = typeof UsageLimitSourceSnapshot.Type;
 export const UsageLimitSourceSnapshots = ForwardCompatibleArray(UsageLimitSourceSnapshot);
 export type UsageLimitSourceSnapshots = typeof UsageLimitSourceSnapshots.Type;
 
+export const UsageLimitHistoryInput = Schema.Struct({
+  since: IsoDateTime,
+  until: IsoDateTime,
+  bucketMinutes: Schema.Int.check(Schema.isBetween({ minimum: 5, maximum: 1440 })),
+});
+export type UsageLimitHistoryInput = typeof UsageLimitHistoryInput.Type;
+
+export const UsageLimitHistoryOrigin = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("provider"),
+    instanceId: ProviderInstanceId,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("source"),
+    sourceId: UsageLimitSourceId,
+    accountId: TrimmedNonEmptyString,
+  }),
+]);
+export type UsageLimitHistoryOrigin = typeof UsageLimitHistoryOrigin.Type;
+
+export const UsageLimitHistoryPoint = Schema.Struct({
+  observedAt: IsoDateTime,
+  usedPercent: Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
+  resetsAt: Schema.optional(IsoDateTime),
+});
+export type UsageLimitHistoryPoint = typeof UsageLimitHistoryPoint.Type;
+
+export const UsageLimitHistorySeries = Schema.Struct({
+  origin: UsageLimitHistoryOrigin,
+  driver: ProviderDriverKind,
+  windowId: TrimmedNonEmptyString,
+  windowKind: ServerProviderUsageWindow.fields.kind,
+  label: TrimmedNonEmptyString,
+  points: Schema.Array(UsageLimitHistoryPoint),
+});
+export type UsageLimitHistorySeries = typeof UsageLimitHistorySeries.Type;
+
+export const UsageLimitHistory = Schema.Struct({
+  readAt: IsoDateTime,
+  since: IsoDateTime,
+  until: IsoDateTime,
+  series: Schema.Array(UsageLimitHistorySeries),
+});
+export type UsageLimitHistory = typeof UsageLimitHistory.Type;
+
+export class UsageLimitHistoryError extends Schema.TaggedError<UsageLimitHistoryError>()(
+  "UsageLimitHistoryError",
+  { detail: TrimmedNonEmptyString },
+) {
+  override get message(): string {
+    return this.detail;
+  }
+}
+
 export const UsageLimitSourceConsumeResetCreditInput = Schema.Struct({
   sourceId: UsageLimitSourceId,
   accountId: TrimmedNonEmptyString,

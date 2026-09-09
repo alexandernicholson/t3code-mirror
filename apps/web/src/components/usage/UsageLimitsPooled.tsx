@@ -21,7 +21,8 @@ import { getDriverOption } from "../settings/providerDriverMeta";
 import { RedactedSensitiveText } from "../settings/RedactedSensitiveText";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
-import { UsageRecoveryChart } from "./UsageRecoveryChart";
+import { UsageHistoryChart } from "./UsageRecoveryChart";
+import type { EnvironmentUsageLimitHistory } from "../../state/usageLimitHistory";
 import {
   PaceIcon,
   ResetCreditDialog,
@@ -478,10 +479,14 @@ function PoolWindowCard({
   pool,
   color,
   now,
+  since,
+  histories,
 }: {
   readonly pool: LimitPoolWindow;
   readonly color: string;
   readonly now: number;
+  readonly since: number;
+  readonly histories: readonly EnvironmentUsageLimitHistory[];
 }) {
   // The soonest reset that hands anything back; an untouched account resets to no effect.
   const nextRefill = pool.resets.find((reset) => reset.restoresPercent > 0);
@@ -504,12 +509,22 @@ function PoolWindowCard({
         ) : null}
       </div>
       <PoolBar pool={pool} color={color} now={now} />
-      <UsageRecoveryChart pool={pool} color={color} now={now} />
+      <UsageHistoryChart pool={pool} color={color} now={now} since={since} histories={histories} />
     </div>
   );
 }
 
-function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: number }) {
+function PoolSection({
+  pool,
+  now,
+  since,
+  histories,
+}: {
+  readonly pool: LimitPool;
+  readonly now: number;
+  readonly since: number;
+  readonly histories: readonly EnvironmentUsageLimitHistory[];
+}) {
   const color = barColor(pool.driver);
   const label = getDriverOption(pool.driver)?.label ?? String(pool.driver);
   return (
@@ -525,7 +540,14 @@ function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: nu
         {label}
       </h2>
       {pool.windows.map((window) => (
-        <PoolWindowCard key={`${window.kind}:${window.id}`} pool={window} color={color} now={now} />
+        <PoolWindowCard
+          key={`${window.kind}:${window.id}`}
+          pool={window}
+          color={color}
+          now={now}
+          since={since}
+          histories={histories}
+        />
       ))}
     </section>
   );
@@ -539,9 +561,13 @@ function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: nu
 export function UsageLimitsPooled({
   presentations,
   now,
+  since,
+  histories,
 }: {
   readonly presentations: Parameters<typeof collectLimitAccounts>[0];
   readonly now: number;
+  readonly since: number;
+  readonly histories: readonly EnvironmentUsageLimitHistory[];
 }) {
   const pools = collectLimitPools(collectLimitAccounts(presentations), now);
   const notices = collectLimitNotices(presentations);
@@ -553,7 +579,7 @@ export function UsageLimitsPooled({
         </p>
       ) : null}
       {pools.map((pool) => (
-        <PoolSection key={pool.driver} pool={pool} now={now} />
+        <PoolSection key={pool.driver} pool={pool} now={now} since={since} histories={histories} />
       ))}
       <LimitNotices notices={notices} />
     </div>
