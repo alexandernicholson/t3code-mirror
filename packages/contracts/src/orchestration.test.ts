@@ -1344,6 +1344,28 @@ it.effect("project icon overrides accept Lucide icons, colors, and emoji", () =>
   }),
 );
 
+it.effect("project conversation backgrounds accept only built-in selections", () =>
+  Effect.gen(function* () {
+    const valid = yield* decodeOrchestrationCommand({
+      type: "project.meta.update",
+      commandId: "cmd-project-background",
+      projectId: "project-1",
+      conversationBackground: "landscape-alpine-lake",
+    });
+    assert.strictEqual(valid.type, "project.meta.update");
+
+    const invalid = yield* Effect.exit(
+      decodeOrchestrationCommand({
+        type: "project.meta.update",
+        commandId: "cmd-project-invalid-background",
+        projectId: "project-1",
+        conversationBackground: "https://example.com/background.jpg",
+      }),
+    );
+    assert.strictEqual(invalid._tag, "Failure");
+  }),
+);
+
 it.effect("rejects thread history imports without messages", () =>
   Effect.gen(function* () {
     const result = yield* Effect.exit(

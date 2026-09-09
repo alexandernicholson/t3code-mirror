@@ -236,6 +236,7 @@ it.layer(NodeServices.layer)("decider project scripts", (it) => {
           projectId: asProjectId("project-favicon"),
           faviconPath: "brand/icon.svg",
           projectIcon: { kind: "lucide", name: "alarm-clock", color: "violet" },
+          conversationBackground: "abstract-midnight-ribbon",
         },
         readModel,
       });
@@ -248,6 +249,9 @@ it.layer(NodeServices.layer)("decider project scripts", (it) => {
         name: "alarm-clock",
         color: "violet",
       });
+      expect((event.payload as { conversationBackground?: unknown }).conversationBackground).toBe(
+        "abstract-midnight-ribbon",
+      );
     }),
   );
 

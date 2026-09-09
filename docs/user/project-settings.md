@@ -25,6 +25,12 @@ Choose an icon, emoji, or image from the project to make it easier to recognize.
 to selected checkouts in the project group and appears on connected clients. Choose **Automatic** to
 let T3 Code detect an icon again.
 
+## Conversation backgrounds
+
+Choose a background from **Workstations**, **Landscapes**, or **Abstract**. The selection applies to
+every thread in the project and follows the project across connected clients. Reset the row to use
+the standard conversation background again.
+
 ## Keep the default branch current
 
 Enable **Automatically pull** to keep the default-branch checkout up to date with its configured
