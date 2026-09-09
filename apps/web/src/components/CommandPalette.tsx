@@ -451,7 +451,7 @@ export function CommandPalette({ children }: { children: ReactNode }) {
       });
       if (command === "todos.toggle") {
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent("t3code:toggle-todos", { detail: routeThreadRef }));
+        if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "todos");
         return;
       }
       if (command === "themeEditor.toggle") {
@@ -1692,11 +1692,12 @@ function OpenCommandPaletteDialog(props: {
       icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "todos.toggle",
       run: async () => {
-        window.dispatchEvent(
-          new CustomEvent("t3code:toggle-todos", {
-            detail: { environmentId: activeThread.environmentId, threadId: activeThread.id },
-          }),
-        );
+        useRightPanelStore
+          .getState()
+          .toggle(
+            { environmentId: activeThread.environmentId, threadId: activeThread.id },
+            "todos",
+          );
       },
     });
 

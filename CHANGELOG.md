@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] - 2026-09-09
+
+- Move TODO checklists from above the composer into the right sidebar, with a toolbar inspector or sheet on mobile. Track TODO updates in the conversation and remove redundant editing guidance.
+
+---
+
 ## [0.2.0] - 2026-09-09
 
 - Add persistent, editable thread TODOs on web, desktop, and mobile, using native agent checklists with an OMP-style fallback. Existing checklists are migrated; user edits are shared on the next message.

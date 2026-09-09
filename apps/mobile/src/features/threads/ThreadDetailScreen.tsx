@@ -1,4 +1,3 @@
-import { ThreadTodos } from "./ThreadTodos";
 import { SecretAccessCard } from "./SecretAccessCard";
 import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
 import {
@@ -951,13 +950,6 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
                     />
                   </Animated.View>
                 ) : null}
-                {props.serverConfig?.environment.capabilities.threadTodos === true && (
-                  <ThreadTodos
-                    key={`todos:${selectedThreadKey}`}
-                    environmentId={props.environmentId}
-                    threadId={props.selectedThread.id}
-                  />
-                )}
                 <SecretAccessCard
                   key={selectedThreadKey}
                   environmentId={props.environmentId}

@@ -158,7 +158,16 @@ describe("OrchestrationEngine", () => {
         }),
       );
       await system.run(system.engine.dispatch(native));
-      const initial = Option.getOrThrow(await system.readThread(threadId)).todos!;
+      const initialThread = Option.getOrThrow(await system.readThread(threadId));
+      const initial = initialThread.todos!;
+      expect(
+        initialThread.activities.filter((activity) => activity.kind === "todos.updated"),
+      ).toMatchObject([
+        {
+          summary: "TODOs: 0/2 complete",
+          payload: { source: "agent", detail: expect.stringContaining("Review") },
+        },
+      ]);
       expect(initial.items.map((item) => item.content)).toEqual(["Review", "Build"]);
       const items = [
         { ...initial.items[1]!, content: "Build carefully", status: "completed" as const },
@@ -216,7 +225,21 @@ describe("OrchestrationEngine", () => {
       );
       await system.dispose();
       system = await createOrchestrationSystem(databasePath);
-      expect(Option.getOrThrow(await system.readThread(threadId)).todos?.items).toEqual([]);
+      const restored = Option.getOrThrow(await system.readThread(threadId));
+      expect(restored.todos?.items).toEqual([]);
+      const updates = restored.activities.filter((activity) => activity.kind === "todos.updated");
+      // Stale edits, duplicate commands and native snapshots with no visible changes add no history.
+      expect(updates).toHaveLength(4);
+      expect(updates.find((activity) => activity.id === "todos:user-edit")).toMatchObject({
+        payload: { source: "user", detail: expect.stringContaining("removed: Review") },
+      });
+      expect(updates.find((activity) => activity.id === "todos:append-tool")).toMatchObject({
+        payload: { source: "agent", detail: expect.stringContaining("Check result") },
+      });
+      expect(updates.find((activity) => activity.id === "todos:clear-todos")).toMatchObject({
+        summary: "TODOs cleared",
+        payload: { source: "user" },
+      });
     } finally {
       await system.dispose();
       await NodeFSP.rm(directory, { recursive: true, force: true });

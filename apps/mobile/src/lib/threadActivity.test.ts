@@ -275,6 +275,32 @@ function makeThread(
 }
 
 describe("buildThreadFeed", () => {
+  it("shows TODO progress with expandable change details without an open checklist", () => {
+    const thread = makeThread({
+      id: ThreadId.make("todos"),
+      projectId: ProjectId.make("project"),
+      title: "TODO history",
+      activities: [
+        makeActivity({
+          id: EventId.make("todos:update"),
+          kind: "todos.updated",
+          summary: "TODOs: 1/2 complete · Verify",
+          createdAt: "2026-04-01T00:00:01.000Z",
+          payload: { detail: "completed: Build (Tasks)\nin progress: Verify (Tasks)" },
+        }),
+      ],
+    });
+    const [group] = buildThreadFeed(thread);
+    expect(group?.type).toBe("activity-group");
+    if (group?.type !== "activity-group") return;
+    expect(group.activities).toHaveLength(1);
+    expect(group.activities[0]).toMatchObject({
+      workEntry: { label: "TODOs: 1/2 complete · Verify" },
+      canExpand: true,
+      detail: "completed: Build (Tasks)\nin progress: Verify (Tasks)",
+    });
+  });
+
   it("reuses unchanged feed and presentation rows during an assistant text update", () => {
     const completedTurnId = TurnId.make("completed-turn");
     const activeTurnId = TurnId.make("active-turn");

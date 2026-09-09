@@ -4,6 +4,8 @@ import {
   SCRIPT_RUN_COMMAND_PATTERN,
   MessageId,
   ThreadLinkedPullRequest,
+  TodoItem,
+  TodoItems,
   UserInputRequestedPayload,
   isImportedAgentSessionMessageId,
   type OrchestrationCommand,
@@ -69,6 +71,8 @@ const queueEvent = Effect.fn("queueEvent")(function* (
     payload: { threadId: command.threadId, queue },
   };
 });
+const todoItemsEqual = Schema.toEquivalence(TodoItems);
+const todoItemEqual = Schema.toEquivalence(TodoItem);
 const threadPullRequestLinksEqual = Schema.toEquivalence(Schema.NullOr(ThreadLinkedPullRequest));
 
 /**
@@ -1979,7 +1983,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           commandType: command.type,
           detail: validationError,
         });
-      return {
+      const updated: Omit<OrchestrationEvent, "sequence"> = {
         ...(yield* withEventBase({
           aggregateKind: "thread",
           aggregateId: command.threadId,
@@ -1989,6 +1993,60 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         type: "thread.todos-updated",
         payload: { threadId: command.threadId, todos },
       };
+      // Native snapshots can refresh merge baselines without changing the visible list.
+      if (todoItemsEqual(current.items, todos.items)) return updated;
+      const completed = todos.items.filter((item) => item.status === "completed").length;
+      const active = todos.items.find((item) => item.status === "in_progress");
+      const previousItems = new Map(current.items.map((item) => [item.id, item]));
+      const nextIds = new Set(todos.items.map((item) => item.id));
+      const changes = [
+        ...todos.items
+          .filter((item) => {
+            const previous = previousItems.get(item.id);
+            return !previous || !todoItemEqual(previous, item);
+          })
+          .map(
+            (item) =>
+              `${item.status.replaceAll("_", " ")}: ${item.content} (${item.phase})${item.blocker ? ` — ${item.blocker}` : ""}`,
+          ),
+        ...current.items
+          .filter((item) => !nextIds.has(item.id))
+          .map((item) => `removed: ${item.content}`),
+      ];
+      return [
+        updated,
+        {
+          ...(yield* withEventBase({
+            aggregateKind: "thread",
+            aggregateId: command.threadId,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          })),
+          type: "thread.activity-appended",
+          payload: {
+            threadId: command.threadId,
+            activity: {
+              id: EventId.make(`todos:${command.commandId}`),
+              kind: "todos.updated",
+              summary:
+                todos.items.length === 0
+                  ? "TODOs cleared"
+                  : `TODOs: ${completed}/${todos.items.length} complete${active ? ` · ${active.content}` : ""}`,
+              tone: "info",
+              turnId:
+                command.type === "thread.todos.native"
+                  ? (command.turnId ?? thread.session?.activeTurnId ?? null)
+                  : (thread.session?.activeTurnId ?? null),
+              createdAt: command.createdAt,
+              payload: {
+                revision: todos.revision,
+                source: command.type === "thread.todos.edit" ? "user" : "agent",
+                detail: changes.length > 0 ? changes.join("\n") : "TODOs reordered",
+              },
+            },
+          },
+        },
+      ];
     }
 
     case "thread.activity.append": {

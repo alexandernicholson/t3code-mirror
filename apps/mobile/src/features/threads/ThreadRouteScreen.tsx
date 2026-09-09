@@ -1,3 +1,4 @@
+import { ThreadTodos } from "./ThreadTodos";
 import { ThreadNarration } from "../narration/ThreadNarration";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import {
@@ -23,7 +24,7 @@ import {
   projectScriptRuntimeEnv,
   resolveProjectScripts,
 } from "@t3tools/shared/projectScripts";
-import { Alert, Platform, ScrollView, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceState } from "../../state/workspace";
 import { restoredNewTaskDraftKey } from "../../state/new-task-draft-key";
@@ -444,6 +445,41 @@ function ThreadRouteContent(
   // bar); elsewhere the pane content pads itself below the top inset.
   const safeAreaInsets = useSafeAreaInsets();
   const inspectorHeaderInset = Platform.OS === "ios" ? 0 : safeAreaInsets.top;
+  const supportsTodos =
+    routeEnvironmentRuntime?.serverConfig?.environment.capabilities.threadTodos === true;
+  const [todosSheetThread, setTodosSheetThread] = useState<string | null>(null);
+  const openTodos = useCallback(() => {
+    if (!supportsTodos) return;
+    if (fileInspector.supported) {
+      setInspectorSelection({ routeThreadIdentity, mode: "todos" });
+      showAuxiliaryPane("inspector");
+    } else {
+      setTodosSheetThread(routeThreadIdentity);
+    }
+  }, [supportsTodos, fileInspector.supported, routeThreadIdentity, showAuxiliaryPane]);
+  const todoEnvironmentId = selectedThread?.environmentId;
+  const todoThreadId = selectedThread?.id;
+  const TodosInspector = useCallback(
+    () =>
+      todoEnvironmentId && todoThreadId && supportsTodos ? (
+        <View className="flex-1 bg-card" style={{ paddingTop: safeAreaInsets.top }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close TODOs"
+            onPress={toggleAuxiliaryPane}
+            className="min-h-11 items-end justify-center px-4"
+          >
+            <Text className="text-foreground">Done</Text>
+          </Pressable>
+          <ThreadTodos
+            key={`${todoEnvironmentId}:${todoThreadId}`}
+            environmentId={todoEnvironmentId}
+            threadId={todoThreadId}
+          />
+        </View>
+      ) : null,
+    [todoEnvironmentId, todoThreadId, supportsTodos, safeAreaInsets.top, toggleAuxiliaryPane],
+  );
   const GitInspector = useCallback(
     () => (
       <GitOverviewSheet
@@ -482,13 +518,21 @@ function ThreadRouteContent(
     () =>
       inspectorMode === null ? null : (
         <ThreadInspectorContentStack
+          Todos={TodosInspector}
           Files={FilesInspector}
           Git={GitInspector}
           mode={inspectorMode}
           Route={props.renderInspector ? RouteInspector : undefined}
         />
       ),
-    [FilesInspector, GitInspector, RouteInspector, inspectorMode, props.renderInspector],
+    [
+      FilesInspector,
+      GitInspector,
+      RouteInspector,
+      TodosInspector,
+      inspectorMode,
+      props.renderInspector,
+    ],
   );
   const activeInspectorRenderer = inspectorMode === null ? undefined : renderInspectorStack;
   // Hand the inspector to the workspace so it renders beside the navigator,
@@ -708,6 +752,8 @@ function ThreadRouteContent(
     if (Platform.OS !== "android") return [];
 
     const actions: AndroidHeaderAction[] = [];
+    if (supportsTodos)
+      actions.push({ accessibilityLabel: "Open TODOs", icon: "checklist", onPress: openTodos });
     if (props.onReturnToThread) {
       actions.push({
         accessibilityLabel: "Return to chat",
@@ -743,6 +789,8 @@ function ThreadRouteContent(
     }
     return actions;
   }, [
+    supportsTodos,
+    openTodos,
     fileInspector.supported,
     handleOpenFilesInspector,
     handleOpenTerminal,
@@ -839,6 +887,35 @@ function ThreadRouteContent(
   const serverConfig = routeEnvironmentRuntime?.serverConfig ?? null;
   const renderThreadRouteBody = (showActionControls: boolean) => (
     <>
+      <Modal
+        visible={
+          todosSheetThread !== null && todosSheetThread === routeThreadIdentity && supportsTodos
+        }
+        presentationStyle="pageSheet"
+        animationType="slide"
+        onRequestClose={() => setTodosSheetThread(null)}
+      >
+        <View
+          className="flex-1 bg-card"
+          style={{ paddingTop: safeAreaInsets.top, paddingBottom: safeAreaInsets.bottom }}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close TODOs"
+            onPress={() => setTodosSheetThread(null)}
+            className="min-h-11 items-end justify-center px-4"
+          >
+            <Text className="text-foreground">Done</Text>
+          </Pressable>
+          {todosSheetThread === routeThreadIdentity && supportsTodos ? (
+            <ThreadTodos
+              key={routeThreadIdentity}
+              environmentId={selectedThread.environmentId}
+              threadId={selectedThread.id}
+            />
+          ) : null}
+        </View>
+      </Modal>
       <ThreadGitControls {...threadGitControlProps} showActionControls={showActionControls} />
 
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
@@ -950,7 +1027,20 @@ function ThreadRouteContent(
           // reserved for future breadcrumbs/status).
           unstable_headerRightItems:
             Platform.OS === "ios"
-              ? () => (layout.usesSplitView ? threadCenterHeaderItems : compactRightHeaderItems)
+              ? () => [
+                  ...(layout.usesSplitView ? threadCenterHeaderItems : compactRightHeaderItems),
+                  ...(supportsTodos
+                    ? [
+                        withNativeGlassHeaderItem({
+                          accessibilityLabel: "Open TODOs",
+                          icon: { name: "checklist", type: "sfSymbol" as const },
+                          identifier: "thread-right-todos",
+                          onPress: openTodos,
+                          type: "button" as const,
+                        }),
+                      ]
+                    : []),
+                ]
               : undefined,
           unstable_headerSubtitle: usesNativeHeaderGlass ? headerSubtitle : undefined,
           contentStyle:
