@@ -343,6 +343,26 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGeneration", (it) => {
     ),
   );
 
+  it.effect("summarizes public updates using the listener instructions", () =>
+    withFakeCodexEnv(
+      {
+        output: JSON.stringify({ text: "  The fix passed its tests.  " }),
+        stdinMustContain: "Mention the outcome first.",
+      },
+      (textGeneration) =>
+        Effect.gen(function* () {
+          expect(
+            yield* textGeneration.generateNarration({
+              cwd: process.cwd(),
+              message: "I changed the parser and ran the focused tests. They passed.",
+              instructions: "Mention the outcome first.",
+              modelSelection: DEFAULT_TEST_MODEL_SELECTION,
+            }),
+          ).toEqual({ text: "The fix passed its tests." });
+        }),
+    ),
+  );
+
   it.effect("generates thread titles and trims them for sidebar use", () =>
     withFakeCodexEnv(
       {

@@ -26,6 +26,7 @@ import {
   buildCommitMessagePrompt,
   buildPrContentPrompt,
   buildThreadTitlePrompt,
+  buildNarrationPrompt,
 } from "./TextGenerationPrompts.ts";
 import {
   normalizeCliError,
@@ -101,6 +102,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
       | "generateCommitMessage"
       | "generatePrContent"
       | "generateBranchName"
+      | "generateNarration"
       | "generateThreadTitle",
     value: unknown,
   ): Effect.Effect<string, TextGenerationError> =>
@@ -120,6 +122,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
       | "generateCommitMessage"
       | "generatePrContent"
       | "generateBranchName"
+      | "generateNarration"
       | "generateThreadTitle",
     attachments: TextGeneration.BranchNameGenerationInput["attachments"],
   ): Effect.fn.Return<MaterializedImageAttachments, TextGenerationError> {
@@ -162,6 +165,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
       | "generateCommitMessage"
       | "generatePrContent"
       | "generateBranchName"
+      | "generateNarration"
       | "generateThreadTitle";
     cwd: string;
     prompt: string;
@@ -405,7 +409,21 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
       } satisfies TextGeneration.ThreadTitleGenerationResult;
     });
 
+  const generateNarration: TextGeneration.TextGeneration["Service"]["generateNarration"] =
+    Effect.fn("CodexTextGeneration.generateNarration")(function* (input) {
+      const { prompt, outputSchema } = buildNarrationPrompt(input);
+      const generated = yield* runCodexJson({
+        operation: "generateNarration",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+      return { text: generated.text.trim() };
+    });
+
   return {
+    generateNarration,
     generateCommitMessage,
     generatePrContent,
     generateBranchName,

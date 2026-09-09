@@ -158,11 +158,13 @@ Android opens the system chooser.
 
 ## Voice narration
 
-Select **Narrate** in a thread to hear short excerpts from new agent messages as work progresses. Select it again to stop immediately. Leaving the thread stops narration; returning does not replay earlier messages. Code blocks and tool output are skipped. On mobile, narration also stops when the app goes into the background.
+On web and desktop, select **Narrate** in a thread to hear brief model-generated summaries of new agent messages as work progresses. Select it again to stop immediately. Leaving the thread stops narration; returning does not replay earlier messages. Code blocks and tool output are skipped. On mobile, narration also stops when the app goes into the background.
 
-Kitten Nano generates English speech on your device without a GPU or a speech-service account. The first preview or narration downloads about 28 MB of model and voice files from Hugging Face, with progress shown while downloading. Web uses a browser cache; mobile stores the model and pronunciation data on the device. Later speech works offline with those downloads. Clearing browser/site data or removing the download means it must be downloaded again.
+Kitten Nano generates English speech on your device without a GPU or a speech-service account. The first preview or narration downloads about 28 MB of model and voice files from Hugging Face, with progress shown while downloading. Web uses a browser cache; mobile stores the model and pronunciation data on the device. Speech generation works offline with those downloads; summarizing new updates still requires a connection to your environment and its model provider. Clearing browser/site data or removing the download means it must be downloaded again.
 
 Choose among eight voices, adjust speed, preview speech, or remove the downloaded model in **Settings → General → Voice narration** on web/desktop, or **Settings → Voice narration** on mobile. On web/desktop you can also choose **System voices**; their availability depends on the device and browser, and some use an online speech service. Preferences apply on this device the next time you start narration.
+
+In web/desktop Voice narration settings, choose a **Narration summary model** or use the environment’s text generation default. Customize **Narration instructions** to focus on the updates you care about. The default asks for one plain-language sentence of at most 20 words. These settings apply to the next update in the web and desktop clients connected to that environment. Reset the model or instructions to return to the defaults.
 
 ## TODOs
 

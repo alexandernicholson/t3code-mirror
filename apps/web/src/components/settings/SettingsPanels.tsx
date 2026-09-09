@@ -583,6 +583,10 @@ export function useSettingsRestore(onRestored?: () => void) {
         : []),
       ...(settings.confirmQuit !== DEFAULT_UNIFIED_SETTINGS.confirmQuit ? ["Quit shortcut"] : []),
       ...(isTextGenerationModelDirty ? ["Text generation model"] : []),
+      ...(settings.narrationModelSelection !== null ? ["Narration summary model"] : []),
+      ...(settings.narrationInstructions !== DEFAULT_UNIFIED_SETTINGS.narrationInstructions
+        ? ["Narration instructions"]
+        : []),
       ...getChangedBrowserSettingLabels(settings),
       ...(settings.enableAgentBrowserAccess !== DEFAULT_UNIFIED_SETTINGS.enableAgentBrowserAccess
         ? ["Agent browser access"]
@@ -590,6 +594,8 @@ export function useSettingsRestore(onRestored?: () => void) {
     ],
     [
       isTextGenerationModelDirty,
+      settings.narrationModelSelection,
+      settings.narrationInstructions,
       isBackgroundActivityDirty,
       settings.browserDefaultViewport,
       settings.browserDefaultZoomFactor,
@@ -732,6 +738,8 @@ export function useSettingsRestore(onRestored?: () => void) {
       confirmThreadUnpin: DEFAULT_UNIFIED_SETTINGS.confirmThreadUnpin,
       confirmQuit: DEFAULT_UNIFIED_SETTINGS.confirmQuit,
       textGenerationModelSelection: DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection,
+      narrationModelSelection: DEFAULT_UNIFIED_SETTINGS.narrationModelSelection,
+      narrationInstructions: DEFAULT_UNIFIED_SETTINGS.narrationInstructions,
       fontFamilySans: DEFAULT_UNIFIED_SETTINGS.fontFamilySans,
       fontFamilyComposer: DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer,
       fontFamilyCode: DEFAULT_UNIFIED_SETTINGS.fontFamilyCode,

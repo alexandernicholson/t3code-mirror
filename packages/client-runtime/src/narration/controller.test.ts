@@ -152,3 +152,77 @@ describe("narration queue", () => {
     expect(f.speak).toHaveBeenCalledTimes(1);
   });
 });
+
+function summaryFixture() {
+  const summaries: Array<{ resolve: (text: string) => void; reject: (error: Error) => void }> = [];
+  const summarize = vi.fn(
+    () => new Promise<string>((resolve, reject) => summaries.push({ resolve, reject })),
+  );
+  const speak = vi.fn();
+  const cancel = vi.fn();
+  const error = vi.fn();
+  const queue = new NarrationQueue({ speak, cancel }, error, Date.now, summarize);
+  return { queue, summaries, summarize, speak, cancel, error };
+}
+
+describe("model narration summaries", () => {
+  it("keeps excerpts for clients that do not request model summaries", () => {
+    const cursor = new NarrationCursor([]);
+    expect(
+      cursor.next([message("1", "I checked the code. I ran the tests. The build is blocked.")]),
+    ).toBe("I checked the code. I ran the tests.");
+  });
+  it("summarizes the full public update, including conclusions after the opening sentences", () => {
+    const cursor = new NarrationCursor([], true);
+    const text =
+      "I checked the code. I ran the tests. The build is blocked by a missing dependency.";
+    expect(cursor.next([message("1", text)])).toBe(text);
+  });
+  it("speaks a short summary, never the original long update", async () => {
+    const f = summaryFixture();
+    f.queue.enqueue("Detailed implementation notes. ".repeat(30));
+    expect(f.speak).not.toHaveBeenCalled();
+    f.summaries[0]!.resolve("The fix passed its tests.");
+    await Promise.resolve();
+    expect(f.speak.mock.calls[0]?.[0]).toBe("The fix passed its tests.");
+  });
+  it("keeps only the freshest update while a summary is in flight", async () => {
+    const f = summaryFixture();
+    f.queue.enqueue("First");
+    f.queue.enqueue("Second");
+    f.queue.enqueue("Latest");
+    f.summaries[0]!.resolve("Old summary.");
+    await Promise.resolve();
+    expect(f.speak).not.toHaveBeenCalled();
+    expect(f.summarize.mock.calls).toEqual([["First"], ["Latest"]]);
+    f.summaries[1]!.resolve("Current summary.");
+    await Promise.resolve();
+    expect(f.speak.mock.calls[0]?.[0]).toBe("Current summary.");
+  });
+  it("ignores late summaries after mute or navigation", async () => {
+    const f = summaryFixture();
+    f.queue.enqueue("Update");
+    f.queue.stop();
+    f.summaries[0]!.resolve("Too late.");
+    await Promise.resolve();
+    expect(f.speak).not.toHaveBeenCalled();
+    expect(f.cancel).toHaveBeenCalledOnce();
+  });
+  it("stops with an actionable error when summarization fails", async () => {
+    const f = summaryFixture();
+    f.queue.enqueue("Original long update");
+    f.summaries[0]!.reject(new Error("offline"));
+    await Promise.resolve();
+    expect(f.speak).not.toHaveBeenCalled();
+    expect(f.error).toHaveBeenCalledWith(expect.stringContaining("Check the narration model"));
+  });
+  it("skips empty summaries and bypasses the model for the activation greeting", async () => {
+    const f = summaryFixture();
+    f.queue.enqueue("Not useful");
+    f.summaries[0]!.resolve("");
+    await Promise.resolve();
+    f.queue.enqueue("Narration is on.", false);
+    expect(f.speak.mock.calls[0]?.[0]).toBe("Narration is on.");
+    expect(f.summarize).toHaveBeenCalledOnce();
+  });
+});

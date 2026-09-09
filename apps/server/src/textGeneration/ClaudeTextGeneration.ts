@@ -25,6 +25,7 @@ import {
   buildCommitMessagePrompt,
   buildPrContentPrompt,
   buildThreadTitlePrompt,
+  buildNarrationPrompt,
 } from "./TextGenerationPrompts.ts";
 import {
   normalizeCliError,
@@ -102,6 +103,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
       | "generateCommitMessage"
       | "generatePrContent"
       | "generateBranchName"
+      | "generateNarration"
       | "generateThreadTitle",
     value: unknown,
     detail: string,
@@ -132,6 +134,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
       | "generateCommitMessage"
       | "generatePrContent"
       | "generateBranchName"
+      | "generateNarration"
       | "generateThreadTitle";
     cwd: string;
     prompt: string;
@@ -187,7 +190,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     const runClaudeCommand = Effect.fn("runClaudeJson.runClaudeCommand")(function* () {
       // Titles need only the supplied prompt, not configuration from the checkout.
       const workingDirectory =
-        operation === "generateThreadTitle"
+        operation === "generateThreadTitle" || operation === "generateNarration"
           ? yield* fileSystem
               .makeTempDirectoryScoped({ prefix: "t3code-claude-title-" })
               .pipe(
@@ -408,7 +411,21 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
       };
     });
 
+  const generateNarration: TextGeneration.TextGeneration["Service"]["generateNarration"] =
+    Effect.fn("ClaudeTextGeneration.generateNarration")(function* (input) {
+      const { prompt, outputSchema } = buildNarrationPrompt(input);
+      const generated = yield* runClaudeJson({
+        operation: "generateNarration",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+      return { text: generated.text.trim() };
+    });
+
   return {
+    generateNarration,
     generateCommitMessage,
     generatePrContent,
     generateBranchName,

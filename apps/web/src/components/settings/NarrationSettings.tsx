@@ -1,3 +1,16 @@
+import { useAtomValue } from "@effect/atom-react";
+import { DEFAULT_SERVER_SETTINGS } from "@t3tools/contracts";
+import { createModelSelection } from "@t3tools/shared/model";
+import { usePrimarySettings, useUpdatePrimarySettings } from "~/hooks/useSettings";
+import { primaryServerProvidersAtom } from "~/state/server";
+import {
+  applyProviderInstanceSettings,
+  deriveProviderInstanceEntries,
+  sortProviderInstanceEntries,
+} from "~/providerInstances";
+import { getCustomModelOptionsByInstance, resolveAppModelSelectionState } from "~/modelSelection";
+import { ProviderModelPicker } from "../chat/ProviderModelPicker";
+import { Textarea } from "../ui/textarea";
 import { useEffect, useRef, useState } from "react";
 import { Volume2Icon } from "lucide-react";
 import { useClientSettings, useUpdateClientSettings } from "~/hooks/useSettings";
@@ -14,6 +27,28 @@ import { toastManager } from "../ui/toast";
 
 export function NarrationSettings() {
   const settings = useClientSettings();
+  const serverSettings = usePrimarySettings();
+  const updateServer = useUpdatePrimarySettings();
+  const providers = useAtomValue(primaryServerProvidersAtom).filter(
+    (provider) => provider.supportsTextGeneration !== false,
+  );
+  const selection = resolveAppModelSelectionState(
+    {
+      ...serverSettings,
+      textGenerationModelSelection:
+        serverSettings.narrationModelSelection ?? serverSettings.textGenerationModelSelection,
+    },
+    providers,
+  );
+  const instanceEntries = sortProviderInstanceEntries(
+    applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), serverSettings),
+  );
+  const modelOptions = getCustomModelOptionsByInstance(
+    serverSettings,
+    providers,
+    selection.instanceId,
+    selection.model,
+  );
   const update = useUpdateClientSettings();
   const voices = useNarrationVoices();
   const preview = useRef<NarrationSpeaker | null>(null);
@@ -67,7 +102,7 @@ export function NarrationSettings() {
     >
       <SettingsRow
         title="Hear what’s happening"
-        description="Turn on Narrate in a thread to hear short excerpts from new agent updates. Narration stops when you leave the thread."
+        description="Turn on Narrate in a thread to hear one-sentence summaries of new agent updates. Narration stops when you leave the thread."
         control={
           <Button size="sm" variant="outline" disabled={!available} onClick={testVoice}>
             <Volume2Icon className="size-4" />
@@ -81,6 +116,66 @@ export function NarrationSettings() {
             supports speech playback.
           </p>
         ) : null}
+      </SettingsRow>
+      <SettingsRow
+        serverScoped
+        {...searchableSetting("narration-summary-model")}
+        description="Shortens each update before speaking. Uses this environment’s text generation model unless you choose another."
+        resetAction={
+          serverSettings.narrationModelSelection ? (
+            <SettingResetButton
+              label="narration summary model"
+              onClick={() => updateServer({ narrationModelSelection: null })}
+            />
+          ) : null
+        }
+        control={
+          <ProviderModelPicker
+            activeInstanceId={selection.instanceId}
+            model={selection.model}
+            lockedProvider={null}
+            instanceEntries={instanceEntries}
+            modelOptionsByInstance={modelOptions}
+            triggerVariant="outline"
+            triggerAriaLabel="Narration summary model"
+            onInstanceModelChange={(instanceId, model) =>
+              updateServer({ narrationModelSelection: createModelSelection(instanceId, model) })
+            }
+          />
+        }
+      />
+      <SettingsRow
+        serverScoped
+        {...searchableSetting("narration-instructions")}
+        description="Tell the model what is useful to hear. By default, it gives one plain-language sentence of at most 20 words. Applies to the next update."
+        resetAction={
+          serverSettings.narrationInstructions !== DEFAULT_SERVER_SETTINGS.narrationInstructions ? (
+            <SettingResetButton
+              label="narration instructions"
+              onClick={() =>
+                updateServer({
+                  narrationInstructions: DEFAULT_SERVER_SETTINGS.narrationInstructions,
+                })
+              }
+            />
+          ) : null
+        }
+      >
+        <div className="max-w-2xl pb-3.5">
+          <Textarea
+            key={serverSettings.narrationInstructions}
+            defaultValue={serverSettings.narrationInstructions}
+            aria-label="Narration instructions"
+            maxLength={4000}
+            rows={5}
+            onBlur={(event) => {
+              const instructions =
+                event.target.value.trim() || DEFAULT_SERVER_SETTINGS.narrationInstructions;
+              if (instructions !== serverSettings.narrationInstructions)
+                updateServer({ narrationInstructions: instructions });
+            }}
+          />
+        </div>
       </SettingsRow>
       <SettingsRow
         {...searchableSetting("narration-engine")}

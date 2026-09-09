@@ -249,9 +249,11 @@ import {
   SourceControlRepositoryInfo,
   SourceControlRepositoryLookupInput,
 } from "./sourceControl.ts";
+import { TextGenerationError } from "./git.ts";
 import { VcsError } from "./vcs.ts";
 
 export const WS_METHODS = {
+  narrationSummarize: "narration.summarize",
   // Project registry methods
   projectsList: "projects.list",
   projectsAdd: "projects.add",
@@ -1252,7 +1254,17 @@ const WsSubscribeResourceTelemetryRpc = Rpc.make(WS_METHODS.subscribeResourceTel
   stream: true,
 });
 
+const WsNarrationSummarizeRpc = Rpc.make(WS_METHODS.narrationSummarize, {
+  payload: Schema.Struct({
+    cwd: TrimmedNonEmptyString,
+    text: Schema.String.check(Schema.isMaxLength(12000)),
+  }),
+  success: Schema.Struct({ text: Schema.String }),
+  error: Schema.Union([TextGenerationError, ServerSettingsError, EnvironmentAuthorizationError]),
+});
+
 export const WsRpcGroup = RpcGroup.make(
+  WsNarrationSummarizeRpc,
   WsServerProbeRpc,
   WsServerGetConfigRpc,
   WsServerRefreshProvidersRpc,

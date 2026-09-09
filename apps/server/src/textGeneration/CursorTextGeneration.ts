@@ -16,6 +16,7 @@ import {
   buildCommitMessagePrompt,
   buildPrContentPrompt,
   buildThreadTitlePrompt,
+  buildNarrationPrompt,
 } from "./TextGenerationPrompts.ts";
 import {
   sanitizeCommitSubject,
@@ -54,6 +55,7 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
       | "generateCommitMessage"
       | "generatePrContent"
       | "generateBranchName"
+      | "generateNarration"
       | "generateThreadTitle";
     cwd: string;
     prompt: string;
@@ -259,7 +261,21 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
       } satisfies TextGeneration.ThreadTitleGenerationResult;
     });
 
+  const generateNarration: TextGeneration.TextGeneration["Service"]["generateNarration"] =
+    Effect.fn("CursorTextGeneration.generateNarration")(function* (input) {
+      const { prompt, outputSchema } = buildNarrationPrompt(input);
+      const generated = yield* runCursorJson({
+        operation: "generateNarration",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+      return { text: generated.text.trim() };
+    });
+
   return {
+    generateNarration,
     generateCommitMessage,
     generatePrContent,
     generateBranchName,
