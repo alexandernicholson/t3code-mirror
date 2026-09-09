@@ -1,4 +1,5 @@
 import { Advisors } from "./advisors/Advisors.ts";
+import { Reviewers } from "./reviewers/Reviewers.ts";
 import { makeSummarizeNarration } from "./textGeneration/Narration.ts";
 import { makeTextGenerationFromRegistry } from "./textGeneration/TextGeneration.ts";
 import { SourceUpdates } from "./sourceUpdates/controller.ts";
@@ -483,6 +484,7 @@ const makeWsRpcLayer = (
   previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
   secrets: Secrets.Secrets["Service"],
   advisors: Advisors["Service"],
+  reviewers: Reviewers["Service"],
 ) =>
   WsRpcGroup.toLayer(
     Effect.gen(function* () {
@@ -2706,6 +2708,16 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.advisorsAction, advisors.action(input)),
         [WS_METHODS.advisorsSubscribe]: (input) =>
           observeRpcStream(WS_METHODS.advisorsSubscribe, advisors.subscribe(input)),
+        [WS_METHODS.reviewersSave]: (input) =>
+          observeRpcEffect(WS_METHODS.reviewersSave, reviewers.save(input)),
+        [WS_METHODS.reviewersAction]: (input) =>
+          observeRpcEffect(WS_METHODS.reviewersAction, reviewers.action(input)),
+        [WS_METHODS.reviewersOptimize]: (input) =>
+          observeRpcEffect(WS_METHODS.reviewersOptimize, reviewers.optimize(input)),
+        [WS_METHODS.reviewersGenerateName]: (input) =>
+          observeRpcEffect(WS_METHODS.reviewersGenerateName, reviewers.generateName(input)),
+        [WS_METHODS.reviewersSubscribe]: (input) =>
+          observeRpcStream(WS_METHODS.reviewersSubscribe, reviewers.subscribe(input)),
         [WS_METHODS.secretsCreate]: (input) =>
           observeRpcEffect(WS_METHODS.secretsCreate, secrets.create(input)),
         [WS_METHODS.secretsUpdate]: (input) =>
@@ -2972,6 +2984,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
     const secrets = yield* Secrets.Secrets;
     const advisors = yield* Advisors;
+    const reviewers = yield* Reviewers;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const baseServerSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const sourceUpdates = yield* SourceUpdates;
@@ -3035,6 +3048,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               previewAutomationBroker,
               secrets,
               advisors,
+              reviewers,
             ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(AgentSessionScanner.layer),

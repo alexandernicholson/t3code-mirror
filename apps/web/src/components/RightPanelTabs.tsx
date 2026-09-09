@@ -8,6 +8,7 @@ import type {
 import { getTerminalLabel } from "@t3tools/shared/terminalLabels";
 import {
   Bot,
+  ClipboardCheck,
   Eye,
   ChevronDown,
   ChevronLeft,
@@ -109,6 +110,7 @@ interface RightPanelTabsProps {
   onAddAgents: () => void;
   onAddTodos: () => void;
   onAddAdvisors?: () => void;
+  onAddReviewers?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -308,6 +310,7 @@ function RightPanelEmptyState(props: {
   onAddAgents: () => void;
   onAddTodos: () => void;
   onAddAdvisors?: () => void;
+  onAddReviewers?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -379,6 +382,16 @@ function RightPanelEmptyState(props: {
       available: !!props.onAddAdvisors,
       disabledReason: "Available from a thread.",
       onClick: () => props.onAddAdvisors?.(),
+      badgeCount: 0,
+    },
+    {
+      label: "Reviewers",
+      description: "Open a focused review in a new editor.",
+      icon: ClipboardCheck,
+      shortcut: "R",
+      available: !!props.onAddReviewers,
+      disabledReason: "Available from a thread.",
+      onClick: () => props.onAddReviewers?.(),
       badgeCount: 0,
     },
     {
@@ -634,6 +647,8 @@ function surfaceTitle(
       return `#${surface.number}`;
     case "advisors":
       return "Advisors";
+    case "reviewers":
+      return "Reviewers";
     case "todos":
       return "TODOs";
     case "agents":
@@ -719,6 +734,8 @@ function SurfaceIcon({
       );
     case "advisors":
       return <Eye className="size-3 shrink-0" />;
+    case "reviewers":
+      return <ClipboardCheck className="size-3 shrink-0" />;
     case "todos":
       return <ListTodo className="size-3 shrink-0" />;
     case "agents":
@@ -852,6 +869,16 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       available: !!props.onAddAdvisors,
       disabledReason: "Available from a thread.",
       onClick: () => props.onAddAdvisors?.(),
+      badgeCount: 0,
+    },
+    {
+      label: "Reviewers",
+      description: "Open a focused review in a new editor.",
+      icon: ClipboardCheck,
+      shortcut: "R",
+      available: !!props.onAddReviewers,
+      disabledReason: "Available from a thread.",
+      onClick: () => props.onAddReviewers?.(),
       badgeCount: 0,
     },
     {
@@ -1309,6 +1336,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddFiles={props.onAddFiles}
             onAddPullRequest={props.onAddPullRequest}
             {...(props.onAddAdvisors ? { onAddAdvisors: props.onAddAdvisors } : {})}
+            {...(props.onAddReviewers ? { onAddReviewers: props.onAddReviewers } : {})}
             onAddTodos={props.onAddTodos}
             todosAvailable={props.todosAvailable}
             onAddAgents={props.onAddAgents}

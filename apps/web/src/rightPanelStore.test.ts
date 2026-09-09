@@ -21,6 +21,21 @@ beforeEach(() => {
 });
 
 describe("rightPanelStore", () => {
+  it("opens Reviewers as its own singleton surface", () => {
+    const store = useRightPanelStore.getState();
+    store.open(refA, "advisors");
+    store.open(refA, "reviewers");
+    expect(selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, refA)).toBe(
+      "reviewers",
+    );
+    expect(
+      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA).surfaces,
+    ).toEqual([
+      { id: "advisors", kind: "advisors" },
+      { id: "reviewers", kind: "reviewers" },
+    ]);
+  });
+
   it("opens, hides, reopens and closes TODOs independently per thread", () => {
     const store = useRightPanelStore.getState();
     store.open(refA, "files");

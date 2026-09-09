@@ -1,4 +1,5 @@
 import { advisorTestLayer } from "./advisors/testLayer.ts";
+import { reviewerTestLayer } from "./reviewers/testLayer.ts";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeSocket from "@effect/platform-node/NodeSocket";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -742,6 +743,7 @@ const buildAppUnderTest = (options?: {
       makeRoutesLayer.pipe(
         Layer.provide(serviceLauncherClientLayer),
         Layer.provide(advisorTestLayer),
+        Layer.provide(reviewerTestLayer),
       ),
       {
         disableListenLog: true,

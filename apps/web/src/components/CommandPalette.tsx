@@ -454,6 +454,11 @@ export function CommandPalette({ children }: { children: ReactNode }) {
         if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "advisors");
         return;
       }
+      if (command === "reviewers.toggle") {
+        event.preventDefault();
+        if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "reviewers");
+        return;
+      }
       if (command === "todos.toggle") {
         event.preventDefault();
         if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "todos");
@@ -1720,6 +1725,24 @@ function OpenCommandPaletteDialog(props: {
           .open(
             { environmentId: activeThread.environmentId, threadId: activeThread.id },
             "advisors",
+          );
+      },
+    });
+
+  if (activeThread)
+    actionItems.push({
+      kind: "action",
+      value: "action:reviewers",
+      searchTerms: ["reviewer", "review", "tests", "qa", "security", "performance"],
+      title: "Open reviewers",
+      icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "reviewers.toggle",
+      run: async () => {
+        useRightPanelStore
+          .getState()
+          .open(
+            { environmentId: activeThread.environmentId, threadId: activeThread.id },
+            "reviewers",
           );
       },
     });

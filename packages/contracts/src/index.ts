@@ -48,3 +48,4 @@ export * from "./sourceUpdates.ts";
 export * from "./secrets.ts";
 
 export * from "./advisors.ts";
+export * from "./reviewers.ts";

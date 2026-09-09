@@ -5,6 +5,17 @@ import {
   AdvisorSnapshot,
   AdvisorError,
 } from "./advisors.ts";
+import {
+  ReviewerConfiguration,
+  ReviewerAction,
+  ReviewerError,
+  ReviewerGenerateNameInput,
+  ReviewerGenerateNameResult,
+  ReviewerOptimizeInput,
+  ReviewerOptimizeResult,
+  ReviewerSnapshot,
+  ReviewerSubscriptionInput,
+} from "./reviewers.ts";
 import { SourceUpdateAction, SourceUpdateError, SourceUpdateStatus } from "./sourceUpdates.ts";
 import {
   SecretRevokeInput,
@@ -336,6 +347,11 @@ export const WS_METHODS = {
   advisorsSave: "advisors.save",
   advisorsAction: "advisors.action",
   advisorsSubscribe: "advisors.subscribe",
+  reviewersSave: "reviewers.save",
+  reviewersAction: "reviewers.action",
+  reviewersOptimize: "reviewers.optimize",
+  reviewersGenerateName: "reviewers.generateName",
+  reviewersSubscribe: "reviewers.subscribe",
   secretsCreate: "secrets.create",
   secretsUpdate: "secrets.update",
   secretsDelete: "secrets.delete",
@@ -1098,6 +1114,30 @@ const WsAdvisorsSubscribeRpc = Rpc.make(WS_METHODS.advisorsSubscribe, {
   stream: true,
   error: Schema.Union([AdvisorError, EnvironmentAuthorizationError]),
 });
+const WsReviewersSaveRpc = Rpc.make(WS_METHODS.reviewersSave, {
+  payload: ReviewerConfiguration,
+  error: Schema.Union([ReviewerError, EnvironmentAuthorizationError]),
+});
+const WsReviewersActionRpc = Rpc.make(WS_METHODS.reviewersAction, {
+  payload: ReviewerAction,
+  error: Schema.Union([ReviewerError, EnvironmentAuthorizationError]),
+});
+const WsReviewersOptimizeRpc = Rpc.make(WS_METHODS.reviewersOptimize, {
+  payload: ReviewerOptimizeInput,
+  success: ReviewerOptimizeResult,
+  error: Schema.Union([ReviewerError, EnvironmentAuthorizationError]),
+});
+const WsReviewersGenerateNameRpc = Rpc.make(WS_METHODS.reviewersGenerateName, {
+  payload: ReviewerGenerateNameInput,
+  success: ReviewerGenerateNameResult,
+  error: Schema.Union([ReviewerError, EnvironmentAuthorizationError]),
+});
+const WsReviewersSubscribeRpc = Rpc.make(WS_METHODS.reviewersSubscribe, {
+  payload: ReviewerSubscriptionInput,
+  success: ReviewerSnapshot,
+  stream: true,
+  error: Schema.Union([ReviewerError, EnvironmentAuthorizationError]),
+});
 
 const WsSecretsCreateRpc = Rpc.make(WS_METHODS.secretsCreate, {
   payload: SecretWriteInput,
@@ -1399,6 +1439,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsAdvisorsSaveRpc,
   WsAdvisorsActionRpc,
   WsAdvisorsSubscribeRpc,
+  WsReviewersSaveRpc,
+  WsReviewersActionRpc,
+  WsReviewersOptimizeRpc,
+  WsReviewersGenerateNameRpc,
+  WsReviewersSubscribeRpc,
   WsSecretsCreateRpc,
   WsSecretsUpdateRpc,
   WsSecretsDeleteRpc,

@@ -21,6 +21,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { SettingsPageContainer } from "./settingsLayout";
+import { ReviewerRulesSettings } from "./ReviewerRulesSettings";
 
 const fieldClass = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 export function AdvisorsSettings() {
@@ -36,7 +37,7 @@ export function AdvisorsSettings() {
         <div>
           <h1 className="text-xl font-semibold">Agents</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Independent advisors that follow your work and offer a second opinion.
+            Configure continuous advisors and the reusable rule library for on-demand reviews.
           </p>
         </div>
         <label className="flex max-w-sm flex-col gap-2 text-sm">
@@ -64,6 +65,7 @@ export function AdvisorsSettings() {
         ) : (
           <p>Connect an environment to configure advisors.</p>
         )}
+        {environment && <ReviewerRulesSettings environmentId={environment.environmentId} />}
       </div>
     </SettingsPageContainer>
   );
