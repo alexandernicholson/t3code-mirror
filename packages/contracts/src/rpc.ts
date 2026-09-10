@@ -1,4 +1,13 @@
 import {
+  CodeToolsConfiguration,
+  CodeToolsError,
+  CodeToolsSnapshot,
+  CodeToolsSubscriptionInput,
+  CodeToolsManageInput,
+  CodeToolsRunInput,
+  CodeToolResult,
+} from "./codeTools.ts";
+import {
   AdvisorConfiguration,
   AdvisorAction,
   AdvisorSubscriptionInput,
@@ -350,6 +359,10 @@ export const WS_METHODS = {
   advisorsSave: "advisors.save",
   advisorsAction: "advisors.action",
   advisorsSubscribe: "advisors.subscribe",
+  codeToolsSave: "codeTools.save",
+  codeToolsManage: "codeTools.manage",
+  codeToolsRun: "codeTools.run",
+  codeToolsSubscribe: "codeTools.subscribe",
   reviewersSave: "reviewers.save",
   reviewersAction: "reviewers.action",
   reviewersOptimize: "reviewers.optimize",
@@ -1114,6 +1127,25 @@ const WsAdvisorsSaveRpc = Rpc.make(WS_METHODS.advisorsSave, {
   payload: AdvisorConfiguration,
   error: Schema.Union([AdvisorError, EnvironmentAuthorizationError]),
 });
+const WsCodeToolsSaveRpc = Rpc.make(WS_METHODS.codeToolsSave, {
+  payload: CodeToolsConfiguration,
+  error: Schema.Union([CodeToolsError, EnvironmentAuthorizationError]),
+});
+const WsCodeToolsManageRpc = Rpc.make(WS_METHODS.codeToolsManage, {
+  payload: CodeToolsManageInput,
+  error: Schema.Union([CodeToolsError, EnvironmentAuthorizationError]),
+});
+const WsCodeToolsRunRpc = Rpc.make(WS_METHODS.codeToolsRun, {
+  payload: CodeToolsRunInput,
+  success: CodeToolResult,
+  error: Schema.Union([CodeToolsError, EnvironmentAuthorizationError]),
+});
+const WsCodeToolsSubscribeRpc = Rpc.make(WS_METHODS.codeToolsSubscribe, {
+  payload: CodeToolsSubscriptionInput,
+  success: CodeToolsSnapshot,
+  stream: true,
+  error: Schema.Union([CodeToolsError, EnvironmentAuthorizationError]),
+});
 const WsAdvisorsActionRpc = Rpc.make(WS_METHODS.advisorsAction, {
   payload: AdvisorAction,
   error: Schema.Union([AdvisorError, EnvironmentAuthorizationError]),
@@ -1450,6 +1482,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsAdvisorsSaveRpc,
   WsAdvisorsActionRpc,
   WsAdvisorsSubscribeRpc,
+  WsCodeToolsSaveRpc,
+  WsCodeToolsManageRpc,
+  WsCodeToolsRunRpc,
+  WsCodeToolsSubscribeRpc,
   WsReviewersSaveRpc,
   WsReviewersActionRpc,
   WsReviewersOptimizeRpc,

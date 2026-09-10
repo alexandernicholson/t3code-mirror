@@ -74,6 +74,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "themeEditor.toggle",
   "todos.toggle",
   "advisors.toggle",
+  "codeChecks.toggle",
   "reviewers.toggle",
   "composer.stash",
   "ide.toggle",

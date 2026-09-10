@@ -29,6 +29,7 @@ const RIGHT_PANEL_KINDS = [
   "agents",
   "todos",
   "advisors",
+  "code-checks",
   "reviewers",
   "ide",
 ] as const;
@@ -79,6 +80,7 @@ export type RightPanelSurface =
   | { id: "agents"; kind: "agents" }
   | { id: "todos"; kind: "todos" }
   | { id: "advisors"; kind: "advisors" }
+  | { id: "code-checks"; kind: "code-checks"; file?: string; line?: number }
   | { id: "reviewers"; kind: "reviewers" }
   | { id: "ide"; kind: "ide" };
 
@@ -126,6 +128,7 @@ interface RightPanelStoreState {
   ) => void;
   openBrowser: (ref: ScopedThreadRef, tabId: string | null) => void;
   openFile: (ref: ScopedThreadRef, relativePath: string, line?: number) => void;
+  openCodeTools: (ref: ScopedThreadRef, file: string, line?: number) => void;
   openAttachment: (ref: ScopedThreadRef, attachment: ChatFileAttachment) => void;
   openPullRequest: (
     ref: ScopedThreadRef,
@@ -179,6 +182,8 @@ const singletonSurface = (
       return { id: "files", kind };
     case "advisors":
       return { id: "advisors", kind };
+    case "code-checks":
+      return { id: "code-checks", kind };
     case "reviewers":
       return { id: "reviewers", kind };
     case "todos":
@@ -490,6 +495,23 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
                   ),
                 }
               : next;
+          }),
+        ),
+      openCodeTools: (ref, file, line) =>
+        set((state) =>
+          userAction(state, scopedThreadKey(ref), (current) => {
+            const surface: RightPanelSurface = {
+              id: "code-checks",
+              kind: "code-checks",
+              file,
+              ...(line ? { line } : {}),
+            };
+            return {
+              ...upsertSurface(current, surface),
+              surfaces: current.surfaces.some((entry) => entry.id === surface.id)
+                ? current.surfaces.map((entry) => (entry.id === surface.id ? surface : entry))
+                : [...current.surfaces, surface],
+            };
           }),
         ),
       openFile: (ref, relativePath, line) =>

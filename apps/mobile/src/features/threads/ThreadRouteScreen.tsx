@@ -1,4 +1,5 @@
 import { ThreadAdvisors } from "./ThreadAdvisors";
+import { ThreadCodeChecks } from "./ThreadCodeChecks";
 import { ThreadAgents } from "./ThreadAgents";
 import { ThreadTodos } from "./ThreadTodos";
 import { ThreadNarration } from "../narration/ThreadNarration";
@@ -458,6 +459,7 @@ function ThreadRouteContent(
   const supportsTodos =
     routeEnvironmentRuntime?.serverConfig?.environment.capabilities.threadTodos === true;
   const [advisorOpenRequest, setAdvisorOpenRequest] = useState(0);
+  const [codeChecksOpenRequest, setCodeChecksOpenRequest] = useState(0);
   const [todosSheetThread, setTodosSheetThread] = useState<string | null>(null);
   const openTodos = useCallback(() => {
     if (!supportsTodos) return;
@@ -927,6 +929,12 @@ function ThreadRouteContent(
           ) : null}
         </View>
       </Modal>
+      <ThreadCodeChecks
+        key={`checks:${routeThreadIdentity}`}
+        environmentId={selectedThread.environmentId}
+        threadId={selectedThread.id}
+        openRequest={codeChecksOpenRequest}
+      />
       <ThreadAdvisors
         openRequest={advisorOpenRequest}
         key={routeThreadIdentity}
@@ -982,6 +990,7 @@ function ThreadRouteContent(
         {selectedThreadDetail ? <ThreadNarration /> : null}
         <ThreadDetailScreen
           onOpenAdvisors={() => setAdvisorOpenRequest((value) => value + 1)}
+          onOpenCodeChecks={() => setCodeChecksOpenRequest((value) => value + 1)}
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
           contentPresentation={contentPresentation}
           screenTone={connectionTone(routeConnectionState)}

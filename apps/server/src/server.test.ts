@@ -1,4 +1,5 @@
 import { advisorTestLayer } from "./advisors/testLayer.ts";
+import { codeToolsTestLayer } from "./codeTools/testLayer.ts";
 import { reviewerTestLayer } from "./reviewers/testLayer.ts";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeSocket from "@effect/platform-node/NodeSocket";
@@ -745,6 +746,7 @@ const buildAppUnderTest = (options?: {
       makeRoutesLayer.pipe(
         Layer.provide(serviceLauncherClientLayer),
         Layer.provide(advisorTestLayer),
+        Layer.provide(codeToolsTestLayer),
         Layer.provide(reviewerTestLayer),
       ),
       {

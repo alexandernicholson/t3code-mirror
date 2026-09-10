@@ -1,4 +1,5 @@
 import { Advisors } from "../../advisors/Advisors.ts";
+import { CodeTools } from "../../codeTools/CodeTools.ts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -16,6 +17,7 @@ import * as AgentAwarenessRelay from "../../relay/AgentAwarenessRelay.ts";
 
 export const makeOrchestrationReactor = Effect.gen(function* () {
   const advisors = yield* Advisors;
+  const codeTools = yield* CodeTools;
   const providerRuntimeIngestion = yield* ProviderRuntimeIngestionService;
   const providerCommandReactor = yield* ProviderCommandReactor;
   const checkpointReactor = yield* CheckpointReactor;
@@ -26,6 +28,7 @@ export const makeOrchestrationReactor = Effect.gen(function* () {
 
   const start: OrchestrationReactorShape["start"] = Effect.fn("start")(function* () {
     yield* advisors.start().pipe(Effect.orDie);
+    yield* codeTools.start().pipe(Effect.orDie);
     yield* providerRuntimeIngestion.start();
     yield* providerCommandReactor.start();
     yield* checkpointReactor.start();

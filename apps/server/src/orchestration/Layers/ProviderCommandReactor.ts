@@ -1,4 +1,5 @@
 import { appendTodoContext } from "@t3tools/shared/todos";
+import { CodeTools } from "../../codeTools/CodeTools.ts";
 import {
   type ChatAttachment,
   CommandId,
@@ -324,6 +325,7 @@ function buildGeneratedWorktreeBranchName(raw: string): string {
 
 const make = Effect.gen(function* () {
   const crypto = yield* Crypto.Crypto;
+  const codeTools = yield* CodeTools;
   const orchestrationEngine = yield* OrchestrationEngineService;
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
   const providerAuthService = yield* ProviderAuthService;
@@ -1465,6 +1467,18 @@ const make = Effect.gen(function* () {
       return;
     }
 
+    if (
+      !event.payload.messageId.startsWith("code-check:") &&
+      !event.payload.messageId.startsWith("advisor:")
+    ) {
+      yield* codeTools
+        .prepare(event.payload.threadId)
+        .pipe(
+          Effect.catch((error) =>
+            Effect.logWarning("Code check baseline unavailable", { message: error.message }),
+          ),
+        );
+    }
     yield* providerService.sendTurn(sendTurnRequest.value).pipe(
       Effect.tap(() =>
         event.payload.messageId.startsWith("advisor:")

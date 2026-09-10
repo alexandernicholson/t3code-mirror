@@ -1,4 +1,5 @@
 import { Spinner } from "~/components/ui/spinner";
+import { Button } from "~/components/ui/button";
 import type {
   ChatFileAttachment,
   EditorId,
@@ -92,6 +93,7 @@ interface FilePreviewPanelProps {
   revealLine: number | null;
   revealRequestId: number;
   onOpenFile: (relativePath: string) => void;
+  onCodeTools?: (relativePath: string, line: number) => void;
   onPendingChange: (relativePath: string, pending: boolean) => void;
   selectedFilePending: boolean;
   workspaceMutationId: string | null;
@@ -965,6 +967,7 @@ export default function FilePreviewPanel({
   revealLine,
   revealRequestId,
   onOpenFile,
+  onCodeTools,
   onPendingChange,
   selectedFilePending,
   workspaceMutationId,
@@ -1145,6 +1148,15 @@ export default function FilePreviewPanel({
               enableShortcut={false}
             />
           ) : null}
+          {onCodeTools && !attachment && !isMedia && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onCodeTools(relativePath, revealLine ?? 1)}
+            >
+              Code tools
+            </Button>
+          )}
           {canToggleRendered ? (
             <Tooltip>
               <TooltipTrigger

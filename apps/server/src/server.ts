@@ -1,4 +1,5 @@
 import * as Advisors from "./advisors/Advisors.ts";
+import * as CodeTools from "./codeTools/CodeTools.ts";
 import * as AdvisorStore from "./advisors/AdvisorStore.ts";
 import * as AdvisorRunner from "./advisors/AdvisorRunner.ts";
 import * as ReviewerStore from "./reviewers/ReviewerStore.ts";
@@ -299,6 +300,7 @@ const ReactorLayerLive = Layer.empty.pipe(
   ),
   Layer.provideMerge(ProviderRuntimeIngestionLive),
   Layer.provideMerge(ProviderCommandReactorLive),
+  Layer.provideMerge(CodeTools.layer),
   Layer.provideMerge(CheckpointReactorLive),
   Layer.provideMerge(ThreadDeletionReactorLive),
   Layer.provideMerge(ThreadSettlementReactor.layer),

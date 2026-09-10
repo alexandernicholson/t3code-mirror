@@ -42,6 +42,8 @@ local work, resolve it yourself before automatic pulls can resume.
 
 ## Tools and MCP servers
 
+The **Code tools** section manages language-server installation, custom servers, and code checks for each environment, project, or thread. See [Code tools](./code-tools.md) for setup and project rules.
+
 In web or desktop, open **Settings → Tools & MCP servers**, choose an environment, and add
 an HTTP server or a local command. Choose which providers and projects can use it. Local
 commands run on the environment's machine. These tools are available to its conversations

@@ -1,4 +1,5 @@
 import { advisorTestLayer } from "../../advisors/testLayer.ts";
+import { codeToolsTestLayer } from "../../codeTools/testLayer.ts";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
@@ -32,6 +33,7 @@ describe("OrchestrationReactor", () => {
     runtime = ManagedRuntime.make(
       Layer.effect(OrchestrationReactor, makeOrchestrationReactor).pipe(
         Layer.provide(advisorTestLayer),
+        Layer.provide(codeToolsTestLayer),
         Layer.provideMerge(
           Layer.succeed(ProviderRuntimeIngestionService, {
             start: () => {

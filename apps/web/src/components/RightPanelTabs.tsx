@@ -111,6 +111,7 @@ interface RightPanelTabsProps {
   onAddAgents: () => void;
   onAddTodos: () => void;
   onAddAdvisors?: () => void;
+  onAddCodeChecks?: () => void;
   onAddReviewers?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
@@ -311,6 +312,7 @@ function RightPanelEmptyState(props: {
   onAddAgents: () => void;
   onAddTodos: () => void;
   onAddAdvisors?: () => void;
+  onAddCodeChecks?: () => void;
   onAddReviewers?: () => void;
   browserAvailable: boolean;
   terminalAvailable: boolean;
@@ -383,6 +385,16 @@ function RightPanelEmptyState(props: {
       available: !!props.onAddAdvisors,
       disabledReason: "Available from a thread.",
       onClick: () => props.onAddAdvisors?.(),
+      badgeCount: 0,
+    },
+    {
+      label: "Code checks",
+      description: "Check, navigate and refactor code.",
+      icon: ClipboardCheck,
+      shortcut: "C",
+      available: !!props.onAddCodeChecks,
+      disabledReason: "Available from a thread.",
+      onClick: () => props.onAddCodeChecks?.(),
       badgeCount: 0,
     },
     {
@@ -648,6 +660,8 @@ function surfaceTitle(
       return `#${surface.number}`;
     case "advisors":
       return "Advisors";
+    case "code-checks":
+      return "Code checks";
     case "reviewers":
       return "Reviewers";
     case "todos":
@@ -738,6 +752,8 @@ function SurfaceIcon({
     case "advisors":
       return <Eye className="size-3 shrink-0" />;
     case "reviewers":
+      return <ClipboardCheck className="size-3 shrink-0" />;
+    case "code-checks":
       return <ClipboardCheck className="size-3 shrink-0" />;
     case "todos":
       return <ListTodo className="size-3 shrink-0" />;
@@ -874,6 +890,16 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       available: !!props.onAddAdvisors,
       disabledReason: "Available from a thread.",
       onClick: () => props.onAddAdvisors?.(),
+      badgeCount: 0,
+    },
+    {
+      label: "Code checks",
+      description: "Check, navigate and refactor code.",
+      icon: ClipboardCheck,
+      shortcut: "C",
+      available: !!props.onAddCodeChecks,
+      disabledReason: "Available from a thread.",
+      onClick: () => props.onAddCodeChecks?.(),
       badgeCount: 0,
     },
     {
@@ -1341,6 +1367,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddFiles={props.onAddFiles}
             onAddPullRequest={props.onAddPullRequest}
             {...(props.onAddAdvisors ? { onAddAdvisors: props.onAddAdvisors } : {})}
+            {...(props.onAddCodeChecks ? { onAddCodeChecks: props.onAddCodeChecks } : {})}
             {...(props.onAddReviewers ? { onAddReviewers: props.onAddReviewers } : {})}
             onAddTodos={props.onAddTodos}
             todosAvailable={props.todosAvailable}

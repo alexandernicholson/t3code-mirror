@@ -2,6 +2,7 @@ import Migration0052 from "./Migrations/052_Advisors.ts";
 import Migration0053 from "./Migrations/053_ProjectionProjectConversationBackground.ts";
 import Migration0054 from "./Migrations/054_Reviewers.ts";
 import Migration0055 from "./Migrations/055_UsageLimitHistory.ts";
+import Migration0056 from "./Migrations/056_CodeTools.ts";
 /**
  * Migration runner with an inline loader.
  *
@@ -134,6 +135,7 @@ const migrationEntries = [
   [53, "ProjectionProjectConversationBackground", Migration0053],
   [54, "Reviewers", Migration0054],
   [55, "UsageLimitHistory", Migration0055],
+  [56, "CodeTools", Migration0056],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

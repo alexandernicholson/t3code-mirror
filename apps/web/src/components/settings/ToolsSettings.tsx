@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import {
   GlobeIcon,
   InfoIcon,
@@ -39,6 +39,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { SettingsPageContainer } from "./settingsLayout";
+import { CodeToolsSettings } from "./CodeToolsSettings";
 
 const decodeServerName = Schema.decodeUnknownSync(ManagedMcpServerName);
 const decodeServer = Schema.decodeUnknownSync(ManagedMcpServer);
@@ -339,11 +340,12 @@ function ServerEditor({
 }
 
 export function ToolsSettings() {
+  const search = useSearch({ from: "/settings/tools" });
   const { environments } = useEnvironments();
   const primary = usePrimaryEnvironment();
   const [selectedId, setSelectedId] = useState<EnvironmentId | null>(null);
   const environment = environments.find(
-    (e) => e.environmentId === (selectedId ?? primary?.environmentId),
+    (e) => e.environmentId === (selectedId ?? search.environment ?? primary?.environmentId),
   );
   return (
     <SettingsPageContainer>
@@ -376,10 +378,16 @@ export function ToolsSettings() {
           </label>
         </div>
         {environment ? (
-          <EnvironmentTools
-            key={environment.environmentId}
-            environmentId={environment.environmentId}
-          />
+          <>
+            <CodeToolsSettings
+              key={`code:${environment.environmentId}`}
+              environmentId={environment.environmentId}
+            />
+            <EnvironmentTools
+              key={environment.environmentId}
+              environmentId={environment.environmentId}
+            />
+          </>
         ) : (
           <p className="text-sm text-muted-foreground">
             Connect to an environment to manage its tools.

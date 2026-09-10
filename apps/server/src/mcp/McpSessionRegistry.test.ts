@@ -128,7 +128,7 @@ it.effect("does not keep credentials of other threads alive", () =>
   }),
 );
 
-it.effect("issues TODO-only credentials without browser capability", () =>
+it.effect("keeps code tools and TODOs available without browser capability", () =>
   Effect.gen(function* () {
     const registry = yield* makeRegistry(() => 1000);
     const issued = yield* registry.issue({
@@ -137,6 +137,8 @@ it.effect("issues TODO-only credentials without browser capability", () =>
       previewEnabled: false,
     });
     const token = issued.config.authorizationHeader.replace(/^Bearer\s+/, "");
-    expect((yield* registry.resolve(token))?.capabilities).toEqual(new Set(["todos"]));
+    expect((yield* registry.resolve(token))?.capabilities).toEqual(
+      new Set(["todos", "code-tools"]),
+    );
   }),
 );

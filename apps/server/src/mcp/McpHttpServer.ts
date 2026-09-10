@@ -1,4 +1,5 @@
 import { TodosToolkitRegistrationLive } from "./toolkits/todos.ts";
+import { CodeToolsRegistrationLive } from "./toolkits/codeTools.ts";
 import * as NodeCrypto from "node:crypto";
 import { SecretsToolkitRegistrationLive } from "./toolkits/secrets.ts";
 import * as Cause from "effect/Cause";
@@ -450,4 +451,5 @@ export const layer = Layer.mergeAll(
   PreviewToolkitRegistrationLive,
   SecretsToolkitRegistrationLive,
   TodosToolkitRegistrationLive,
+  CodeToolsRegistrationLive,
 ).pipe(Layer.provideMerge(McpTransportLive));

@@ -215,6 +215,7 @@ export const make = Effect.gen(function* () {
     capabilities: {
       turnQueue: true,
       threadTodos: true,
+      codeTools: true,
       repositoryIdentity: true,
       connectionProbe: true,
       attachmentUploads: true,

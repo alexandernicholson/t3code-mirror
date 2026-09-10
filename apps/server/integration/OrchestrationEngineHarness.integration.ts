@@ -1,4 +1,5 @@
 import { advisorTestLayer } from "../src/advisors/testLayer.ts";
+import { codeToolsTestLayer } from "../src/codeTools/testLayer.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeChildProcess from "node:child_process";
 
@@ -385,8 +386,10 @@ export const makeOrchestrationIntegrationHarness = (
     );
     const orchestrationReactorLayer = OrchestrationReactorLive.pipe(
       Layer.provide(advisorTestLayer),
+      Layer.provide(codeToolsTestLayer),
       Layer.provideMerge(runtimeIngestionLayer),
       Layer.provideMerge(providerCommandReactorLayer),
+      Layer.provide(codeToolsTestLayer),
       Layer.provideMerge(checkpointReactorLayer),
       Layer.provideMerge(
         Layer.succeed(ThreadDeletionReactor, {
