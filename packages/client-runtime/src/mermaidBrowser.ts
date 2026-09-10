@@ -63,3 +63,51 @@ export function renderMermaidImage(source: string, theme: "light" | "dark"): Pro
   });
   return result;
 }
+
+/** Rasterizes the complete diagram at 2x resolution, bounded for mobile canvas memory. */
+export async function exportMermaidPng(url: string, theme: "light" | "dark"): Promise<string> {
+  const svg = new DOMParser()
+    .parseFromString(decodeURIComponent(url.slice(url.indexOf(",") + 1)), "image/svg+xml")
+    .querySelector("svg");
+  const bounds = svg?.viewBox.baseVal;
+  if (
+    !svg ||
+    !bounds ||
+    !Number.isFinite(bounds.width) ||
+    !Number.isFinite(bounds.height) ||
+    bounds.width <= 0 ||
+    bounds.height <= 0
+  ) {
+    throw new Error("This diagram has no usable dimensions for PNG export.");
+  }
+
+  const scale = Math.min(2, 4096 / bounds.width, 4096 / bounds.height);
+  const width = Math.max(1, Math.round(bounds.width * scale));
+  const height = Math.max(1, Math.round(bounds.height * scale));
+  // Mermaid often emits width="100%". Give the standalone image explicit
+  // dimensions so SVG decoding does not fall back to a 300 x 150 viewport.
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.style.maxWidth = "none";
+  const image = new Image();
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+  await image.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  try {
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("PNG export is unavailable in this browser.");
+    context.fillStyle = theme === "dark" ? "#1f2020" : "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    const png = canvas.toDataURL("image/png");
+    if (!png.startsWith("data:image/png;base64,")) {
+      throw new Error("The diagram could not be converted to PNG.");
+    }
+    return png;
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}

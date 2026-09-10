@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
 import { CopyTextButton } from "../../components/CopyTextButton";
+import { shareBase64Attachment } from "../../lib/attachmentDownload";
 import MermaidDiagramDOM from "./MermaidDiagramDOM";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
@@ -28,6 +29,22 @@ export function ThreadMermaidDiagram({
 }) {
   const [showSource, setShowSource] = useState(false);
   const [failedSource, setFailedSource] = useState<string>();
+  const exportController = useRef<AbortController | null>(null);
+  useEffect(() => () => exportController.current?.abort(), []);
+  const onExport = useCallback(async (png: string) => {
+    exportController.current?.abort();
+    const controller = new AbortController();
+    exportController.current = controller;
+    try {
+      await shareBase64Attachment({
+        base64: png.slice("data:image/png;base64,".length),
+        attachment: { name: "mermaid-diagram.png", mimeType: "image/png" },
+        signal: controller.signal,
+      });
+    } finally {
+      if (exportController.current === controller) exportController.current = null;
+    }
+  }, []);
   const onError = useCallback(async () => {
     setFailedSource(source);
   }, [source]);
@@ -74,6 +91,7 @@ export function ThreadMermaidDiagram({
           source={source}
           theme={theme}
           onError={onError}
+          onExport={onExport}
           dom={{
             matchContents: true,
             scrollEnabled: false,

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   deleted: vi.fn(),
   download: vi.fn(),
   copy: vi.fn(),
+  write: vi.fn(),
   share: vi.fn(),
   shareFromSource: vi.fn(),
   available: vi.fn(),
@@ -55,6 +56,10 @@ vi.mock("expo-file-system", () => {
     async copy(destination: File): Promise<void> {
       await mocks.copy(this.uri, destination.uri);
     }
+
+    write(content: string, options: { encoding: string }): void {
+      mocks.write(this.uri, content, options);
+    }
   }
 
   return { Directory, File, Paths: { cache: "file:///cache" } };
@@ -72,6 +77,7 @@ import {
   downloadAndShareAttachment,
   downloadAttachmentForPreview,
   shareLocalAttachment,
+  shareBase64Attachment,
 } from "./attachmentDownload";
 import { isForegroundHandoffActive } from "./foreground-handoff";
 
@@ -88,6 +94,7 @@ beforeEach(() => {
   mocks.deleted.mockReset();
   mocks.download.mockReset();
   mocks.copy.mockReset();
+  mocks.write.mockReset();
   mocks.share.mockReset();
   mocks.shareFromSource.mockReset();
   mocks.available.mockReset();
@@ -107,6 +114,50 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   expect(isForegroundHandoffActive()).toBe(false);
+});
+
+describe("shareBase64Attachment", () => {
+  const generated = {
+    base64: "cG5n",
+    attachment: { name: "mermaid-diagram.png", mimeType: "image/png" },
+  };
+
+  it("writes generated PNG bytes and retains the file for the receiving app", async () => {
+    await shareBase64Attachment({ ...generated, signal: new AbortController().signal });
+    expect(mocks.write).toHaveBeenCalledWith(
+      expect.stringMatching(/\/mermaid-diagram\.png$/),
+      "cG5n",
+      { encoding: "base64" },
+    );
+    expect(mocks.share).toHaveBeenCalledWith(mocks.write.mock.calls[0]![0], {
+      mimeType: "image/png",
+      dialogTitle: "mermaid-diagram.png",
+    });
+    expect(mocks.deleted).not.toHaveBeenCalled();
+    expect(mocks.download).not.toHaveBeenCalled();
+  });
+
+  it("cleans the cache after a failed write without opening the share sheet", async () => {
+    mocks.write.mockImplementationOnce(() => {
+      throw new Error("Disk full");
+    });
+    await expect(
+      shareBase64Attachment({ ...generated, signal: new AbortController().signal }),
+    ).rejects.toThrow("Disk full");
+    expect(mocks.deleted).toHaveBeenCalledTimes(1);
+    expect(mocks.share).not.toHaveBeenCalled();
+  });
+
+  it("does not write or share after cancellation during the availability check", async () => {
+    const controller = new AbortController();
+    mocks.available.mockImplementationOnce(async () => {
+      controller.abort();
+      return true;
+    });
+    await shareBase64Attachment({ ...generated, signal: controller.signal });
+    expect(mocks.write).not.toHaveBeenCalled();
+    expect(mocks.share).not.toHaveBeenCalled();
+  });
 });
 
 describe("downloadAndShareAttachment", () => {

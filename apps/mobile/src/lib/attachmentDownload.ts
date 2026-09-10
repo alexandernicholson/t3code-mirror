@@ -226,3 +226,20 @@ export async function shareLocalAttachment(input: {
     cached.preview.dispose();
   }
 }
+
+/** Shares generated files through the same cache and native handoff as downloaded attachments. */
+export async function shareBase64Attachment(input: {
+  readonly base64: string;
+  readonly attachment: AttachmentFileMetadata;
+  readonly signal: AbortSignal;
+}): Promise<void> {
+  if ((await availableSharing(input.signal)) === null) return;
+  const cached = await createCachedAttachmentFile(input.attachment);
+  try {
+    if (input.signal.aborted) return;
+    cached.file.write(input.base64, { encoding: "base64" });
+    await cached.preview.share(input.signal);
+  } finally {
+    cached.preview.dispose();
+  }
+}
