@@ -39,6 +39,10 @@
       "types": "./src/markdownLinks.ts",
       "default": "./src/markdownLinks.ts"
     },
+    "./timeline-scroll": {
+      "types": "./src/timelineScroll.ts",
+      "default": "./src/timelineScroll.ts"
+    },
     "./media-reference": {
       "types": "./src/mediaReference.ts",
       "default": "./src/mediaReference.ts"

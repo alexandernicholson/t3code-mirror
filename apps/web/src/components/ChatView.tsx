@@ -5057,8 +5057,6 @@ export default function ChatView(props: ChatViewProps) {
       !isAtEnd &&
       liveFollowUserScrollGenerationRef.current === anchorUserScrollGenerationRef.current
     ) {
-      showScrollDebouncer.current.cancel();
-      setShowScrollToBottom(false);
       return;
     }
     if (isAtEndRef.current === isAtEnd) return;
@@ -5075,13 +5073,19 @@ export default function ChatView(props: ChatViewProps) {
       // edge and expects the stream to stick to it again, exactly like the
       // scroll-to-bottom pill.
       setTimelineAnchor(releaseChatTimelineAnchor);
-      showScrollDebouncer.current.cancel();
-      setShowScrollToBottom(false);
     } else {
       timelineScrollModeRef.current = "free-scrolling";
       liveFollowUserScrollGenerationRef.current = null;
-      showScrollDebouncer.current.maybeExecute();
     }
+  }, []);
+
+  const onLatestMessageBelowViewportChange = useCallback((isBelow: boolean) => {
+    if (isBelow) {
+      showScrollDebouncer.current.maybeExecute();
+      return;
+    }
+    showScrollDebouncer.current.cancel();
+    setShowScrollToBottom(false);
   }, []);
 
   // Anchored end space intentionally disables LegendList's normal end-follow so
@@ -5319,7 +5323,7 @@ export default function ChatView(props: ChatViewProps) {
         '[data-chat-composer-main-surface="true"]',
       );
       const button = composerOverlayElement?.parentElement?.querySelector<HTMLElement>(
-        'button[aria-label="Scroll to end"]',
+        'button[aria-label="Jump to bottom"]',
       );
       const clearance =
         composerOverlayElement && mainSurface && button
@@ -8607,6 +8611,7 @@ export default function ChatView(props: ChatViewProps) {
                   contentInsetEndAdjustment={composerTimelineInset}
                   liveFollowEnabled={timelineLiveFollowEnabled}
                   onIsAtEndChange={onIsAtEndChange}
+                  onLatestMessageBelowViewportChange={onLatestMessageBelowViewportChange}
                   onContentOverflowChange={setTimelineOverflows}
                   onToolOutputCollapsedAtEnd={onToolOutputCollapsedAtEnd}
                   onManualNavigation={cancelTimelineLiveFollowForUserNavigation}
@@ -8616,14 +8621,14 @@ export default function ChatView(props: ChatViewProps) {
                 />
               </div>
 
-              {/* scroll to end pill — shown when user has scrolled away from the live edge */}
+              {/* Jump pill — shown only while the newest message is below the viewport. */}
               {showScrollToBottom && (
                 <div
                   className="pointer-events-none absolute left-1/2 z-30 flex -translate-x-1/2 justify-center py-1.5"
                   style={{ bottom: scrollToEndClearance + 4 }}
                 >
                   <Button
-                    aria-label="Scroll to end"
+                    aria-label="Jump to bottom"
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={() => {
                       composerRef.current?.restoreAfterTimelineReachedEnd();
@@ -8634,7 +8639,7 @@ export default function ChatView(props: ChatViewProps) {
                     variant="glass"
                   >
                     <ChevronDownIcon className="size-3.5" />
-                    Scroll to end
+                    Jump to bottom
                   </Button>
                 </div>
               )}

@@ -16,6 +16,7 @@ import {
   type CodexArtifactTemplate,
 } from "@t3tools/client-runtime/codex-artifact-templates";
 import { resolveAssetUrl } from "@t3tools/client-runtime/state/assets";
+import { resolveLatestMessageIsBelowViewport } from "@t3tools/client-runtime/timeline-scroll";
 import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import {
@@ -254,6 +255,7 @@ export interface ThreadFeedProps {
   readonly usesAutomaticContentInsets?: boolean;
   readonly onHeaderMaterialVisibilityChange?: (visible: boolean) => void;
   readonly onEndFollowEnabledChange?: (enabled: boolean) => void;
+  readonly onLatestMessageBelowViewportChange?: (isBelow: boolean) => void;
   readonly skills?: ReadonlyArray<SelectableMarkdownSkill>;
   readonly onUseArtifactTemplate?: (template: CodexArtifactTemplate) => void;
   /** Non-null when older turns exist beyond the loaded window. */
@@ -1967,6 +1969,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   const disclosureAnchorKeyRef = useRef<string | null>(null);
   const headerMaterialVisibleRef = useRef(false);
   const previousLatestTurnRef = useRef(props.latestTurn);
+  const latestMessageBelowViewportRef = useRef(false);
   const userScrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const { appearance } = useAppearancePreferences();
@@ -2316,6 +2319,41 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       viewportWidth,
     ],
   );
+  const expandedWorkGroupIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [groupId, expanded] of Object.entries(expandedWorkGroups)) {
+      if (expanded) {
+        ids.add(groupId);
+      }
+    }
+    return ids;
+  }, [expandedWorkGroups]);
+  const presentedFeed = useMemo(
+    () =>
+      appendPendingThreadMessages(
+        deriveThreadFeedPresentation(
+          props.feed,
+          props.latestTurn,
+          expandedTurnIds,
+          expandedWorkGroupIds,
+          props.activeWorkStartedAt,
+        ),
+        props.feed,
+        props.queuedMessages,
+      ),
+    [
+      props.queuedMessages,
+      expandedTurnIds,
+      expandedWorkGroupIds,
+      props.activeWorkStartedAt,
+      props.feed,
+      props.latestTurn,
+    ],
+  );
+  const latestMessageIndex = useMemo(
+    () => presentedFeed.findLastIndex((entry) => entry.type === "message"),
+    [presentedFeed],
+  );
   const reportHeaderMaterialVisibility = useCallback(
     (visible: boolean) => {
       if (headerMaterialVisibleRef.current === visible) {
@@ -2326,6 +2364,27 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     },
     [props.onHeaderMaterialVisibilityChange],
   );
+  const reportLatestMessagePosition = useCallback(() => {
+    const isBelow = resolveLatestMessageIsBelowViewport(
+      props.listRef.current?.getState(),
+      latestMessageIndex,
+      props.contentInsetEndAdjustment.value,
+    );
+    if (isBelow === undefined || latestMessageBelowViewportRef.current === isBelow) {
+      return;
+    }
+    latestMessageBelowViewportRef.current = isBelow;
+    props.onLatestMessageBelowViewportChange?.(isBelow);
+  }, [
+    latestMessageIndex,
+    props.contentInsetEndAdjustment,
+    props.listRef,
+    props.onLatestMessageBelowViewportChange,
+  ]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(reportLatestMessagePosition);
+    return () => cancelAnimationFrame(frame);
+  }, [presentedFeed, reportLatestMessagePosition]);
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       // anchorTopInset, not topContentInset: under automatic insets the list
@@ -2347,8 +2406,15 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
           userScrollSessionActive: userScrollSessionRef.current,
         });
       }
+      reportLatestMessagePosition();
     },
-    [reportHeaderMaterialVisibility, anchorTopInset, props.listRef, transitionEndFollow],
+    [
+      reportHeaderMaterialVisibility,
+      reportLatestMessagePosition,
+      anchorTopInset,
+      props.listRef,
+      transitionEndFollow,
+    ],
   );
   const clearUserScrollSettle = useCallback(() => {
     if (userScrollSettleTimerRef.current !== null) {
@@ -2428,8 +2494,15 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   useEffect(() => {
     clearUserScrollSettle();
     userScrollSessionRef.current = false;
+    latestMessageBelowViewportRef.current = false;
+    props.onLatestMessageBelowViewportChange?.(false);
     transitionEndFollow({ type: "reset" });
-  }, [clearUserScrollSettle, feedThreadKey, transitionEndFollow]);
+  }, [
+    clearUserScrollSettle,
+    feedThreadKey,
+    props.onLatestMessageBelowViewportChange,
+    transitionEndFollow,
+  ]);
   useEffect(() => {
     if (props.submittedMessageId !== null) {
       clearUserScrollSettle();
@@ -2438,37 +2511,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     }
   }, [clearUserScrollSettle, props.submittedMessageId, transitionEndFollow]);
 
-  const expandedWorkGroupIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const [groupId, expanded] of Object.entries(expandedWorkGroups)) {
-      if (expanded) {
-        ids.add(groupId);
-      }
-    }
-    return ids;
-  }, [expandedWorkGroups]);
-  const presentedFeed = useMemo(
-    () =>
-      appendPendingThreadMessages(
-        deriveThreadFeedPresentation(
-          props.feed,
-          props.latestTurn,
-          expandedTurnIds,
-          expandedWorkGroupIds,
-          props.activeWorkStartedAt,
-        ),
-        props.feed,
-        props.queuedMessages,
-      ),
-    [
-      props.queuedMessages,
-      expandedTurnIds,
-      expandedWorkGroupIds,
-      props.activeWorkStartedAt,
-      props.feed,
-      props.latestTurn,
-    ],
-  );
   // The empty↔filled key below remounts the list and resets its imperative
   // content-inset override. Seed the fresh instance synchronously with the
   // current overlay height before the scroll integration's next reaction;
@@ -2582,10 +2624,11 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   }, [expandedTurnIds, expandedWorkGroups, expandedWorkRows, settleDisclosureAfterLayout]);
 
   const handleItemSizeChanged = useCallback(() => {
+    reportLatestMessagePosition();
     if (disclosureAnchorKeyRef.current !== null) {
       settleDisclosureAfterLayout();
     }
-  }, [settleDisclosureAfterLayout]);
+  }, [reportLatestMessagePosition, settleDisclosureAfterLayout]);
 
   const shouldRestoreVisibleContentPosition = useCallback((entry: ThreadFeedEntry) => {
     const disclosureAnchorKey = disclosureAnchorKeyRef.current;

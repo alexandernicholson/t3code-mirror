@@ -15,6 +15,7 @@ import {
   workEntryViewedImagePath,
 } from "@t3tools/client-runtime/work-log/presentation";
 import { resolveWorkGroupScrollAnchor } from "@t3tools/client-runtime/work-log/scroll-anchor";
+import { resolveLatestMessageIsBelowViewport } from "@t3tools/client-runtime/timeline-scroll";
 import type { AgentPanelModel } from "@t3tools/client-runtime/state/subagentRuntime";
 import {
   emptyAgentPanelModel,
@@ -344,6 +345,8 @@ interface MessagesTimelineProps {
    */
   liveFollowEnabled: boolean;
   onIsAtEndChange: (isAtEnd: boolean) => void;
+  /** Reports whether a newer message row exists below the usable viewport. */
+  onLatestMessageBelowViewportChange: (isBelow: boolean) => void;
   /**
    * Whether the real rows extend past the viewport above the composer.
    * Reported after scrolls, row size changes, and viewport resizes.
@@ -396,6 +399,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   contentInsetEndAdjustment,
   liveFollowEnabled,
   onIsAtEndChange,
+  onLatestMessageBelowViewportChange,
   onContentOverflowChange,
   onToolOutputCollapsedAtEnd,
   onManualNavigation,
@@ -617,6 +621,10 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     () => <TimelineListFooter composerInset={anchoredEndSpace ? 0 : contentInsetEndAdjustment} />,
     [anchoredEndSpace, contentInsetEndAdjustment],
   );
+  const latestMessageRowIndex = useMemo(
+    () => rows.findLastIndex((row) => row.kind === "message"),
+    [rows],
+  );
 
   const measureContentOverflow = useCallback(
     () =>
@@ -660,6 +668,14 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     if (isAtEnd !== undefined && !citationPositioning) {
       onIsAtEndChange(isAtEnd);
     }
+    const latestMessageIsBelow = resolveLatestMessageIsBelowViewport(
+      state,
+      latestMessageRowIndex,
+      contentInsetEndAdjustment,
+    );
+    if (latestMessageIsBelow !== undefined && !citationPositioning) {
+      onLatestMessageBelowViewportChange(latestMessageIsBelow);
+    }
     reportContentOverflow();
     if (!state || minimapItems.length === 0) {
       return;
@@ -697,17 +713,20 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     );
   }, [
     citationPositioning,
+    contentInsetEndAdjustment,
+    latestMessageRowIndex,
     listRef,
     minimapItems,
     minimapStripMap,
     onIsAtEndChange,
+    onLatestMessageBelowViewportChange,
     reportContentOverflow,
   ]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(handleScroll);
     return () => cancelAnimationFrame(frame);
-  }, [handleScroll, rows.length]);
+  }, [handleScroll]);
 
   useEffect(() => {
     if (!timelineViewportElement) {
@@ -862,7 +881,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
             }
             maintainScrollAtEndThreshold={1}
             onScroll={handleScroll}
-            onItemSizeChanged={reportContentOverflow}
+            onItemSizeChanged={handleScroll}
             className={cn(
               "scrollbar-gutter-both h-full min-h-0 overflow-x-hidden overscroll-y-contain px-3 [overflow-anchor:none] sm:px-5",
               topFadeEnabled && "topbar-scroll-fade",

@@ -206,6 +206,7 @@ function buildProps() {
     contentInsetEndAdjustment: 0,
     liveFollowEnabled: true,
     onIsAtEndChange: () => {},
+    onLatestMessageBelowViewportChange: () => {},
     onManualNavigation: () => {},
   };
 }

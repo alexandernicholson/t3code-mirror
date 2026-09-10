@@ -313,6 +313,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const [anchorMessageId, setAnchorMessageId] = useState<MessageId | null>(null);
   const [submittedMessageId, setSubmittedMessageId] = useState<MessageId | null>(null);
   const [endFollowEnabled, setEndFollowEnabled] = useState(true);
+  const [latestMessageBelowViewport, setLatestMessageBelowViewport] = useState(false);
   // Android keys the safe-area padding on keyboard visibility (#5988): the
   // back gesture closes the keyboard while the editor stays focused, and a
   // focus-keyed inset would leave the toolbar under the gesture bar. iOS must
@@ -669,6 +670,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     setSubmittedMessageId(null);
     lastScrolledSubmittedMessageIdRef.current = null;
     setEndFollowEnabled(true);
+    setLatestMessageBelowViewport(false);
     freeze.set(false);
   }, [freeze, selectedThreadKey]);
 
@@ -808,7 +810,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     });
   }, [freeze, scrollMessageToEnd]);
 
-  const showScrollToEndButton = contentPresentationKind === "ready" && !endFollowEnabled;
+  const showScrollToEndButton = contentPresentationKind === "ready" && latestMessageBelowViewport;
   const { themeAppearance } = useAppearancePreferences();
   const isDarkMode = themeAppearance === "dark";
 
@@ -879,6 +881,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
             usesAutomaticContentInsets={props.usesAutomaticContentInsets}
             onHeaderMaterialVisibilityChange={props.onHeaderMaterialVisibilityChange}
             onEndFollowEnabledChange={setEndFollowEnabled}
+            onLatestMessageBelowViewportChange={setLatestMessageBelowViewport}
             skills={selectedProviderSkills}
             onUseArtifactTemplate={handleUseArtifactTemplate}
             loadEarlier={props.loadEarlier ?? null}

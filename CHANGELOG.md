@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.7] - 2026-09-10
+
+- Add jump-to-bottom controls that appear only when a newer message is below the conversation viewport across web, desktop, and mobile.
+
+---
+
 ## [0.5.6] - 2026-09-09
 
 - Global Narrate follows new updates across threads and pages on web, desktop, and mobile, with automatic thread voices, a shared playback queue, and persistent stop controls.
