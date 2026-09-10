@@ -11,6 +11,7 @@ import { createStaticNavigation } from "@react-navigation/native";
 import { RegistryContext } from "@effect/atom-react";
 import { ConfirmDialogHost } from "./components/ConfirmDialogHost";
 import { CloudAuthProvider } from "./features/cloud/CloudAuthProvider";
+import { GlobalNarrationProvider, GlobalNarrationBar } from "./features/narration/GlobalNarration";
 import { prepareNativeShowcaseCapture } from "./features/showcase/nativeShowcaseScene";
 import { IncomingShareProvider } from "./features/sharing/IncomingShareProvider";
 import {
@@ -90,9 +91,12 @@ function AppContent() {
                 the system is in dark mode. */}
             {/* Blur target for Android dropdown backdrops — see appBlurTarget.ts. */}
             <BlurTargetView ref={appBlurTargetRef} style={{ flex: 1 }}>
-              <IncomingShareProvider>
-                <Navigation linking={appLinking} theme={navigationTheme} />
-              </IncomingShareProvider>
+              <GlobalNarrationProvider>
+                <IncomingShareProvider>
+                  <Navigation linking={appLinking} theme={navigationTheme} />
+                </IncomingShareProvider>
+                <GlobalNarrationBar />
+              </GlobalNarrationProvider>
               <ConfirmDialogHost />
             </BlurTargetView>
             {/* Anchored-menu overlays render here — in-window, so the

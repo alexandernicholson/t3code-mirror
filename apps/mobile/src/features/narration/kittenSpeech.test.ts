@@ -12,7 +12,7 @@ vi.mock("expo-audio", () => ({}));
 vi.mock("@kittentts/react-native", () => ({
   KittenTTS: { create: mocks.create },
   KittenModel: { NanoInt8: "nano-int8" },
-  KittenVoice: { Jasper: "Jasper" },
+  KittenVoice: { Jasper: "Jasper", Bella: "Bella" },
   createExpoAudioPlayer: () => ({}),
 }));
 import { createNativeKittenSpeaker } from "./kittenSpeech";
@@ -81,6 +81,22 @@ describe("native narration lifecycle", () => {
     finished.resolve();
     await completed.promise;
     expect(done).toHaveBeenCalledOnce();
+    speaker.cancel();
+  });
+  it("changes thread voices without reloading the native engine", async () => {
+    mocks.generate.mockResolvedValue({});
+    const speaker = createNativeKittenSpeaker("Jasper", 1, vi.fn(), vi.fn());
+    const first = deferred<void>();
+    speaker.speak("Thread one.", () => first.resolve(), vi.fn(), "Jasper");
+    await first.promise;
+    const second = deferred<void>();
+    speaker.speak("Thread two.", () => second.resolve(), vi.fn(), "Bella");
+    await second.promise;
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.generate.mock.calls.map((call) => call.slice(0, 2))).toEqual([
+      ["Thread one.", "Jasper"],
+      ["Thread two.", "Bella"],
+    ]);
     speaker.cancel();
   });
   it("reports failed setup and permits a fresh retry", async () => {

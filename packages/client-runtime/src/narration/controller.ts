@@ -68,7 +68,7 @@ export class NarrationCursor {
 }
 
 export interface NarrationSpeaker {
-  speak(text: string, done: () => void, failed: (message?: string) => void): void;
+  speak(text: string, done: () => void, failed: (message?: string) => void, voice?: string): void;
   cancel(): void;
 }
 

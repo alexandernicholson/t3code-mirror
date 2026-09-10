@@ -2,6 +2,7 @@ import type { NarrationSpeaker } from "@t3tools/client-runtime/narration";
 import {
   KITTEN_BASE_URL,
   KITTEN_REVISION,
+  KITTEN_VOICES,
   type KittenVoice,
   type KittenProgress,
 } from "@t3tools/client-runtime/narration/kitten";
@@ -67,20 +68,22 @@ export function createNativeKittenSpeaker(
     })());
   }
   return {
-    speak(text, done, failed) {
+    speak(text, done, failed, selectedVoice) {
       pending = (async () => {
         const tts = await load();
         if (stopped) return;
         const { KittenVoice: Voices } = await sdk();
-        const result = await tts.generate(text, Voices[voice], rate);
+        const nextVoice = KITTEN_VOICES.find((candidate) => candidate === selectedVoice) ?? voice;
+        const result = await tts.generate(text, Voices[nextVoice], rate);
         if (stopped) return;
         await tts.play(result);
         if (!stopped) done();
       })().catch((error: unknown) => {
         if (stopped) return;
         onProgress(null);
-        onError(error instanceof Error ? error.message : "Kitten speech generation failed.");
-        failed();
+        const message = error instanceof Error ? error.message : "Kitten speech generation failed.";
+        onError(message);
+        failed(message);
       });
     },
     cancel() {

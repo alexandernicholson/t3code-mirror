@@ -8474,16 +8474,7 @@ export default function ChatView(props: ChatViewProps) {
           ) : null}
           {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
           <ChatHeader
-            narrationControl={
-              isServerThread ? (
-                <ThreadNarration
-                  key={`${activeThread.environmentId}:${activeThread.id}`}
-                  environmentId={activeThread.environmentId}
-                  cwd={activeWorkspaceRoot ?? activeProject?.workspaceRoot ?? ""}
-                  messages={activeThread.messages}
-                />
-              ) : null
-            }
+            narrationControl={isServerThread ? <ThreadNarration /> : null}
             activeThreadEnvironmentId={activeThread.environmentId}
             activeThreadId={activeThread.id}
             {...(routeKind === "draft" && draftId ? { draftId } : {})}

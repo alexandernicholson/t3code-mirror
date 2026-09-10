@@ -255,6 +255,14 @@
       "types": "./src/narration/controller.ts",
       "default": "./src/narration/controller.ts"
     },
+    "./narration/global": {
+      "types": "./src/narration/global.ts",
+      "default": "./src/narration/global.ts"
+    },
+    "./narration/feed": {
+      "types": "./src/narration/feed.ts",
+      "default": "./src/narration/feed.ts"
+    },
     "./narration/kitten": {
       "types": "./src/narration/kitten.ts",
       "default": "./src/narration/kitten.ts"

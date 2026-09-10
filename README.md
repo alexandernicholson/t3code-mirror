@@ -35,7 +35,8 @@ This fork currently adds or changes the following:
   a durable environment-side queue. Queued messages survive disconnects and can
   be removed, sent immediately, or restored to the editor with attachments. See
   [Steer or queue a message](./docs/user/composer.md#steer-or-queue-a-message).
-- Adds on-device voice narration for concise agent progress updates, including
+- Adds Global Narrate across threads and pages, with automatic thread voices,
+  a shared playback queue, and on-device speech for concise agent updates, including
   downloadable offline voices and playback controls on web, desktop, and mobile.
   See [Voice narration](./docs/user/composer.md#voice-narration).
 - Tracks provider usage-limit percentages for 90 days and charts each account over

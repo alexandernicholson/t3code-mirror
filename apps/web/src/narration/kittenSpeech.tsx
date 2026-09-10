@@ -2,6 +2,7 @@ import type { ClientSettings } from "@t3tools/contracts/settings";
 import type { NarrationSpeaker } from "@t3tools/client-runtime/narration";
 import {
   KITTEN_SAMPLE_RATE,
+  KITTEN_VOICES,
   type KittenWorkerResponse,
 } from "@t3tools/client-runtime/narration/kitten";
 import { toastManager } from "~/components/ui/toast";
@@ -90,13 +91,14 @@ export function createConfiguredNarrationSpeaker(settings: ClientSettings): Narr
     failed?.();
   });
   return {
-    speak(text, onDone, onFailed) {
+    speak(text, onDone, onFailed, voice) {
       done = onDone;
       failed = onFailed;
       worker.postMessage(
         {
           text,
-          voice: settings.narrationKittenVoice,
+          voice:
+            KITTEN_VOICES.find((candidate) => candidate === voice) ?? settings.narrationKittenVoice,
           rate: settings.narrationRate,
         },
         [],

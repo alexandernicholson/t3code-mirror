@@ -23,6 +23,7 @@ import {
 import LegacyThreadSidebar from "./LegacySidebar";
 import ThreadSidebar from "./Sidebar";
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
+import { GlobalNarrationControl } from "../narration/GlobalNarration";
 import { SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import {
   resolveSidebarStageFocusRingOffsetClass,
@@ -252,6 +253,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           ) : (
             <ThreadSidebar />
           )}
+          <GlobalNarrationControl />
           <SidebarRail onDoubleClick={resetSidebarWidth} />
         </Sidebar>
         {children}

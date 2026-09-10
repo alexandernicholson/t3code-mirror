@@ -1,5 +1,7 @@
 "use client";
 
+import { useGlobalNarration } from "../narration/GlobalNarration";
+
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
   canCreateProjectInEnvironment,
@@ -598,6 +600,7 @@ function OpenCommandPaletteDialog(props: {
   readonly openOverlayMode: (mode: SearchOverlayMode) => void;
   readonly clearOpenIntent: () => void;
 }) {
+  const globalNarration = useGlobalNarration();
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const { clearOpenIntent, openIntent, openOverlayMode, setOpen } = props;
@@ -1569,6 +1572,16 @@ function OpenCommandPaletteDialog(props: {
   ]);
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
+  actionItems.push({
+    kind: "action",
+    value: "action:narration",
+    searchTerms: ["narrate", "narration", "voice", "audio", "speak", "mute"],
+    title: globalNarration.enabled ? "Stop Global Narrate" : "Start Global Narrate",
+    icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      globalNarration.toggle();
+    },
+  });
 
   if (projects.length > 0) {
     const activeProjectTitle =
