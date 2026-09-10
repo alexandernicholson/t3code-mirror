@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./mermaid-viewport": {
+      "types": "./src/mermaidViewport.ts",
+      "default": "./src/mermaidViewport.ts"
+    },
     "./mermaid-browser": {
       "types": "./src/mermaidBrowser.ts",
       "default": "./src/mermaidBrowser.ts"

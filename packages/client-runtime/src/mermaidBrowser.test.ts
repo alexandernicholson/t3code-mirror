@@ -60,3 +60,97 @@ describe("Mermaid rendering", () => {
     expect(mermaid.render).toHaveBeenCalledTimes(34);
   });
 });
+
+describe("Mermaid PNG export", () => {
+  function setup(width = 600, height = 400) {
+    const attributes = new Map<string, string>();
+    const svg = {
+      viewBox: { baseVal: { width, height } },
+      style: { maxWidth: "600px" },
+      setAttribute: (name: string, value: string) => attributes.set(name, value),
+    };
+    const context = { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
+    const toDataURL = vi.fn(() => "data:image/png;base64,cG5n");
+    const canvas = { width: 0, height: 0, getContext: vi.fn(() => context), toDataURL };
+    const decode = vi.fn(async () => {});
+    const images: { src: string }[] = [];
+    vi.stubGlobal(
+      "DOMParser",
+      class {
+        parseFromString() {
+          return { querySelector: () => svg };
+        }
+      },
+    );
+    vi.stubGlobal(
+      "XMLSerializer",
+      class {
+        serializeToString() {
+          return `<svg width="${attributes.get("width")}" height="${attributes.get("height")}"/>`;
+        }
+      },
+    );
+    vi.stubGlobal(
+      "Image",
+      class {
+        src = "";
+        decode = decode;
+        constructor() {
+          images.push(this);
+        }
+      },
+    );
+    vi.stubGlobal("document", { createElement: () => canvas });
+    return { canvas, context, attributes, images, decode, toDataURL };
+  }
+
+  it.each(["light", "dark"] as const)(
+    "exports the full diagram at 2x resolution on a %s background",
+    async (theme) => {
+      const { exportMermaidPng } = await import("./mermaidBrowser.ts");
+      const { canvas, context, attributes, images } = setup();
+      await expect(exportMermaidPng("data:image/svg+xml,%3Csvg%2F%3E", theme)).resolves.toBe(
+        "data:image/png;base64,cG5n",
+      );
+      expect(attributes.get("width")).toBe("1200");
+      expect(attributes.get("height")).toBe("800");
+      expect(context.fillStyle).toBe(theme === "dark" ? "#1f2020" : "#ffffff");
+      expect(context.fillRect).toHaveBeenCalledWith(0, 0, 1200, 800);
+      expect(context.drawImage).toHaveBeenCalledWith(images[0], 0, 0, 1200, 800);
+      expect(canvas.width).toBe(0);
+      expect(canvas.height).toBe(0);
+    },
+  );
+
+  it("bounds large exports while preserving their aspect ratio", async () => {
+    const { exportMermaidPng } = await import("./mermaidBrowser.ts");
+    const { context } = setup(20_000, 10_000);
+    await exportMermaidPng("data:image/svg+xml,%3Csvg%2F%3E", "light");
+    expect(context.fillRect).toHaveBeenCalledWith(0, 0, 4096, 2048);
+  });
+
+  it("rejects unusable dimensions without decoding or allocating a canvas", async () => {
+    const { exportMermaidPng } = await import("./mermaidBrowser.ts");
+    const { decode, canvas } = setup(0, 400);
+    await expect(exportMermaidPng("data:image/svg+xml,%3Csvg%2F%3E", "light")).rejects.toThrow(
+      "no usable dimensions",
+    );
+    expect(decode).not.toHaveBeenCalled();
+    expect(canvas.getContext).not.toHaveBeenCalled();
+  });
+
+  it("reports decoding and encoding failures and releases canvas memory", async () => {
+    const { exportMermaidPng } = await import("./mermaidBrowser.ts");
+    const { decode, canvas, toDataURL } = setup();
+    decode.mockRejectedValueOnce(new Error("Invalid SVG"));
+    await expect(exportMermaidPng("data:image/svg+xml,%3Csvg%2F%3E", "light")).rejects.toThrow(
+      "Invalid SVG",
+    );
+    toDataURL.mockReturnValue("data:,");
+    await expect(exportMermaidPng("data:image/svg+xml,%3Csvg%2F%3E", "light")).rejects.toThrow(
+      "could not be converted",
+    );
+    expect(canvas.width).toBe(0);
+    expect(canvas.height).toBe(0);
+  });
+});

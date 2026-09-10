@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.7] - 2026-09-10
+
+- Add zoom controls, drag and pinch navigation, reset, and PNG export for Mermaid diagrams on web, desktop, and mobile.
+
+---
+
 ## [0.5.6] - 2026-09-09
 
 - Global Narrate follows new updates across threads and pages on web, desktop, and mobile, with automatic thread voices, a shared playback queue, and persistent stop controls.
