@@ -9,6 +9,9 @@ documentation.
 
 This fork currently adds or changes the following:
 
+- Adds language-server tools, managed installations, and project-owned code checks across clients.
+  See [Code tools](./docs/user/code-tools.md).
+
 - Makes product analytics, cloud connections, update checks, and hosted-service
   configuration opt-in. Bundled analytics credentials and provider-derived
   tracking identifiers are removed. See [Telemetry](./docs/user/telemetry.md)

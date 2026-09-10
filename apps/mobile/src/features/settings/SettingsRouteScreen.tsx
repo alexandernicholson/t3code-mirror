@@ -1,4 +1,5 @@
 import { AdvisorsSettings } from "./AdvisorsSettings";
+import { CodeToolsSettings } from "./CodeToolsSettings";
 import { NarrationSettings } from "../narration/NarrationSettings";
 import { SecretsSettings } from "./SecretsSettings";
 import { useAuth, useUser } from "@clerk/expo";
@@ -551,6 +552,7 @@ function GeneralSettingsSection() {
   return (
     <SettingsSection title="General">
       <AdvisorsSettings />
+      <CodeToolsSettings />
       <SecretsSettings />
       <SettingsRow icon="folder" label="Project Grouping" target="SettingsProjectGrouping" />
       <AutoSettleSettingsRows />

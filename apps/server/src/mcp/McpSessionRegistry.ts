@@ -130,7 +130,9 @@ const makeWithOptions = Effect.fn("McpSessionRegistry.make")(function* (
         providerSessionId,
         providerInstanceId: ProviderInstanceId.make(request.providerInstanceId),
         capabilities: new Set(
-          request.previewEnabled === false ? ["todos"] : ["preview", "secrets", "todos"],
+          request.previewEnabled === false
+            ? ["todos", "code-tools"]
+            : ["preview", "secrets", "todos", "code-tools"],
         ),
         issuedAt,
       };

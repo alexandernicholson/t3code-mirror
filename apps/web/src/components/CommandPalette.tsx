@@ -464,6 +464,11 @@ export function CommandPalette({ children }: { children: ReactNode }) {
         if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "advisors");
         return;
       }
+      if (command === "codeChecks.toggle") {
+        event.preventDefault();
+        if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "code-checks");
+        return;
+      }
       if (command === "reviewers.toggle") {
         event.preventDefault();
         if (routeThreadRef) useRightPanelStore.getState().toggle(routeThreadRef, "reviewers");
@@ -1761,6 +1766,23 @@ function OpenCommandPaletteDialog(props: {
           .open(
             { environmentId: activeThread.environmentId, threadId: activeThread.id },
             "advisors",
+          );
+      },
+    });
+  if (activeThread)
+    actionItems.push({
+      kind: "action",
+      value: "action:code-checks",
+      searchTerms: ["code", "checks", "language server", "diagnostics", "lsp", "rename"],
+      title: "Open code checks",
+      icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "codeChecks.toggle",
+      run: async () => {
+        useRightPanelStore
+          .getState()
+          .open(
+            { environmentId: activeThread.environmentId, threadId: activeThread.id },
+            "code-checks",
           );
       },
     });

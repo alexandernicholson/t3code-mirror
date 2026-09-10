@@ -135,6 +135,7 @@ export interface ThreadComposerProps {
   readonly onRemoveDraftImage: (imageId: string) => void;
   readonly onStopThread: () => void;
   readonly onOpenAdvisors?: () => void;
+  readonly onOpenCodeChecks?: () => void;
   readonly onSendMessage: () => Promise<MessageId | null>;
   /** `/usage-limits` resolves locally; the host decides where the report shows. Null clears it. */
   readonly onShowUsageLimits: (report: UsageLimitsReport | null) => void;
@@ -433,6 +434,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const advisorAction = useAtomCommand(advisors.action);
   const handleSend = useCallback(async () => {
     const command = props.draftMessage.trim().toLowerCase();
+    if (props.onOpenCodeChecks && props.draftAttachments.length === 0 && command === "/checks") {
+      props.onOpenCodeChecks();
+      onChangeDraftMessage("");
+      return;
+    }
     if (
       props.onOpenAdvisors &&
       props.draftAttachments.length === 0 &&
@@ -492,6 +498,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     onSendMessage,
     advisorAction,
     props.onOpenAdvisors,
+    props.onOpenCodeChecks,
     props.environmentId,
     props.environmentLabel,
     props.selectedThread.id,

@@ -106,6 +106,7 @@ import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
 
 export interface ThreadDetailScreenProps {
   readonly onOpenAdvisors?: () => void;
+  readonly onOpenCodeChecks?: () => void;
   readonly selectedThread: OrchestrationThreadShell;
   readonly contentPresentation: ThreadContentPresentation;
   readonly screenTone: StatusTone;
@@ -1039,6 +1040,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
                   onStopThread={props.onStopThread}
                   onSendMessage={handleSendMessage}
                   {...(props.onOpenAdvisors ? { onOpenAdvisors: props.onOpenAdvisors } : {})}
+                  {...(props.onOpenCodeChecks ? { onOpenCodeChecks: props.onOpenCodeChecks } : {})}
                   onShowUsageLimits={showUsageLimits}
                   onUpdateModelSelection={props.onUpdateThreadModelSelection}
                   onUpdateRuntimeMode={props.onUpdateThreadRuntimeMode}

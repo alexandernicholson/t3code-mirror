@@ -1,4 +1,5 @@
 import { advisors } from "~/state/advisors";
+import { CodeChecksIndicator, CodeChecksPanel } from "./CodeChecksPanel";
 import { AdvisorIndicator, AdvisorsPanel } from "./AdvisorsPanel";
 import { ReviewersPanel } from "./ReviewersPanel";
 import { ThreadTodos } from "./chat/ThreadTodos";
@@ -6423,6 +6424,18 @@ export default function ChatView(props: ChatViewProps) {
       activeThreadRef &&
       !directAnnotation &&
       !composerHasNonPromptContent &&
+      advisorCommand === "/checks"
+    ) {
+      useRightPanelStore.getState().open(activeThreadRef, "code-checks");
+      promptRef.current = "";
+      setComposerDraftPrompt(composerDraftTarget, "");
+      composerRef.current?.resetCursorState();
+      return;
+    }
+    if (
+      activeThreadRef &&
+      !directAnnotation &&
+      !composerHasNonPromptContent &&
       advisorCommand === "/review"
     ) {
       useRightPanelStore.getState().open(activeThreadRef, "reviewers");
@@ -8200,6 +8213,15 @@ export default function ChatView(props: ChatViewProps) {
 
   const panelToggleControls = (
     <>
+      {activeThreadRef &&
+        isServerThread &&
+        serverConfig?.environment.capabilities.codeTools === true && (
+          <CodeChecksIndicator
+            environmentId={activeThreadRef.environmentId}
+            threadId={activeThreadRef.threadId}
+            onOpen={() => useRightPanelStore.getState().open(activeThreadRef, "code-checks")}
+          />
+        )}
       {activeThreadRef && (
         <AdvisorIndicator
           panelOpen={rightPanelOpen && activeRightPanelSurface?.kind === "advisors"}
@@ -8339,6 +8361,17 @@ export default function ChatView(props: ChatViewProps) {
         }
         composerDraftTarget={composerDraftTarget}
       />
+    ) : renderedRightPanelSurface?.kind === "code-checks" ? (
+      <CodeChecksPanel
+        key={`${activeThreadRef.threadId}:${renderedRightPanelSurface.file ?? ""}:${renderedRightPanelSurface.line ?? 1}`}
+        environmentId={activeThreadRef.environmentId}
+        threadId={activeThreadRef.threadId}
+        initialFile={renderedRightPanelSurface.file}
+        initialLine={renderedRightPanelSurface.line}
+        onOpenFile={(file, line) =>
+          useRightPanelStore.getState().openFile(activeThreadRef, file, line)
+        }
+      />
     ) : renderedRightPanelSurface?.kind === "advisors" ? (
       <AdvisorsPanel
         key={`${activeThreadRef.environmentId}:${activeThreadRef.threadId}`}
@@ -8433,6 +8466,12 @@ export default function ChatView(props: ChatViewProps) {
               : 0
           }
           onOpenFile={openFileSurface}
+          {...(serverConfig?.environment.capabilities.codeTools
+            ? {
+                onCodeTools: (file: string, line: number) =>
+                  useRightPanelStore.getState().openCodeTools(activeThreadRef, file, line),
+              }
+            : {})}
           onPendingChange={handleFilePendingChange}
           selectedFilePending={
             renderedRightPanelSurface.kind === "file" &&
@@ -9003,6 +9042,7 @@ export default function ChatView(props: ChatViewProps) {
           onAddPullRequest={addPullRequestSurface}
           onAddAgents={addAgentsSurface}
           onAddAdvisors={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
+          onAddCodeChecks={() => useRightPanelStore.getState().open(activeThreadRef, "code-checks")}
           onAddReviewers={() => useRightPanelStore.getState().open(activeThreadRef, "reviewers")}
           onAddTodos={addTodosSurface}
           todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}
@@ -9057,6 +9097,9 @@ export default function ChatView(props: ChatViewProps) {
             onAddPullRequest={addPullRequestSurface}
             onAddAgents={addAgentsSurface}
             onAddAdvisors={() => useRightPanelStore.getState().open(activeThreadRef, "advisors")}
+            onAddCodeChecks={() =>
+              useRightPanelStore.getState().open(activeThreadRef, "code-checks")
+            }
             onAddReviewers={() => useRightPanelStore.getState().open(activeThreadRef, "reviewers")}
             onAddTodos={addTodosSurface}
             todosAvailable={serverConfig?.environment.capabilities.threadTodos === true}

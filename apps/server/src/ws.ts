@@ -1,4 +1,5 @@
 import { Advisors } from "./advisors/Advisors.ts";
+import { CodeTools } from "./codeTools/CodeTools.ts";
 import { Reviewers } from "./reviewers/Reviewers.ts";
 import { makeSummarizeNarration } from "./textGeneration/Narration.ts";
 import { makeTextGenerationFromRegistry } from "./textGeneration/TextGeneration.ts";
@@ -492,6 +493,7 @@ const makeWsRpcLayer = (
   previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
   secrets: Secrets.Secrets["Service"],
   advisors: Advisors["Service"],
+  codeTools: CodeTools["Service"],
   reviewers: Reviewers["Service"],
 ) =>
   WsRpcGroup.toLayer(
@@ -2717,6 +2719,14 @@ const makeWsRpcLayer = (
           }),
         [WS_METHODS.advisorsSave]: (input) =>
           observeRpcEffect(WS_METHODS.advisorsSave, advisors.save(input)),
+        [WS_METHODS.codeToolsSave]: (input) =>
+          observeRpcEffect(WS_METHODS.codeToolsSave, codeTools.save(input)),
+        [WS_METHODS.codeToolsManage]: (input) =>
+          observeRpcEffect(WS_METHODS.codeToolsManage, codeTools.manage(input)),
+        [WS_METHODS.codeToolsRun]: (input) =>
+          observeRpcEffect(WS_METHODS.codeToolsRun, codeTools.run(input)),
+        [WS_METHODS.codeToolsSubscribe]: (input) =>
+          observeRpcStream(WS_METHODS.codeToolsSubscribe, codeTools.subscribe(input)),
         [WS_METHODS.advisorsAction]: (input) =>
           observeRpcEffect(WS_METHODS.advisorsAction, advisors.action(input)),
         [WS_METHODS.advisorsSubscribe]: (input) =>
@@ -2997,6 +3007,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
     const secrets = yield* Secrets.Secrets;
     const advisors = yield* Advisors;
+    const codeTools = yield* CodeTools;
     const reviewers = yield* Reviewers;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const baseServerSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
@@ -3061,6 +3072,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               previewAutomationBroker,
               secrets,
               advisors,
+              codeTools,
               reviewers,
             ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),

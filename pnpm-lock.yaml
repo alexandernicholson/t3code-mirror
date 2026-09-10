@@ -535,6 +535,12 @@ importers:
       stream-json:
         specifier: 3.6.0
         version: 3.6.0
+      vscode-jsonrpc:
+        specifier: 8.2.0
+        version: 8.2.0
+      vscode-languageserver-protocol:
+        specifier: 3.17.5
+        version: 3.17.5
       yaml:
         specifier: ^2.9.0
         version: 2.9.0

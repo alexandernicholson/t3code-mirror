@@ -7,6 +7,10 @@
       "types": "./src/mermaidViewport.ts",
       "default": "./src/mermaidViewport.ts"
     },
+    "./code-tool-results": {
+      "types": "./src/codeToolResults.ts",
+      "default": "./src/codeToolResults.ts"
+    },
     "./mermaid-browser": {
       "types": "./src/mermaidBrowser.ts",
       "default": "./src/mermaidBrowser.ts"
@@ -186,6 +190,10 @@
     "./state/advisors": {
       "types": "./src/state/advisors.ts",
       "default": "./src/state/advisors.ts"
+    },
+    "./state/codeTools": {
+      "types": "./src/state/codeTools.ts",
+      "default": "./src/state/codeTools.ts"
     },
     "./state/secrets": {
       "types": "./src/state/secrets.ts",

@@ -87,6 +87,16 @@ export const T3ProjectFile = Schema.Struct({
       })
       .check(Schema.isMaxLength(T3_PROJECT_FILE_MAX_SCRIPTS)),
   ),
+  codeTools: Schema.optionalKey(
+    Schema.Struct({
+      rulesFile: Schema.optionalKey(
+        trimmedNonEmpty(
+          { description: "Workspace-relative JSON file containing code check rules." },
+          512,
+        ),
+      ),
+    }),
+  ),
 }).annotate({
   title: "T3 project file",
   description:
