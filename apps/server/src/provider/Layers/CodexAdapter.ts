@@ -2315,7 +2315,10 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
           ...(serviceTier ? { serviceTier } : {}),
           ...(contextWindow ? { contextWindow } : {}),
           environment: {
-            ...(options?.environment ?? process.env),
+            ...McpProviderSession.withAgentDeviceEnvironment(
+              options?.environment ?? process.env,
+              mcpSession,
+            ),
             ...(mcpSession
               ? { T3_MCP_BEARER_TOKEN: mcpSession.authorizationHeader.replace(/^Bearer\s+/, "") }
               : {}),
@@ -2332,6 +2335,7 @@ export const makeCodexAdapter = Effect.fn("makeCodexAdapter")(function* (
                 ]
               : []),
           ],
+          ...(mcpSession ? { mcpCapabilities: mcpSession.capabilities } : {}),
         };
         const turnTokenUsage = makeCodexTurnTokenUsageState();
         // Codex reports a usage-limit stop as OpenAI's own sentence, which on a

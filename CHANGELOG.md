@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0] - 2026-09-12
+
+- Merge upstream T3 Code main through #11361: link several pull requests to a thread with GitHub stack navigation, connect simulator and emulator device hosts, override any scopable setting per project, rewind conversations while keeping file changes, set default permissions for new threads, queue messages during context compaction, and receive Android agent notifications. Linked pull requests move to a new projection table (migration 057); TODOs and code tools keep working when agent browser access is off.
+
+---
+
 ## [0.6.0] - 2026-09-10
 
 - Add Code tools with managed language-server installation, worktree-scoped navigation and refactoring, configurable project checks, and web and mobile controls.
