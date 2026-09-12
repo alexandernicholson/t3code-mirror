@@ -68,6 +68,9 @@ This fork currently adds or changes the following:
 - Makes delegated agents inspectable and messageable from web, desktop, and
   mobile, with durable per-agent process logs built from every provider's
   normalized agent and tool activity.
+- Adds bounded, redacted server application logs with rotation, retention,
+  remote diagnostics, and a recent-log view in web and desktop Diagnostics.
+  See [Diagnostics and server logs](./docs/user/diagnostics.md).
 - Uses a fork-oriented release lifecycle and a leaner CI setup, with focused web
   browser checks and repeatable screenshot tooling for maintainers.
 

@@ -153,6 +153,7 @@ import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as UsageLimitHistory from "./usage/UsageLimitHistory.ts";
 import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
+import { readServerLogDiagnostics, readServerLogTail } from "./serverLog.ts";
 import * as PullRequestService from "./pullRequest/PullRequestService.ts";
 import { listLinkedPullRequestThreads } from "./pullRequest/linkedThreads.ts";
 import { pullRequestSyncKey } from "./pullRequest/pullRequestSyncKey.ts";
@@ -2090,6 +2091,14 @@ const makeWsRpcLayer = (
               "rpc.aggregate": "server",
             },
           ),
+        [WS_METHODS.serverGetLogDiagnostics]: (_input) =>
+          observeRpcEffect(WS_METHODS.serverGetLogDiagnostics, readServerLogDiagnostics(config), {
+            "rpc.aggregate": "server",
+          }),
+        [WS_METHODS.serverGetLogTail]: (input) =>
+          observeRpcEffect(WS_METHODS.serverGetLogTail, readServerLogTail(config, input), {
+            "rpc.aggregate": "server",
+          }),
         [WS_METHODS.serverGetProcessDiagnostics]: (_input) =>
           observeRpcEffect(WS_METHODS.serverGetProcessDiagnostics, processDiagnostics.read, {
             "rpc.aggregate": "server",

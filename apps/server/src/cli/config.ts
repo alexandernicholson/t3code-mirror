@@ -17,6 +17,18 @@ import { readBootstrapEnvelope } from "../bootstrap.ts";
 import * as ServerConfig from "../config.ts";
 import { expandHomePath, resolveBaseDir } from "../os-jank.ts";
 
+export class ServerLogConfigError extends Schema.TaggedError<ServerLogConfigError>()(
+  "ServerLogConfigError",
+  {
+    name: Schema.String,
+    value: Schema.Finite,
+  },
+) {
+  override get message(): string {
+    return `T3 server log ${this.name} must be a positive integer (received ${this.value}).`;
+  }
+}
+
 const modeFlag = Flag.choice("mode", ServerConfig.RuntimeMode.literals).pipe(
   Flag.withDescription("Runtime mode. `desktop` keeps loopback defaults unless overridden."),
   Flag.optional,
@@ -86,6 +98,21 @@ const EnvServerConfig = Config.all({
   traceMaxBytes: Config.int("T3CODE_TRACE_MAX_BYTES").pipe(Config.withDefault(10 * 1024 * 1024)),
   traceMaxFiles: Config.int("T3CODE_TRACE_MAX_FILES").pipe(Config.withDefault(10)),
   traceBatchWindowMs: Config.int("T3CODE_TRACE_BATCH_WINDOW_MS").pipe(Config.withDefault(1_000)),
+  serverLogMaxBytes: Config.int("T3CODE_SERVER_LOG_MAX_BYTES").pipe(
+    Config.withDefault(ServerConfig.DEFAULT_SERVER_LOG_CONFIG.maxBytes),
+  ),
+  serverLogMaxFiles: Config.int("T3CODE_SERVER_LOG_MAX_FILES").pipe(
+    Config.withDefault(ServerConfig.DEFAULT_SERVER_LOG_CONFIG.maxFiles),
+  ),
+  serverLogMaxTotalBytes: Config.int("T3CODE_SERVER_LOG_MAX_TOTAL_BYTES").pipe(
+    Config.withDefault(ServerConfig.DEFAULT_SERVER_LOG_CONFIG.maxTotalBytes),
+  ),
+  serverLogMaxAgeDays: Config.int("T3CODE_SERVER_LOG_MAX_AGE_DAYS").pipe(
+    Config.withDefault(ServerConfig.DEFAULT_SERVER_LOG_CONFIG.maxAgeMs / (24 * 60 * 60 * 1_000)),
+  ),
+  serverLogBatchWindowMs: Config.int("T3CODE_SERVER_LOG_BATCH_WINDOW_MS").pipe(
+    Config.withDefault(ServerConfig.DEFAULT_SERVER_LOG_CONFIG.batchWindowMs),
+  ),
   otlpTracesUrl: Config.string("T3CODE_OTLP_TRACES_URL").pipe(
     Config.option,
     Config.map(Option.getOrUndefined),
@@ -347,6 +374,26 @@ export const resolveServerConfig = (
     );
     const logLevel = Option.getOrElse(cliLogLevel, () => env.logLevel);
 
+    const serverLog = {
+      ...ServerConfig.DEFAULT_SERVER_LOG_CONFIG,
+      maxBytes: env.serverLogMaxBytes,
+      maxFiles: env.serverLogMaxFiles,
+      maxTotalBytes: env.serverLogMaxTotalBytes,
+      maxAgeMs: env.serverLogMaxAgeDays * 24 * 60 * 60 * 1_000,
+      batchWindowMs: env.serverLogBatchWindowMs,
+    } satisfies ServerConfig.ServerLogConfig;
+    const invalidServerLogValue = Object.entries({
+      maxBytes: serverLog.maxBytes,
+      maxFiles: serverLog.maxFiles,
+      maxTotalBytes: serverLog.maxTotalBytes,
+      maxAgeMs: serverLog.maxAgeMs,
+      batchWindowMs: serverLog.batchWindowMs,
+    }).find(([, value]) => !Number.isInteger(value) || value < 1);
+    if (invalidServerLogValue) {
+      const [name, value] = invalidServerLogValue;
+      return yield* new ServerLogConfigError({ name, value });
+    }
+
     const config: ServerConfig.ServerConfig["Service"] = {
       logLevel,
       traceMinLevel: env.traceMinLevel,
@@ -354,6 +401,7 @@ export const resolveServerConfig = (
       traceBatchWindowMs: env.traceBatchWindowMs,
       traceMaxBytes: env.traceMaxBytes,
       traceMaxFiles: env.traceMaxFiles,
+      serverLog,
       otlpTracesUrl:
         env.otlpTracesUrl ??
         bootstrap?.otlpTracesUrl ??

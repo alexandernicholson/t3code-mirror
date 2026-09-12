@@ -266,6 +266,65 @@ export const ServerObservability = Schema.Struct({
 });
 export type ServerObservability = typeof ServerObservability.Type;
 
+export const ServerLogDiagnosticsErrorKind = Schema.Literals([
+  "server-log-not-found",
+  "server-log-read-failed",
+]);
+export type ServerLogDiagnosticsErrorKind = typeof ServerLogDiagnosticsErrorKind.Type;
+
+export const ServerLogEntry = Schema.Struct({
+  timestamp: Schema.DateTimeUtc,
+  level: TrimmedNonEmptyString,
+  message: TrimmedNonEmptyString,
+  causeTag: Schema.optional(TrimmedNonEmptyString),
+});
+export type ServerLogEntry = typeof ServerLogEntry.Type;
+
+export const ServerLogDiagnosticsResult = Schema.Struct({
+  logFilePath: TrimmedNonEmptyString,
+  scannedFilePaths: Schema.Array(TrimmedNonEmptyString),
+  readAt: Schema.DateTimeUtc,
+  enabled: Schema.Boolean,
+  activeFileBytes: NonNegativeInt,
+  totalFileBytes: NonNegativeInt,
+  retainedFileCount: NonNegativeInt,
+  droppedRecordCount: NonNegativeInt,
+  writeFailureCount: NonNegativeInt,
+  lastWriteAt: Schema.Option(Schema.DateTimeUtc),
+  partialFailure: Schema.Option(Schema.Boolean),
+  error: Schema.Option(
+    Schema.Struct({
+      kind: ServerLogDiagnosticsErrorKind,
+      message: TrimmedNonEmptyString,
+    }),
+  ),
+});
+export type ServerLogDiagnosticsResult = typeof ServerLogDiagnosticsResult.Type;
+
+export const ServerLogTailInput = Schema.Struct({
+  maxBytes: Schema.optionalKey(NonNegativeInt),
+  maxEntries: Schema.optionalKey(NonNegativeInt),
+});
+export type ServerLogTailInput = typeof ServerLogTailInput.Type;
+
+export const ServerLogTailResult = Schema.Struct({
+  logFilePath: TrimmedNonEmptyString,
+  scannedFilePaths: Schema.Array(TrimmedNonEmptyString),
+  readAt: Schema.DateTimeUtc,
+  entries: Schema.Array(ServerLogEntry),
+  bytesRead: NonNegativeInt,
+  parseErrorCount: NonNegativeInt,
+  truncated: Schema.Boolean,
+  partialFailure: Schema.Option(Schema.Boolean),
+  error: Schema.Option(
+    Schema.Struct({
+      kind: ServerLogDiagnosticsErrorKind,
+      message: TrimmedNonEmptyString,
+    }),
+  ),
+});
+export type ServerLogTailResult = typeof ServerLogTailResult.Type;
+
 export const ServerTraceDiagnosticsErrorKind = Schema.Literals([
   "trace-file-not-found",
   "trace-file-read-failed",
