@@ -32,6 +32,7 @@ function model(): OrchestrationReadModel {
         interactionMode: "default",
         branch: null,
         worktreePath: null,
+        pullRequests: [],
         createdAt: now,
         updatedAt: now,
         archivedAt: null,
