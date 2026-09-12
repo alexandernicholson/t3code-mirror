@@ -1019,6 +1019,14 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:trace-diagnostics",
       tag: WS_METHODS.serverGetTraceDiagnostics,
     }),
+    logDiagnostics: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:log-diagnostics",
+      tag: WS_METHODS.serverGetLogDiagnostics,
+    }),
+    logTail: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:log-tail",
+      tag: WS_METHODS.serverGetLogTail,
+    }),
     processDiagnostics: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:process-diagnostics",
       tag: WS_METHODS.serverGetProcessDiagnostics,

@@ -1,6 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 
 import { assert, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -17,8 +18,8 @@ import {
 } from "@t3tools/contracts";
 import * as NetService from "@t3tools/shared/Net";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { deriveServerPaths } from "../config.ts";
-import { resolveServerConfig } from "./config.ts";
+import { DEFAULT_SERVER_LOG_CONFIG, deriveServerPaths } from "../config.ts";
+import { resolveServerConfig, ServerLogConfigError } from "./config.ts";
 
 const deriveExplicitServerPaths = (baseDir: string, devUrl: URL | undefined) =>
   deriveServerPaths(baseDir, devUrl, { baseDirIsExplicit: true });
@@ -46,6 +47,7 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
     traceBatchWindowMs: 1_000,
     traceMaxBytes: 10 * 1024 * 1024,
     traceMaxFiles: 10,
+    serverLog: DEFAULT_SERVER_LOG_CONFIG,
     otlpTracesUrl: undefined,
     otlpMetricsUrl: undefined,
     otlpExportIntervalMs: 10_000,
@@ -114,6 +116,11 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
                   T3CODE_NO_BROWSER: "true",
                   T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "false",
                   T3CODE_LOG_WS_EVENTS: "true",
+                  T3CODE_SERVER_LOG_MAX_BYTES: "2048",
+                  T3CODE_SERVER_LOG_MAX_FILES: "2",
+                  T3CODE_SERVER_LOG_MAX_TOTAL_BYTES: "4096",
+                  T3CODE_SERVER_LOG_MAX_AGE_DAYS: "3",
+                  T3CODE_SERVER_LOG_BATCH_WINDOW_MS: "250",
                 },
               }),
             ),
@@ -125,6 +132,14 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
       expect(resolved).toEqual({
         logLevel: "Warn",
         ...defaultObservabilityConfig,
+        serverLog: {
+          ...DEFAULT_SERVER_LOG_CONFIG,
+          maxBytes: 2048,
+          maxFiles: 2,
+          maxTotalBytes: 4096,
+          maxAgeMs: 3 * 24 * 60 * 60 * 1_000,
+          batchWindowMs: 250,
+        },
         mode: "desktop",
         port: 4001,
         cwd: process.cwd(),
@@ -143,6 +158,46 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
         tailscaleServePort: 443,
       });
       assert.equal(resolved.stateDir, join(baseDir, "userdata"));
+    }),
+  );
+
+  it.effect("rejects invalid server log limits", () =>
+    Effect.gen(function* () {
+      const baseDir = NodePath.join(NodeOS.tmpdir(), "t3-cli-config-invalid-server-log");
+      const error = yield* resolveServerConfig(
+        {
+          mode: Option.none(),
+          port: Option.none(),
+          host: Option.none(),
+          baseDir: Option.none(),
+          cwd: Option.none(),
+          devUrl: Option.none(),
+          noBrowser: Option.none(),
+          bootstrapFd: Option.none(),
+          autoBootstrapProjectFromCwd: Option.none(),
+          logWebSocketEvents: Option.none(),
+          tailscaleServeEnabled: Option.none(),
+          tailscaleServePort: Option.none(),
+        },
+        Option.none(),
+      ).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            ConfigProvider.layer(
+              ConfigProvider.fromEnv({
+                env: {
+                  T3CODE_HOME: baseDir,
+                  T3CODE_SERVER_LOG_MAX_BYTES: "0",
+                },
+              }),
+            ),
+            NetService.layer,
+          ),
+        ),
+        Effect.flip,
+      );
+
+      expect(error).toBeInstanceOf(ServerLogConfigError);
     }),
   );
 

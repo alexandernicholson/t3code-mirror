@@ -7,6 +7,8 @@ export interface RotatingFileSinkOptions {
   readonly filePath: string;
   readonly maxBytes: number;
   readonly maxFiles: number;
+  /** Mode used when the active file is created. */
+  readonly fileMode?: number;
   readonly throwOnError?: boolean;
 }
 
@@ -45,6 +47,7 @@ export class RotatingFileSink {
   private readonly filePath: string;
   private readonly maxBytes: number;
   private readonly maxFiles: number;
+  private readonly fileMode: number | undefined;
   private readonly throwOnError: boolean;
   private currentSize = 0;
 
@@ -67,6 +70,7 @@ export class RotatingFileSink {
     this.filePath = options.filePath;
     this.maxBytes = options.maxBytes;
     this.maxFiles = options.maxFiles;
+    this.fileMode = options.fileMode;
     this.throwOnError = options.throwOnError ?? false;
 
     try {
@@ -91,7 +95,11 @@ export class RotatingFileSink {
         this.rotate();
       }
 
-      NodeFS.appendFileSync(this.filePath, buffer);
+      NodeFS.appendFileSync(
+        this.filePath,
+        buffer,
+        this.fileMode === undefined ? undefined : { mode: this.fileMode },
+      );
       this.currentSize += buffer.length;
     } catch (cause) {
       if (isRotatingFileSinkError(cause)) {

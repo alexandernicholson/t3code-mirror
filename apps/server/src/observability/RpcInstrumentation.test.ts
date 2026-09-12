@@ -257,15 +257,21 @@ describe("RpcInstrumentation", () => {
 
   it.effect("does not create spans for disabled unary RPC handlers", () =>
     Effect.gen(function* () {
-      const spanNames = yield* collectSpanNames(
-        observeRpcEffect(
-          WS_METHODS.serverGetTraceDiagnostics,
-          Effect.succeed("ok").pipe(Effect.withSpan("rpc.instrumentation.disabled.unary.child")),
-          { "rpc.aggregate": "test" },
-        ),
-      );
+      for (const method of [
+        WS_METHODS.serverGetLogDiagnostics,
+        WS_METHODS.serverGetLogTail,
+        WS_METHODS.serverGetTraceDiagnostics,
+      ]) {
+        const spanNames = yield* collectSpanNames(
+          observeRpcEffect(
+            method,
+            Effect.succeed("ok").pipe(Effect.withSpan("rpc.instrumentation.disabled.unary.child")),
+            { "rpc.aggregate": "test" },
+          ),
+        );
 
-      assert.deepStrictEqual(spanNames, []);
+        assert.deepStrictEqual(spanNames, []);
+      }
     }),
   );
 

@@ -13,6 +13,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type {
+  ServerLogEntry,
   ServerProcessDiagnosticsEntry,
   ServerProcessResourceHistorySummary,
   ServerProcessSignal,
@@ -69,6 +70,21 @@ function formatRelative(value: DateTime.Utc | null): string {
 
 function formatRelativeNoWrap(value: DateTime.Utc | null): string {
   return formatRelative(value).replaceAll(" ", "\u00a0");
+}
+
+function keyedLogEntries(entries: ReadonlyArray<ServerLogEntry>) {
+  const occurrences = new Map<string, number>();
+  return entries.map((entry) => {
+    const valueKey = [
+      DateTime.formatIso(entry.timestamp),
+      entry.level,
+      entry.causeTag ?? "",
+      entry.message,
+    ].join("\u0000");
+    const occurrence = occurrences.get(valueKey) ?? 0;
+    occurrences.set(valueKey, occurrence + 1);
+    return { entry, key: `${valueKey}\u0000${occurrence}` };
+  });
 }
 
 function shortenTraceId(traceId: string): string {
@@ -793,6 +809,22 @@ export function DiagnosticsSettingsPanel() {
       : serverEnvironment.traceDiagnostics({ environmentId, input: {} }),
   );
   const {
+    data: logData,
+    error: logQueryError,
+    isPending: isLogPending,
+    refresh: refreshLogs,
+  } = useEnvironmentQuery(
+    environmentId === null ? null : serverEnvironment.logDiagnostics({ environmentId, input: {} }),
+  );
+  const {
+    data: logTailData,
+    error: logTailQueryError,
+    isPending: isLogTailPending,
+    refresh: refreshLogTail,
+  } = useEnvironmentQuery(
+    environmentId === null ? null : serverEnvironment.logTail({ environmentId, input: {} }),
+  );
+  const {
     data: processData,
     error: processError,
     isPending: isProcessPending,
@@ -869,6 +901,7 @@ export function DiagnosticsSettingsPanel() {
   }, [availableEditors, environmentId, observability?.logsDirectoryPath, openInEditor]);
 
   const isInitialLoading = isPending && data === null;
+  const isLogInitialLoading = isLogPending && logData === null;
   const isProcessInitialLoading = isProcessPending && processData === null;
   const signalProcess = useCallback(
     async (pid: number, signal: ServerProcessSignal) => {
@@ -965,10 +998,151 @@ export function DiagnosticsSettingsPanel() {
   const traceDiagnosticsPartialFailure = data
     ? Option.getOrElse(data.partialFailure, () => false)
     : false;
+  const logDiagnosticsError = logData ? Option.getOrNull(logData.error) : null;
+  const logTailError = logTailData ? Option.getOrNull(logTailData.error) : null;
 
   return (
     <SettingsPageContainer width="expanded" className="gap-10">
       <ResourceTelemetryDiagnostics environmentId={environmentId} />
+
+      <SettingsSection
+        title="Server Logs"
+        headerAction={
+          <div className="flex items-center gap-1.5">
+            <DiagnosticsLastChecked checkedAt={logData?.readAt ?? null} />
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    variant="ghost-muted"
+                    disabled={!observability?.logsDirectoryPath || isOpeningLogsDirectory}
+                    onClick={openLogsDirectory}
+                    aria-label="Open logs folder"
+                  >
+                    <FolderOpenIcon />
+                  </Button>
+                }
+              />
+              <TooltipPopup side="top">Open logs folder</TooltipPopup>
+            </Tooltip>
+            <DiagnosticsRefreshButton
+              isPending={isLogPending || isLogTailPending}
+              label="Refresh server logs"
+              onClick={() => {
+                refreshLogs();
+                refreshLogTail();
+              }}
+            />
+          </div>
+        }
+      >
+        <StatsGrid>
+          <StatBlock
+            label="Active File"
+            value={logData ? formatBytes(logData.activeFileBytes) : "..."}
+          />
+          <StatBlock
+            label="Retained"
+            value={logData ? formatCount(logData.retainedFileCount) : "..."}
+          />
+          <StatBlock
+            label="Disk Usage"
+            value={logData ? formatBytes(logData.totalFileBytes) : "..."}
+          />
+          <StatBlock
+            label="Dropped"
+            value={logData ? formatCount(logData.droppedRecordCount) : "..."}
+            tone={logData && logData.droppedRecordCount > 0 ? "warning" : "default"}
+          />
+          <StatBlock
+            label="Write Failures"
+            value={logData ? formatCount(logData.writeFailureCount) : "..."}
+            tone={logData && logData.writeFailureCount > 0 ? "danger" : "default"}
+          />
+        </StatsGrid>
+        {logData?.enabled === false ? (
+          <div className="border-t border-border/60 px-4 py-3 text-xs text-amber-600 dark:text-amber-400 sm:px-5">
+            The server log file sink is unavailable. Console and trace diagnostics may still be
+            available.
+          </div>
+        ) : null}
+        {logDiagnosticsError || logTailError || logQueryError || logTailQueryError ? (
+          <div className="space-y-2 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:px-5">
+            {logDiagnosticsError ? (
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+                <span>{logDiagnosticsError.message}</span>
+              </div>
+            ) : null}
+            {logTailError ? (
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+                <span>{logTailError.message}</span>
+              </div>
+            ) : null}
+            {logQueryError || logTailQueryError ? (
+              <div className="flex items-start gap-2 text-destructive">
+                <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
+                <span>{logQueryError ?? logTailQueryError}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {logTailData && logTailData.entries.length > 0 ? (
+          <ScrollArea
+            chainVerticalScroll
+            scrollFade
+            hideScrollbars
+            className="w-full max-w-full rounded-none"
+          >
+            <table className="w-full min-w-[760px] table-fixed text-left text-xs">
+              <colgroup>
+                <col className="w-[15%]" />
+                <col className="w-[12%]" />
+                <col className="w-[73%]" />
+              </colgroup>
+              <thead className="border-b border-border/60 text-[11px] uppercase tracking-[0.08em] text-muted-foreground/70">
+                <tr>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-semibold sm:pl-5">Time</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-semibold">Level</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-semibold sm:pr-5">Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {keyedLogEntries(logTailData.entries).map(({ entry, key }) => (
+                  <tr key={key} className="hover:bg-muted/15">
+                    <td className="whitespace-nowrap px-4 py-3 align-top font-mono tabular-nums text-muted-foreground sm:pl-5">
+                      {formatRelativeNoWrap(entry.timestamp)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="inline-flex rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase text-foreground/80">
+                        {entry.level}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-muted-foreground sm:pr-5">
+                      <ExpandableText
+                        collapsedClassName="line-clamp-2"
+                        expandLabel="Show full message"
+                        text={entry.message}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
+        ) : (
+          <EmptyRows
+            label={isLogInitialLoading ? "Loading server logs..." : "No server log entries found."}
+          />
+        )}
+        {logTailData?.truncated ? (
+          <div className="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:px-5">
+            Showing the most recent bounded log tail. Open the logs folder for the retained files.
+          </div>
+        ) : null}
+      </SettingsSection>
 
       <SettingsSection
         title="Live Processes"
@@ -1100,22 +1274,6 @@ export function DiagnosticsSettingsPanel() {
         headerAction={
           <div className="flex items-center gap-1.5">
             <DiagnosticsLastChecked checkedAt={data?.readAt ?? null} />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    size="icon-xs"
-                    variant="ghost-muted"
-                    disabled={!observability?.logsDirectoryPath || isOpeningLogsDirectory}
-                    onClick={openLogsDirectory}
-                    aria-label="Open logs folder"
-                  >
-                    <FolderOpenIcon />
-                  </Button>
-                }
-              />
-              <TooltipPopup side="top">Open logs folder</TooltipPopup>
-            </Tooltip>
             <DiagnosticsRefreshButton
               isPending={isPending}
               label="Refresh trace diagnostics"

@@ -25,6 +25,35 @@ export type RuntimeMode = typeof RuntimeMode.Type;
 export const StartupPresentation = Schema.Literals(["browser", "headless"]);
 export type StartupPresentation = typeof StartupPresentation.Type;
 
+const MEBIBYTE = 1024 * 1024;
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
+export interface ServerLogConfig {
+  readonly maxBytes: number;
+  readonly maxFiles: number;
+  readonly maxTotalBytes: number;
+  readonly maxAgeMs: number;
+  readonly batchWindowMs: number;
+  readonly maxBufferedBytes: number;
+  readonly maxBufferedRecords: number;
+  readonly retentionCheckIntervalMs: number;
+  readonly maxRecordBytes: number;
+  readonly maxWriteChunkBytes: number;
+}
+
+export const DEFAULT_SERVER_LOG_CONFIG: ServerLogConfig = {
+  maxBytes: 10 * MEBIBYTE,
+  maxFiles: 10,
+  maxTotalBytes: 100 * MEBIBYTE,
+  maxAgeMs: 14 * DAY_MS,
+  batchWindowMs: 500,
+  maxBufferedBytes: MEBIBYTE,
+  maxBufferedRecords: 512,
+  retentionCheckIntervalMs: 5 * 60 * 1_000,
+  maxRecordBytes: 64 * 1024,
+  maxWriteChunkBytes: 64 * 1024,
+};
+
 /**
  * ServerDerivedPaths - Derived paths from the base directory.
  */
@@ -68,6 +97,7 @@ export class ServerConfig extends Context.Service<
     readonly traceBatchWindowMs: number;
     readonly traceMaxBytes: number;
     readonly traceMaxFiles: number;
+    readonly serverLog?: ServerLogConfig;
     readonly otlpTracesUrl: string | undefined;
     readonly otlpMetricsUrl: string | undefined;
     readonly otlpExportIntervalMs: number;
@@ -99,9 +129,17 @@ export class ServerConfig extends Context.Service<
   ) => layerTest(cwd, baseDirOrPrefix);
 }
 
-export const make = (config: ServerConfig["Service"]) => ServerConfig.of(config);
+export type ServerConfigInput = Omit<ServerConfig["Service"], "serverLog"> & {
+  readonly serverLog?: ServerLogConfig;
+};
 
-export const layer = (config: ServerConfig["Service"]) => Layer.succeed(ServerConfig, make(config));
+export const make = (config: ServerConfigInput) =>
+  ServerConfig.of({
+    ...config,
+    serverLog: config.serverLog ?? DEFAULT_SERVER_LOG_CONFIG,
+  });
+
+export const layer = (config: ServerConfigInput) => Layer.succeed(ServerConfig, make(config));
 
 export const deriveServerPaths = Effect.fn(function* (
   baseDir: ServerConfig["Service"]["baseDir"],
@@ -191,6 +229,7 @@ const makeTest = Effect.fn("ServerConfig.makeTest")(function* (
     traceBatchWindowMs: 200,
     traceMaxBytes: 10 * 1024 * 1024,
     traceMaxFiles: 10,
+    serverLog: DEFAULT_SERVER_LOG_CONFIG,
     otlpTracesUrl: undefined,
     otlpMetricsUrl: undefined,
     otlpExportIntervalMs: 10_000,
