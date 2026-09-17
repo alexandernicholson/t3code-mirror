@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0] - 2026-09-16
+
+- Add full Oh My Pi provider support across web, desktop, and mobile through ACP, including model and thinking options, permission modes, structured questions, skills, commands, resume, MCP servers, images, and text-generation tasks.
+
+---
+
 ## [0.7.1] - 2026-09-12
 
 - Add bounded, redacted server logs with rotation, retention, remote diagnostics, and a recent-log view in web and desktop Settings.
