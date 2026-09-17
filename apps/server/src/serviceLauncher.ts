@@ -1,7 +1,9 @@
 // @effect-diagnostics nodeBuiltinImport:off
 // @effect-diagnostics globalTimers:off
-// This file is shipped as a standalone bundle and copied to a stable path by
-// `t3 service update`. Keep runtime imports limited to Node built-ins.
+// The launcher supervises the server child for the boot service and must keep
+// working across server versions, so it stays on Node built-ins with no Effect
+// runtime: it is the one part of the executable that cannot depend on the
+// rest of it being loadable.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
@@ -24,10 +26,9 @@ import {
   SERVICE_LAUNCHER_CONTEXT_ENV,
   SERVICE_LAUNCHER_PROTOCOL,
   SERVICE_STATE_FILE,
+  SERVICE_RESTART_PENDING_FILE,
   SERVICE_STOP_MARKER_FILE,
 } from "./cloud/serviceProtocol.ts";
-import { isEntrypoint } from "./entrypoint.ts";
-import { incompatibleMigration } from "./sourceUpdates/migrations.ts";
 
 const HANDOFF_DELAY_MS = 2_000;
 const PREPARED_TIMEOUT_MS = 120_000;
@@ -42,59 +43,24 @@ interface ManagedChild {
   readonly process: NodeChildProcess.ChildProcess;
 }
 
+// Mirrors pinnedRuntimePaths: a runtime is an unpacked release archive whose
+// executable runs on its own. Kept inline so this file stays on Node
+// built-ins only.
 const runtimePaths = (baseDir: string, version: string) => {
   const versionDir = NodePath.join(baseDir, "runtime", "versions", version);
+  // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone launcher has no Effect runtime.
+  const executableName = process.platform === "win32" ? "t3.exe" : "t3";
   return {
     versionDir,
-    entryPath: NodePath.join(versionDir, "node_modules", "t3", "dist", "bin.mjs"),
+    entryPath: NodePath.join(versionDir, executableName),
     sentinelPath: NodePath.join(versionDir, ".install-complete"),
   };
 };
 
-/** Keep the standalone launcher's branch-switch guard independent of candidate executable code. */
-export async function validateSourceTransition(
-  baseDir: string,
-  from: string,
-  to: string,
-): Promise<void> {
-  const read = async (version: string) => {
-    const raw: unknown = JSON.parse(
-      await NodeFSP.readFile(
-        NodePath.join(runtimePaths(baseDir, version).versionDir, "source-build.json"),
-        "utf8",
-      ),
-    );
-    if (
-      typeof raw !== "object" ||
-      raw === null ||
-      !("runtimeVersion" in raw) ||
-      raw.runtimeVersion !== version ||
-      !("commit" in raw) ||
-      typeof raw.commit !== "string" ||
-      !/^[a-f0-9]{40}$/.test(raw.commit) ||
-      !version.endsWith(`+git.${raw.commit}`) ||
-      !("repository" in raw) ||
-      typeof raw.repository !== "string" ||
-      !("migrations" in raw) ||
-      typeof raw.migrations !== "object" ||
-      raw.migrations === null
-    ) {
-      throw new Error("Invalid source build metadata.");
-    }
-    return { repository: raw.repository, migrations: raw.migrations };
-  };
-  const previous = await read(from);
-  const target = await read(to);
-  if (previous.repository !== target.repository)
-    throw new Error("Source updates must stay in the configured fork.");
-  const id = incompatibleMigration(
-    Object.fromEntries(Object.entries(previous.migrations)),
-    Object.fromEntries(Object.entries(target.migrations)),
-  );
-  if (id !== null) {
-    throw new Error(`Branch switch blocked: migration ${id} is missing, changed, or out of order.`);
-  }
-}
+const runtimeSpawnArguments = (paths: ReturnType<typeof runtimePaths>) => ({
+  command: paths.entryPath,
+  args: ["serve"],
+});
 
 /** SQLite persists across the main file plus its WAL and shared-memory sidecars. */
 const DB_FILE_SUFFIXES = ["", "-wal", "-shm"] as const;
@@ -309,6 +275,8 @@ async function terminateChild(
 
 const stopMarkerPath = (baseDir: string) =>
   NodePath.join(baseDir, "runtime", SERVICE_STOP_MARKER_FILE);
+const restartPendingPath = (baseDir: string) =>
+  NodePath.join(baseDir, "runtime", SERVICE_RESTART_PENDING_FILE);
 
 export class Launcher {
   readonly #baseDir: string;
@@ -401,8 +369,17 @@ export class Launcher {
   async #recover(): Promise<void> {
     // A fresh launcher means servers are running again: any stop marker from
     // a previous explicit stop is stale and must not make a future update
-    // handoff release its tunnel.
+    // handoff release its tunnel. A restart deferred by `t3 update` is done
+    // no matter who restarted the service, but only once this launcher is
+    // the version the marker waits for: a launcher that came up between the
+    // CLI writing the marker and writing the new state still runs the old
+    // version, and the marker has to outlive it.
     await NodeFSP.rm(stopMarkerPath(this.#baseDir), { force: true }).catch(() => undefined);
+    const restartPending = restartPendingPath(this.#baseDir);
+    const awaitedVersion = await NodeFSP.readFile(restartPending, "utf8").catch(() => undefined);
+    if (awaitedVersion?.trim() === this.#state.activeVersion) {
+      await NodeFSP.rm(restartPending, { force: true }).catch(() => undefined);
+    }
     const update = this.#state.update;
     if (update?.status !== "pending") {
       if (update !== undefined) {
@@ -449,7 +426,8 @@ export class Launcher {
       childVersion: version,
       ...(update === undefined ? {} : { update }),
     };
-    const child = NodeChildProcess.spawn(process.execPath, [paths.entryPath, "serve"], {
+    const spawnArguments = runtimeSpawnArguments(paths);
+    const child = NodeChildProcess.spawn(spawnArguments.command, spawnArguments.args, {
       env: { ...process.env, [SERVICE_LAUNCHER_CONTEXT_ENV]: JSON.stringify(context) },
       stdio: ["inherit", "inherit", "inherit", "ipc"],
     });
@@ -663,7 +641,7 @@ export class Launcher {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const baseDir = process.env.T3CODE_HOME?.trim();
   if (baseDir === undefined || baseDir === "") {
     throw new Error("T3CODE_HOME is required by the T3 Code service launcher.");
@@ -671,18 +649,4 @@ async function main(): Promise<void> {
   const statePath = NodePath.join(baseDir, "runtime", SERVICE_STATE_FILE);
   const state = await readServiceState(statePath);
   await new Launcher(baseDir, state).run();
-}
-
-if (
-  isEntrypoint({
-    moduleUrl: import.meta.url,
-    entryPath: process.argv[1],
-    runtimeMain: import.meta.main,
-  })
-) {
-  main().catch((cause: unknown) => {
-    const error = cause instanceof Error ? cause : new Error(String(cause));
-    process.stderr.write(`[service-launcher] ${error.message}\n`);
-    process.exitCode = 1;
-  });
 }

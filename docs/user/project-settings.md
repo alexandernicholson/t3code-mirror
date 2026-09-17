@@ -43,15 +43,15 @@ Browser access changes apply when an agent session next starts.
 
 ## Project icons
 
-Select the project and open Project to choose an icon, emoji, or image. The choice applies to
+Select the project and open Project to choose an icon, emoji, monogram, or image. The choice applies to
 every checkout in the project group and appears on connected clients. Choose **Automatic** to let
 T3 Code detect an icon again.
 
-## Conversation backgrounds
+Choose **Monogram** in the icon picker to set one or two letters or numbers and a color.
 
-Choose a background from **Workstations**, **Landscapes**, or **Abstract**. The selection applies to
-every thread in the project and follows the project across connected clients. Reset the row to use
-the standard conversation background again.
+When no image is found, web and desktop show a two-character monogram with a color
+from the icon palette, derived from the saved project name. For example, `Nebula` becomes `NA`,
+`Silver Orchard` becomes `SO`, and `M7 Forge` becomes `M7`.
 
 ## Keep the default branch current
 

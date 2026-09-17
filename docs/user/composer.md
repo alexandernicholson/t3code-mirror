@@ -6,6 +6,12 @@ include a skill when the task needs more context.
 Messages can contain up to 120,000 characters. Longer drafts stay in the composer
 so you can shorten them or split them into several messages.
 
+Pasting 32 KiB or more of text adds that fragment as a text-file attachment so
+the agent can inspect it without filling the model context. A smaller paste also
+becomes an attachment when inserting it would exceed the message limit. On a
+hardware keyboard, use `Cmd+Shift+V` on Apple devices or `Ctrl+Shift+V` elsewhere
+to keep a large paste editable in the composer instead.
+
 ## Attach files
 
 Attach up to eight files per message. Images can be up to 10 MB; other files can
@@ -17,28 +23,30 @@ message can send. Retry or remove a failed upload. On web and desktop, reloading
 before an upload finishes requires you to attach that file again.
 
 You can drag or paste images into the web or desktop composer. HEIC and HEIF
-photos are converted to JPEG there and when selected from the iOS photo library;
-the image limit applies after conversion. On mobile, you can also send files to
-T3 Code through another app's system share sheet.
+photos are converted to JPEG there and when selected from the mobile photo
+library; photos over the image limit are also resized to fit. On mobile, you can
+also send files to T3 Code through another app's system share sheet.
 
 See [images and videos](#images-and-videos-in-messages) for previewing and saving media.
 
-## Steer or queue a message
+## Send while the agent is working
 
-While the agent is working, use the delivery selector beside Send. Choose
-**Steer** to send a correction into the agent's current work. Choose
-**Queue** to let the current turn finish first. Queued messages run in order,
-one at a time, and remain on the environment when you close a client.
-On web and desktop, Cmd/Ctrl+Enter queues the current draft directly.
+On web and desktop, a message sent during a running turn waits at the end of the conversation as a
+dashed bubble. It goes out on its own when the agent finishes its next tool
+call, or when the turn ends. Use the arrow under the bubble to send it right
+away, or the X to move it back into the composer. Stop returns every queued
+message to the composer.
 
-Queued messages appear above the editor. Open a message's actions to edit,
-remove, or send it immediately. **Edit**
-returns its text, attachments, and settings to the composer, preserving any
-existing draft. Once a message has started, it can no longer be taken back.
-Stopping pauses pending messages; use **Resume queue** when ready to continue.
-Commands such as `/compact` must be sent directly.
+In **Settings → General → Follow-up behavior**, choose **Queue** to keep this
+behavior or **Steer** to send new messages immediately. This setting applies to
+the current client. Messages already queued keep their place.
 
-## Send messages offline on mobile
+Use `Cmd+Shift+Enter` on macOS or `Ctrl+Shift+Enter` on Windows and Linux to send
+the oldest queued message now. Change `thread.steerQueuedMessage` in
+**Settings → Keybindings** to use another shortcut. It leaves the current draft
+in the composer and waits if the agent needs an approval or an answer.
+
+## Queue messages offline on mobile
 
 Mobile keeps local copies of draft attachments, so you can preview them and queue
 messages while disconnected. Uploads resume when you reconnect. Drafts and queued
@@ -71,6 +79,13 @@ around it.
 
 Select the quote in a draft or sent message to return to its source. If the source
 is unavailable or has changed, the saved quote remains readable.
+
+The chip shows your comment when it has one, or a short quote preview otherwise. Use the pencil
+button to add or change the comment. To remove the citation, place the caret beside its chip and
+delete it like other inline context. Copying, reloading, and restoring a
+[stashed prompt](#prompt-stash) keep each comment
+with its quote, and sending tells the agent which words were quoted and which comment you wrote.
+The quoted text and comment count toward the message limit.
 
 Mobile displays saved quotes and comments, but does not create citations or
 navigate to their sources.
@@ -140,6 +155,55 @@ Provider commands must start the message to run. T3 Code commands such as
 Send `/compact` in an existing conversation to reduce context usage when the
 provider supports it. Web and desktop also offer compaction from the context meter.
 
+## Context in your message
+
+Context you attach lands where your cursor is, as a chip inside your text: a terminal excerpt,
+a review comment from a diff or file, a preview annotation, or a file. You can type before and
+after a chip, move it by cutting and pasting, and delete it like a character. Hover a chip for
+its brief details. Select a terminal excerpt to open its captured output, or select a review
+comment, picked element, or preview annotation to open its full details. Chips read as "Terminal
+excerpt, Terminal 1 lines 3-4" and similar to screen readers.
+
+A pull request appears as its icon and number. Its color reflects whether it was open, draft,
+merged, or closed when it was attached. Select it to inspect the captured title and branches,
+then choose **Open pull request** to visit the pull request. On web and desktop, type `#` to browse the newest
+pull requests in the current project's repository. Continue typing digits to filter the recent list
+by any part of its pull request numbers. A complete number is also resolved directly, even when that
+pull request is older than the recent list. Type a single word after `#` to search pull requests in
+the repository by text. Choose a result to insert it as a chip.
+
+Images keep their thumbnail shelf above the text and also get a chip at your cursor, so you can
+say exactly which image you mean. Deleting an image chip leaves the image on the shelf; removing
+the thumbnail asks first when the image is still mentioned in your text, then removes both. Files
+exist only as chips: deleting a file's last chip removes the file from the message.
+
+Copy text that holds chips and paste it into another draft, in the same thread or another one,
+and the chips come along with what they point to. Images and files are fetched again from the
+environment they came from; while that happens the chip shows a dashed outline, and if it cannot
+complete T3 Code tells you and leaves the chip for you to remove or replace. A chip whose
+context is no longer available shows the same dashed outline; hover it for what to do.
+
+Copying a message with the copy button, or copying text out of it, gives other apps readable
+Markdown with a link in place of each chip. Older messages that were sent before chips still
+show their context. Stashing a prompt keeps its chips and what they point to; restoring brings
+them back.
+
+On mobile, tap a chip to inspect its content. File references open the current file; attached
+files show the copy that was attached to the message.
+
+## Attached files
+
+Select a file chip in your draft or a sent message to preview it. Code and JSON use syntax
+highlighting; Markdown, HTML, CSV, and TSV offer rendered and raw views. Audio files have
+playback controls. Large text files show a limited preview; save the file to read it in full.
+
+On web and desktop, files open beside the conversation with the same controls as a workspace
+file: a header row with the view toggle, **Copy contents** and **Save file**. On mobile, documents
+open in the same file screen as workspace files; its menu holds **Copy contents**, **Save or
+share** and **Open in file viewer**. Pictures, videos and PDFs keep their native viewers, and
+other document formats such as Word or Pages open in the device's own viewer when it has one.
+If nothing on the device can show a format, save or share it to open it elsewhere.
+
 ## Images and videos in messages
 
 Select an image or video attachment or link to preview it. Playback support depends
@@ -166,95 +230,4 @@ file to source view to read its markup; a link to a specific line opens source
 automatically. HTML previews cannot access your T3 Code session.
 
 On mobile, select a PDF attachment or link to open it. iOS uses the native viewer;
-Android opens the system chooser.
-
-## Voice narration
-
-Select **Global Narrate** in a thread, the web/desktop sidebar, or Voice narration settings to hear new agent updates from all threads in your connected environments. It keeps speaking as you switch threads or visit Settings, Pull Requests, and Usage. On web/desktop, the command palette can start or stop it too. The global control shows the current thread, voice, and number of queued threads; select **Stop Narrate** to stop immediately and clear the queue.
-
-Each thread automatically gets a voice for the session, starting with your preferred voice and cycling through the available voices before reusing one. Updates play one at a time, with only the newest pending update kept for each thread. Earlier messages are not replayed. Code blocks and tool output are skipped. Web/desktop speaks model-generated summaries; mobile speaks short excerpts. On mobile, narration stops when the app goes into the background.
-
-Kitten Nano generates English speech on your device without a GPU or a speech-service account. The first preview or narration downloads about 28 MB of model and voice files from Hugging Face, with progress shown while downloading. Web uses a browser cache; mobile stores the model and pronunciation data on the device. Speech generation works offline with those downloads; summarizing new updates still requires a connection to your environment and its model provider. Clearing browser/site data or removing the download means it must be downloaded again.
-
-Choose a starting voice from eight voices, adjust speed, preview speech, or remove the downloaded model in **Settings → General → Voice narration** on web/desktop, or **Settings → Voice narration** on mobile. On web/desktop you can also choose **System voices**; their availability depends on the device and browser, and some use an online speech service. System voices rotate within the preferred voice’s language. Stop Global Narrate before previewing voices or removing the downloaded model. Voice and speed preferences apply on this device the next time you start narration.
-
-In web/desktop Voice narration settings, choose a **Narration summary model** or use the environment’s text generation default. The model and option controls match chat, including reasoning effort, context window, and service tier where supported. Customize **Narration instructions** to focus on the updates you care about. The default asks for one plain-language sentence of at most 20 words. These settings apply to the next update in the web and desktop clients connected to that environment. Reset the model or instructions to return to the defaults.
-
-## TODOs
-
-Open **TODOs** in the right sidebar to see the thread's checklist, including after
-an agent finishes. On mobile, open TODOs from the thread toolbar. Changes also
-appear in the conversation, so you can follow progress with the checklist closed. Ask the agent to create a checklist, or add items yourself.
-You can edit the text and phase, mark items complete or reopen them, move them up
-or down, and delete them. On web and desktop, use **Toggle TODOs** in the command
-palette or Cmd/Ctrl+Alt+T; customize the shortcut in Settings → Keybindings.
-
-Edits are saved to the environment and synchronized across connected clients.
-The agent receives your current list with your next ordinary message; send a
-follow-up if it should act on the changes now. Changing a checkbox does not stop
-running work. TODO edits require a connected environment with TODO support.
-
-## Reviewers
-
-Reviewers are on-demand agents for focused verification of local changes. Open **Reviewers**
-in the right sidebar on web or desktop, choose a rule, account/model, and **Quick** or **Deep**, then select
-**Find issues**. Quick reviews prioritize obvious high-impact problems; Deep reviews spend more
-time tracing behavior and running verification. Review runs and findings remain on the
-environment and synchronize across connected clients.
-
-The built-in catalog covers overall test strategy, unit tests, QA and regression,
-functional and integration tests, non-functional performance, benchmarking, security and
-fuzzing, concurrency and correctness, and user acceptance testing. Prompts tell the reviewer
-to detect the repository's languages and frameworks and follow their current official
-standards. The library also includes attributed, adapted rules from Cursor Team Kit and Matt
-Pocock's engineering skills.
-
-Open the panel's settings control to manage the **Review rule library** in Settings → Agents.
-Each rule has a category, name, generated `rule-name-DATETIME.md` filename, account/model,
-description, and editable Markdown body. Add, edit, or delete rules; restore the built-in
-library when needed. **AI-optimize** rewrites the selected Markdown with the separately selected
-optimization model. The magic button beside the name uses the environment's title-generation
-model to suggest a concise name.
-
-Reviewer sessions run with **Full access**. They can run commands, use configured tools and web
-access, or inspect external library source. The standard system prompt tells reviewers not to
-modify the reviewed workspace. Findings include severity, evidence, and source location. Open a
-finding to inspect its file, use **Fix in chat** to place one finding in the composer, or use
-**Fix all** to hand every active finding back to the coding agent. Dismissed findings stay out
-of the active issue count.
-
-## Advisors
-
-Advisors provide an independent review while an agent works. Open the **Advisors**
-panel to add a reviewer for the current thread or change a reviewer's account and
-model using the same picker as chat. These changes apply only to this thread;
-**Use inherited advisor** restores its project or environment settings. To set
-defaults for multiple threads, use **Settings → Agents** on web or desktop, or
-**Settings → Advisors** on mobile. Review activity is sent to the selected account's
-provider. Choose any configured provider and model independently of the provider
-running the main thread. Use the same model
-picker as chat to select supported options such as effort, context window, service
-tier, reasoning mode, or provider-specific variants.
-
-Reviewer sessions can read and search the workspace. T3 blocks writes, commands,
-delegation, interactive questions, and MCP tools at the provider boundary. Normal
-thread permissions and integrations are unchanged.
-
-Open **Advisors** from the right panel, the command palette, or `/advisor`. An enabled
-advisor's status remains visible with the panel closed. On mobile, tap the advisor
-status to open its timeline. The timeline shows review activity, findings, delivery
-status, and reported usage. Opening a finding does not mean it has been resolved.
-
-Choose **Guide automatically** to send concerns and blockers into active work, or
-**Observe only** to decide yourself. Finished or stopped threads stay stopped; use
-**Ask agent to address** to continue with a finding. Plan mode also waits for your
-input. Closing the panel does not stop reviews. Use Pause/Resume in the panel, or
-`/advisor pause` and `/advisor resume`. A project-level pause still applies when a
-thread is resumed.
-
-Use the panel's settings control to override the thread's selected advisors.
-Project guidance can be entered in Settings or loaded from a workspace file such
-as `WATCHDOG.md`. Changes apply to subsequent reviews. An unavailable reviewer
-shows its reason; correct its settings and resume it to retry. Reviews and history
-live on the environment and continue when a client disconnects. Enabling an advisor
-starts watching current activity rather than reviewing the entire old conversation.
+Android opens a compatible installed file viewer.

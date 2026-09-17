@@ -3,17 +3,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./mermaid-viewport": {
-      "types": "./src/mermaidViewport.ts",
-      "default": "./src/mermaidViewport.ts"
-    },
-    "./code-tool-results": {
-      "types": "./src/codeToolResults.ts",
-      "default": "./src/codeToolResults.ts"
-    },
-    "./mermaid-browser": {
-      "types": "./src/mermaidBrowser.ts",
-      "default": "./src/mermaidBrowser.ts"
+    "./worktree-setup": {
+      "types": "./src/worktreeSetup.ts",
+      "default": "./src/worktreeSetup.ts"
     },
     "./load-balancing": {
       "types": "./src/load-balancing.ts",
@@ -118,6 +110,10 @@
     "./state/attachments": {
       "types": "./src/state/attachments.ts",
       "default": "./src/state/attachments.ts"
+    },
+    "./text-paste": {
+      "types": "./src/textPaste.ts",
+      "default": "./src/textPaste.ts"
     },
     "./state/connections": {
       "types": "./src/state/connections.ts",
@@ -298,6 +294,10 @@
     "./thread-pull-request-compatibility": {
       "types": "./src/threadPullRequestCompatibility.ts",
       "default": "./src/threadPullRequestCompatibility.ts"
+    },
+    "./file-preview": {
+      "types": "./src/filePreview.ts",
+      "default": "./src/filePreview.ts"
     }
   },
   "scripts": {

@@ -1,7 +1,10 @@
 import { isElectron } from "~/env";
 import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
+import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/contracts";
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
+import { DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
+import { commandLabel } from "./KeybindingsSettings.logic";
 import {
   validateSettingsScopeSearch,
   type ResolvedSettingsScope,
@@ -56,11 +59,18 @@ export interface SettingsSearchItem {
   readonly environmentOnly?: boolean;
   readonly providerSettingsOnly?: boolean;
   readonly localBackendManagementOnly?: boolean;
+  readonly localEnvironmentOnly?: boolean;
   readonly wslAvailableOnly?: boolean;
+  /**
+   * Sorts after every other match. Keybinding commands mirror rows on other
+   * surfaces, so "model" must still lead with Default model, not Model Picker.
+   */
+  readonly secondary?: boolean;
   readonly requiresThreadAutoSettlement?: boolean;
 }
 
 export interface SettingsSearchAvailability {
+  readonly localEnvironmentDisabled?: boolean;
   readonly hasCloudPublicConfig: boolean;
   readonly hasEnvironment: boolean;
   readonly hasProviderSettingsEnvironment: boolean;
@@ -89,6 +99,33 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/updates": "Updates",
   "/settings/archived": "Archive",
 };
+
+/** Anchor id of the first row bound to `command` on the Keybindings page. */
+export function keybindingSearchAnchorId<Command extends KeybindingCommand>(command: Command) {
+  return `keybinding-${command}` as const;
+}
+
+/**
+ * One result per built-in command, alphabetical by label. The anchor is
+ * the command's first row; default keys are searchable so "mod+b" lands on
+ * Sidebar: Toggle. A command with no default binding may have no row, so it
+ * points at the section instead.
+ */
+const KEYBINDING_SEARCH_ITEMS = STATIC_KEYBINDING_COMMANDS.toSorted((left, right) =>
+  commandLabel(left).localeCompare(commandLabel(right)),
+).map((command) => {
+  const defaultKeys = DEFAULT_KEYBINDINGS.filter((binding) => binding.command === command).map(
+    (binding) => binding.key,
+  );
+  return {
+    id: keybindingSearchAnchorId(command),
+    title: commandLabel(command),
+    to: "/settings/keybindings" as const,
+    searchTerms: [command, ...defaultKeys],
+    secondary: true,
+    ...(defaultKeys.length === 0 ? { targetId: "keybindings" } : {}),
+  };
+});
 
 /**
  * Searchable settings and stable destinations, in result order. Rows with a
@@ -306,16 +343,41 @@ export const SETTINGS_SEARCH_ITEMS = [
     scope: "project-defaults",
   },
   {
+    id: "thread-notifications",
+    title: "Thread notifications",
+    to: "/settings/general",
+    searchTerms: ["notification sound alert completion input approval desktop"],
+  },
+  {
+    id: "in-app-notifications",
+    title: "In-app notifications",
+    to: "/settings/general",
+    searchTerms: ["notification toast popup completion input approval failure"],
+  },
+  {
     id: "time-format",
     title: "Time format",
     to: "/settings/general",
     searchTerms: ["timestamp clock locale system browser os 12 hour 24 hour"],
   },
   {
+    id: "response-streaming",
+    title: "Response streaming",
+    to: "/settings/general",
+    scope: "project-defaults",
+    searchTerms: ["output token paragraph buffered wait turn legacy"],
+  },
+  {
     id: "hide-whitespace-changes",
     title: "Hide whitespace changes",
     to: "/settings/general",
     searchTerms: ["diff ignore spaces edits default"],
+  },
+  {
+    id: "default-diff-file-state",
+    title: "Default diff file state",
+    to: "/settings/general",
+    searchTerms: ["collapsed expanded collapse expand files pull request pr code tab"],
   },
   {
     id: "diff-layout",
@@ -336,10 +398,28 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["command menu dollar $ slash /"],
   },
   {
+    id: "composer-rich-text",
+    title: "Rich text composer",
+    to: "/settings/general",
+    searchTerms: ["composer rich text tiptap bold italic markdown styled wysiwyg"],
+  },
+  {
     id: "composer-collapse",
     title: "Collapse composer on scroll",
     to: "/settings/general",
     searchTerms: ["composer rest resting scroll wheel conversation timeline shrink minimize"],
+  },
+  {
+    id: "send-shortcut",
+    title: "Send shortcut",
+    to: "/settings/general",
+    searchTerms: ["enter return command ctrl multiline prompt new line composer"],
+  },
+  {
+    id: "follow-up-behavior",
+    title: "Follow-up behavior",
+    to: "/settings/general",
+    searchTerms: ["queue steer running turn send default behavior composer"],
   },
   {
     id: "provider-update-checks",
@@ -426,6 +506,11 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["logs traces processes resource history failures spans cpu memory"],
   },
   {
+    id: "open-source-licenses",
+    title: "Open source licenses",
+    to: "/settings/general",
+  },
+  {
     id: "legacy-plan-mode",
     title: "Plan mode (legacy)",
     to: "/settings/general",
@@ -436,13 +521,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Context window indicator (legacy)",
     to: "/settings/general",
     searchTerms: ["composer meter usage tokens circle old"],
-  },
-  {
-    id: "legacy-token-streaming",
-    title: "Stream token by token (legacy)",
-    to: "/settings/general",
-    scope: "project-defaults",
-    searchTerms: ["response output old compatibility"],
   },
   {
     id: "legacy-sidebar",
@@ -456,6 +534,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/keybindings",
     searchTerms: ["keyboard shortcuts hotkeys commands bindings json"],
   },
+  ...KEYBINDING_SEARCH_ITEMS,
   {
     id: "snap-shot-enabled",
     title: "SnapShots",
@@ -620,7 +699,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/source-control",
     scope: "environment-defaults",
     searchTerms: [
-      "version control git github gitlab bitbucket azure devops hosting integrations credentials scan server environment",
+      "version control git github gitlab forgejo gitea tea codeberg bitbucket azure devops hosting integrations credentials scan server environment",
     ],
   },
   {
@@ -674,6 +753,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     localBackendManagementOnly: true,
   },
   {
+    id: "local-environment",
+    title: "Local environment",
+    to: "/settings/connections",
+    targetId: "connections-environment",
+    searchTerms: ["turn off on disable enable local server agents remote only restart"],
+    desktopOnly: true,
+  },
+  {
     id: "network-access",
     title: "Network access",
     to: "/settings/connections",
@@ -704,6 +791,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "t3-connect",
+    localEnvironmentOnly: true,
     title: "T3 Connect",
     to: "/settings/connections",
     targetId: "connections-environment",
@@ -713,6 +801,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "publish-agent-activity",
+    localEnvironmentOnly: true,
     title: "Publish agent activity",
     to: "/settings/connections",
     targetId: "connections-environment",
@@ -721,7 +810,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "connections-environment",
-    title: "This environment",
+    title: "This machine",
     to: "/settings/connections",
     searchTerms: [
       "connections server backend local remote access administrative permissions scope pairing links qr code authorized clients sessions revoke endpoint",
@@ -729,7 +818,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "remote-environments",
-    title: "Remote environments",
+    title: "Environments",
     to: "/settings/connections",
     searchTerms: ["add pair backend host code ssh config agent tunnel saved t3 connect"],
   },
@@ -740,6 +829,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "automatic machine environment resources cpu memory capacity preference weight shared projects",
     ],
+  },
+  {
+    id: "github-routing",
+    title: "GitHub sharing",
+    to: "/settings/connections",
+    searchTerms: ["pull request trusted environments shared credentials permissions read actions"],
   },
   {
     id: "archive",
@@ -885,6 +980,7 @@ export function filterAvailableSettingsSearchItems(
       (!item.environmentOnly || availability.hasEnvironment) &&
       (!item.providerSettingsOnly || availability.hasProviderSettingsEnvironment) &&
       (!item.localBackendManagementOnly || availability.canManageLocalBackend) &&
+      (!item.localEnvironmentOnly || !availability.localEnvironmentDisabled) &&
       (!item.wslAvailableOnly || availability.isWslSettingsRowVisible) &&
       (!item.requiresThreadAutoSettlement || availability.hasThreadAutoSettlement),
   );
@@ -928,6 +1024,11 @@ export function searchSettings(
                   : 0;
       return [{ item, index, rank }];
     })
-    .toSorted((left, right) => right.rank - left.rank || left.index - right.index)
+    .toSorted(
+      (left, right) =>
+        Number(left.item.secondary ?? false) - Number(right.item.secondary ?? false) ||
+        right.rank - left.rank ||
+        left.index - right.index,
+    )
     .map(({ item }) => item);
 }

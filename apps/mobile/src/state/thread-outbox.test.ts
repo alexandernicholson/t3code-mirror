@@ -4,6 +4,7 @@ import { isTransportConnectionErrorMessage } from "@t3tools/client-runtime/error
 import { EnvironmentRpcUnavailableError } from "@t3tools/client-runtime/rpc";
 import {
   CommandId,
+  ComposerContextId,
   EnvironmentAuthorizationError,
   EnvironmentId,
   MessageId,
@@ -114,14 +115,30 @@ function queuedMessage(input: {
 }
 
 describe("thread outbox", () => {
-  it("preserves explicit delivery through persistence and accepts legacy sends", () => {
-    const legacy = queuedMessage({ messageId: "delivery", createdAt: "2026-09-08T12:00:00.000Z" });
-    expect(decodeQueuedThreadMessage(encodeQueuedThreadMessage(legacy)).delivery).toBeUndefined();
-    for (const delivery of ["steer", "queue"] as const) {
-      expect(
-        decodeQueuedThreadMessage(encodeQueuedThreadMessage({ ...legacy, delivery })).delivery,
-      ).toBe(delivery);
-    }
+  it("retains structured context through a persisted offline queue round trip", () => {
+    const message: QueuedThreadMessage = {
+      ...queuedMessage({ messageId: "context-message", createdAt: "2026-09-06T12:00:00.000Z" }),
+      text: "[Build](t3-context://v1/terminal/build-output)",
+      context: {
+        version: 1,
+        records: [
+          {
+            version: 1,
+            kind: "terminal",
+            contextId: ComposerContextId.make("build-output"),
+            label: "Build",
+            terminalId: "main",
+            terminalLabel: "Terminal",
+            lineStart: 2,
+            lineEnd: 2,
+            text: "Build failed",
+          },
+        ],
+      },
+    };
+    expect(
+      decodeQueuedThreadMessage(JSON.parse(JSON.stringify(encodeQueuedThreadMessage(message)))),
+    ).toEqual(message);
   });
   it.each(["read", "json", "schema"] as const)(
     "recovers usable messages without permitting cleanup after a record %s failure",

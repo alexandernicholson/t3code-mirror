@@ -125,25 +125,6 @@ export interface CursorAdapterLiveOptions {
    * the latest snapshot so the closure isn't stale.
    */
   readonly resolveSettings?: Effect.Effect<CursorSettings>;
-  /** ACP-compatible harness override used by providers that share this adapter core. */
-  readonly makeRuntime?: typeof makeCursorAcpRuntime;
-  readonly applyModelSelection?: (input: {
-    readonly runtime: AcpSessionRuntime.AcpSessionRuntime["Service"];
-    readonly model: string | null | undefined;
-    readonly selections: ReadonlyArray<ProviderOptionSelection> | null | undefined;
-    readonly mapError: (cause: EffectAcpErrors.AcpError) => ProviderAdapterError;
-  }) => Effect.Effect<void, ProviderAdapterError>;
-  readonly rewriteCursorSkills?: boolean;
-  readonly transformPrompt?: (prompt: string, cwd: string) => string;
-  readonly harnessName?: string;
-  readonly managedMcpProvider?: ProviderDriverKind;
-  readonly onSessionStarted?: (
-    started: AcpSessionRuntime.AcpSessionRuntimeStartResult,
-    cwd: string,
-  ) => Effect.Effect<void>;
-  readonly onConfigOptionsUpdated?: (
-    options: ReadonlyArray<EffectAcpSchema.SessionConfigOption>,
-  ) => Effect.Effect<void>;
   readonly onAvailableCommands?: (
     commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>,
     cwd: string,
@@ -984,9 +965,6 @@ export function makeCursorAdapter(
                     return;
                   case "ModeChanged":
                     return;
-                  case "ConfigOptionsUpdated":
-                    yield* options?.onConfigOptionsUpdated?.(event.configOptions) ?? Effect.void;
-                    return;
                   case "AvailableCommandsUpdated":
                     yield* (
                       options?.onAvailableCommands?.(event.availableCommands, cwd) ?? Effect.void
@@ -1046,6 +1024,27 @@ export function makeCursorAdapter(
                         threadId: ctx.threadId,
                         turnId: ctx.activeTurnId,
                         toolCall: event.toolCall,
+                        rawPayload: event.rawPayload,
+                      }),
+                    );
+                    return;
+                  case "ThoughtDelta":
+                    // Thoughts are narration, not the reply: they stay out of
+                    // `assistantReply` so a resumed turn replays only answers.
+                    yield* logNative(
+                      ctx.threadId,
+                      "session/update",
+                      event.rawPayload,
+                      "acp.jsonrpc",
+                    );
+                    yield* offerRuntimeEvent(
+                      makeAcpContentDeltaEvent({
+                        stamp: yield* makeEventStamp(),
+                        provider: PROVIDER,
+                        threadId: ctx.threadId,
+                        turnId: ctx.activeTurnId,
+                        streamKind: "reasoning_text",
+                        text: event.text,
                         rawPayload: event.rawPayload,
                       }),
                     );
@@ -1248,19 +1247,19 @@ export function makeCursorAdapter(
             });
           }
 
-          // ACP has no system-message field; keep runtime context separate from the user's text.
+          // ACP commands parse the complete text. Extra context can turn an exact
+          // command into an ordinary model prompt or change its arguments.
           const result = yield* ctx.acp
             .prompt({
-              prompt: [
-                ...promptParts,
-                {
-                  type: "text",
-                  text: buildRuntimeInstructions({
-                    harness: options?.harnessName ?? "Cursor",
-                    model: resolvedModel,
-                  }),
-                },
-              ],
+              prompt: /^\/[^\s/]+(?:\s|$)/.test(rawPrompt)
+                ? promptParts
+                : [
+                    ...promptParts,
+                    {
+                      type: "text",
+                      text: buildRuntimeInstructions({ harness: "Cursor", model: resolvedModel }),
+                    },
+                  ],
             })
             .pipe(
               Effect.mapError((error) =>
