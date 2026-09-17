@@ -23,6 +23,10 @@ This fork currently adds or changes the following:
   [Secrets](./docs/user/project-settings.md#secrets).
 - Adds shared provider settings across clients, including configurable Codex
   model context windows. See [Codex accounts and settings](./docs/user/providers-codex.md).
+- Adds full Oh My Pi provider support through ACP, including native model and
+  thinking options, modes, permissions, questions, skills, commands, session
+  resume, MCP servers, images, and text-generation tasks. See
+  [Oh My Pi](./docs/user/providers-omp.md).
 - Discovers Claude gateway models for web, desktop, and mobile model selection.
   See [Claude routers](./docs/user/providers-claude.md#other-routers).
 - Keeps pull-request creation, lookup, and the in-app PR viewer pointed at the

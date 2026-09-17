@@ -26,7 +26,10 @@ import {
 import {
   applyCursorAcpModelSelection,
   makeCursorAcpRuntime,
+  type CursorAcpRuntimeInput,
 } from "../provider/acp/CursorAcpSupport.ts";
+import type * as AcpSessionRuntime from "../provider/acp/AcpSessionRuntime.ts";
+import type * as EffectAcpErrors from "effect-acp/errors";
 
 const CURSOR_TIMEOUT_MS = 180_000;
 
@@ -39,6 +42,16 @@ const isTextGenerationError = Schema.is(TextGenerationError);
 export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(function* (
   cursorSettings: CursorSettings,
   environment?: NodeJS.ProcessEnv,
+  options?: {
+    readonly providerName?: string;
+    readonly makeRuntime?: typeof makeCursorAcpRuntime;
+    readonly applyModelSelection?: (input: {
+      readonly runtime: AcpSessionRuntime.AcpSessionRuntime["Service"];
+      readonly model: string;
+      readonly selections: ModelSelection["options"];
+      readonly mapError: (cause: EffectAcpErrors.AcpError) => TextGenerationError;
+    }) => Effect.Effect<void, TextGenerationError>;
+  },
 ) {
   const crypto = yield* Crypto.Crypto;
   const commandSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -64,13 +77,16 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
   }): Effect.Effect<S["Type"], TextGenerationError, S["DecodingServices"]> =>
     Effect.gen(function* () {
       const outputRef = yield* Ref.make("");
-      const runtime = yield* makeCursorAcpRuntime({
+      const runtimeInput: CursorAcpRuntimeInput = {
         cursorSettings,
         environment: resolvedEnvironment,
         childProcessSpawner: commandSpawner,
         cwd,
         clientInfo: { name: "t3-code-git-text", version: "0.0.0" },
-      }).pipe(Effect.provideService(Crypto.Crypto, crypto));
+      };
+      const runtime = yield* (options?.makeRuntime ?? makeCursorAcpRuntime)(runtimeInput).pipe(
+        Effect.provideService(Crypto.Crypto, crypto),
+      );
 
       yield* runtime.handleSessionUpdate((notification) => {
         const update = notification.update;
@@ -87,20 +103,32 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
       const promptResult = yield* Effect.gen(function* () {
         yield* runtime.start();
         yield* Effect.ignore(runtime.setMode("ask"));
-        yield* applyCursorAcpModelSelection({
-          runtime,
-          model: modelSelection.model,
-          selections: modelSelection.options,
-          mapError: ({ cause, configId, step }) =>
-            new TextGenerationError({
-              operation,
-              detail:
-                step === "set-config-option"
-                  ? `Failed to set Cursor ACP config option "${configId}" for text generation.`
-                  : "Failed to set Cursor ACP base model for text generation.",
-              cause,
-            }),
-        });
+        yield* options?.applyModelSelection
+          ? options.applyModelSelection({
+              runtime,
+              model: modelSelection.model,
+              selections: modelSelection.options,
+              mapError: (cause) =>
+                new TextGenerationError({
+                  operation,
+                  detail: `Failed to set ${options.providerName ?? "Cursor"} ACP model options for text generation.`,
+                  cause,
+                }),
+            })
+          : applyCursorAcpModelSelection({
+              runtime,
+              model: modelSelection.model,
+              selections: modelSelection.options,
+              mapError: ({ cause, configId, step }) =>
+                new TextGenerationError({
+                  operation,
+                  detail:
+                    step === "set-config-option"
+                      ? `Failed to set Cursor ACP config option "${configId}" for text generation.`
+                      : "Failed to set Cursor ACP base model for text generation.",
+                  cause,
+                }),
+            });
 
         return yield* runtime.prompt({
           prompt: [{ type: "text", text: prompt }],
@@ -113,7 +141,7 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
               Effect.fail(
                 new TextGenerationError({
                   operation,
-                  detail: "Cursor Agent request timed out.",
+                  detail: `${options?.providerName ?? "Cursor Agent"} request timed out.`,
                 }),
               ),
             onSome: (value) => Effect.succeed(value),
@@ -124,7 +152,7 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
             ? cause
             : new TextGenerationError({
                 operation,
-                detail: "Cursor ACP request failed.",
+                detail: `${options?.providerName ?? "Cursor"} ACP request failed.`,
                 cause,
               }),
         ),
@@ -136,8 +164,8 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
           operation,
           detail:
             promptResult.stopReason === "cancelled"
-              ? "Cursor ACP request was cancelled."
-              : "Cursor Agent returned empty output.",
+              ? `${options?.providerName ?? "Cursor"} ACP request was cancelled.`
+              : `${options?.providerName ?? "Cursor Agent"} returned empty output.`,
         });
       }
 
@@ -148,7 +176,7 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
             Effect.fail(
               new TextGenerationError({
                 operation,
-                detail: "Cursor Agent returned invalid structured output.",
+                detail: `${options?.providerName ?? "Cursor Agent"} returned invalid structured output.`,
                 cause,
               }),
             ),
@@ -160,7 +188,7 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
           ? cause
           : new TextGenerationError({
               operation,
-              detail: "Cursor ACP text generation failed.",
+              detail: `${options?.providerName ?? "Cursor"} ACP text generation failed.`,
               cause,
             }),
       ),

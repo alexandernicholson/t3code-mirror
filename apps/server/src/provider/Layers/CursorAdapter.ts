@@ -20,6 +20,7 @@ import {
   type RuntimeMode,
   type ThreadId,
   TurnId,
+  type UserInputQuestion,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Crypto from "effect/Crypto";
@@ -50,6 +51,7 @@ import {
   ProviderAdapterRequestError,
   ProviderAdapterSessionNotFoundError,
   ProviderAdapterValidationError,
+  type ProviderAdapterError,
 } from "../Errors.ts";
 import { acpPermissionOutcome, mapAcpToAdapterError } from "../acp/AcpAdapterSupport.ts";
 import type * as AcpSessionRuntime from "../acp/AcpSessionRuntime.ts";
@@ -67,7 +69,11 @@ import {
   parsePermissionRequest,
 } from "../acp/AcpRuntimeModel.ts";
 import { makeAcpNativeLoggerFactory } from "../acp/AcpNativeLogging.ts";
-import { applyCursorAcpModelSelection, makeCursorAcpRuntime } from "../acp/CursorAcpSupport.ts";
+import {
+  applyCursorAcpModelSelection,
+  makeCursorAcpRuntime,
+  type CursorAcpRuntimeInput,
+} from "../acp/CursorAcpSupport.ts";
 import { CursorTransportFailure } from "../acp/CursorTransportFailure.ts";
 import {
   CursorAskQuestionRequest,
@@ -119,6 +125,29 @@ export interface CursorAdapterLiveOptions {
    * the latest snapshot so the closure isn't stale.
    */
   readonly resolveSettings?: Effect.Effect<CursorSettings>;
+  /** ACP-compatible harness override used by providers that share this adapter core. */
+  readonly makeRuntime?: typeof makeCursorAcpRuntime;
+  readonly applyModelSelection?: (input: {
+    readonly runtime: AcpSessionRuntime.AcpSessionRuntime["Service"];
+    readonly model: string | null | undefined;
+    readonly selections: ReadonlyArray<ProviderOptionSelection> | null | undefined;
+    readonly mapError: (cause: EffectAcpErrors.AcpError) => ProviderAdapterError;
+  }) => Effect.Effect<void, ProviderAdapterError>;
+  readonly rewriteCursorSkills?: boolean;
+  readonly transformPrompt?: (prompt: string, cwd: string) => string;
+  readonly harnessName?: string;
+  readonly managedMcpProvider?: ProviderDriverKind;
+  readonly onSessionStarted?: (
+    started: AcpSessionRuntime.AcpSessionRuntimeStartResult,
+    cwd: string,
+  ) => Effect.Effect<void>;
+  readonly onConfigOptionsUpdated?: (
+    options: ReadonlyArray<EffectAcpSchema.SessionConfigOption>,
+  ) => Effect.Effect<void>;
+  readonly onAvailableCommands?: (
+    commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>,
+    cwd: string,
+  ) => Effect.Effect<void>;
 }
 
 interface PendingApproval {
@@ -269,19 +298,30 @@ function applyRequestedSessionConfiguration<E>(input: {
     readonly cause: import("effect-acp/errors").AcpError;
     readonly method: "session/set_config_option" | "session/set_mode";
   }) => E;
+  readonly applyModelSelection?: (input: {
+    readonly runtime: AcpSessionRuntime.AcpSessionRuntime["Service"];
+    readonly model: string | null | undefined;
+    readonly selections: ReadonlyArray<ProviderOptionSelection> | null | undefined;
+    readonly mapError: (cause: EffectAcpErrors.AcpError) => E;
+  }) => Effect.Effect<void, E>;
 }): Effect.Effect<void, E> {
   return Effect.gen(function* () {
     if (input.modelSelection) {
-      yield* applyCursorAcpModelSelection({
-        runtime: input.runtime,
-        model: input.modelSelection.model,
-        selections: input.modelSelection.options,
-        mapError: ({ cause }) =>
-          input.mapError({
-            cause,
-            method: "session/set_config_option",
-          }),
-      });
+      const mapModelError = (cause: EffectAcpErrors.AcpError) =>
+        input.mapError({ cause, method: "session/set_config_option" });
+      yield* input.applyModelSelection
+        ? input.applyModelSelection({
+            runtime: input.runtime,
+            model: input.modelSelection.model,
+            selections: input.modelSelection.options,
+            mapError: mapModelError,
+          })
+        : applyCursorAcpModelSelection({
+            runtime: input.runtime,
+            model: input.modelSelection.model,
+            selections: input.modelSelection.options,
+            mapError: ({ cause }) => mapModelError(cause),
+          });
     }
 
     const requestedModeId = resolveRequestedModeId({
@@ -318,6 +358,77 @@ function selectAutoApprovedPermissionOption(
   }
 
   return undefined;
+}
+
+function elicitationQuestions(
+  request: Extract<EffectAcpSchema.ElicitationRequest, { readonly mode: "form" }>,
+): ReadonlyArray<UserInputQuestion> {
+  const properties = request.requestedSchema.properties ?? {};
+  return Object.entries(properties).map(([id, property]) => {
+    const titledOptions =
+      property.type === "string" && property.oneOf
+        ? property.oneOf.map((option) => ({
+            label: option.title,
+            description: "",
+            value: option.const,
+          }))
+        : [];
+    const enumValues =
+      property.type === "string" && property.enum
+        ? property.enum
+        : property.type === "array" && "enum" in property.items
+          ? property.items.enum
+          : [];
+    const options =
+      titledOptions.length > 0
+        ? titledOptions
+        : enumValues.map((value) => ({ label: value, description: "", value }));
+    const booleanOptions =
+      property.type === "boolean"
+        ? [
+            { label: "Yes", description: "", value: "true" },
+            { label: "No", description: "", value: "false" },
+          ]
+        : [];
+    return {
+      id,
+      header: property.title?.trim() || request.requestedSchema.title?.trim() || "Question",
+      question: property.description?.trim() || request.message,
+      options: options.length > 0 ? options : booleanOptions,
+      allowCustomAnswer: options.length === 0 && booleanOptions.length === 0,
+      multiSelect: property.type === "array",
+    };
+  });
+}
+
+function elicitationContent(
+  request: Extract<EffectAcpSchema.ElicitationRequest, { readonly mode: "form" }>,
+  answers: ProviderUserInputAnswers,
+): Record<string, EffectAcpSchema.ElicitationContentValue> {
+  return Object.fromEntries(
+    Object.entries(answers).flatMap(([id, value]) => {
+      const property = request.requestedSchema.properties?.[id];
+      if (property?.type === "boolean" && typeof value === "string") {
+        return value === "true" ? [[id, true]] : value === "false" ? [[id, false]] : [];
+      }
+      if (
+        (property?.type === "number" || property?.type === "integer") &&
+        typeof value === "string" &&
+        value.trim() !== ""
+      ) {
+        const number = Number(value);
+        return Number.isFinite(number) && (property.type !== "integer" || Number.isInteger(number))
+          ? [[id, number]]
+          : [];
+      }
+      return typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        (Array.isArray(value) && value.every((entry) => typeof entry === "string"))
+        ? [[id, value as EffectAcpSchema.ElicitationContentValue]]
+        : [];
+    }),
+  );
 }
 
 export function makeCursorAdapter(
@@ -543,16 +654,18 @@ export function makeCursorAdapter(
 
           const managedMcpConfig = input.reviewer
             ? []
-            : yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
-                ManagedMcp.toAcpMcpServers(
-                  ManagedMcp.readManagedMcpServers(input.threadId),
-                  options?.environment ?? process.env,
-                ),
+            : yield* ManagedMcp.resolveManagedMcpConfig(
+                options?.managedMcpProvider ?? PROVIDER,
+                () =>
+                  ManagedMcp.toAcpMcpServers(
+                    ManagedMcp.readManagedMcpServers(input.threadId),
+                    options?.environment ?? process.env,
+                  ),
               );
           const mcpSession = input.reviewer
             ? undefined
             : McpProviderSession.readMcpProviderSession(input.threadId);
-          const acp = yield* makeCursorAcpRuntime({
+          const runtimeInput: CursorAcpRuntimeInput = {
             cursorSettings: effectiveCursorSettings,
             ...(options?.environment || mcpSession?.agentDeviceEnvironment
               ? {
@@ -581,7 +694,8 @@ export function makeCursorAdapter(
                 : []),
             ],
             ...acpNativeLoggers,
-          }).pipe(
+          };
+          const acp = yield* (options?.makeRuntime ?? makeCursorAcpRuntime)(runtimeInput).pipe(
             Effect.provideService(Crypto.Crypto, crypto),
             Effect.provideService(Scope.Scope, sessionScope),
             Effect.mapError(
@@ -688,6 +802,51 @@ export function makeCursorAdapter(
                   }),
                 ),
             );
+            yield* acp.handleElicitation((params) =>
+              mapExtensionFailure(
+                Effect.gen(function* () {
+                  yield* logNative(input.threadId, "session/elicitation", params, "acp.jsonrpc");
+                  if (input.reviewer || params.mode !== "form") {
+                    return { action: { action: "cancel" as const } };
+                  }
+                  const requestId = ApprovalRequestId.make(yield* randomUUIDv4);
+                  const runtimeRequestId = RuntimeRequestId.make(requestId);
+                  const answers = yield* Deferred.make<ProviderUserInputAnswers>();
+                  pendingUserInputs.set(requestId, { answers });
+                  yield* offerRuntimeEvent({
+                    type: "user-input.requested",
+                    ...(yield* makeEventStamp()),
+                    provider: PROVIDER,
+                    threadId: input.threadId,
+                    turnId: ctx?.activeTurnId,
+                    requestId: runtimeRequestId,
+                    payload: { questions: elicitationQuestions(params) },
+                    raw: {
+                      source: "acp.jsonrpc",
+                      method: "session/elicitation",
+                      payload: params,
+                    },
+                  });
+                  const resolved = yield* Deferred.await(answers);
+                  pendingUserInputs.delete(requestId);
+                  yield* offerRuntimeEvent({
+                    type: "user-input.resolved",
+                    ...(yield* makeEventStamp()),
+                    provider: PROVIDER,
+                    threadId: input.threadId,
+                    turnId: ctx?.activeTurnId,
+                    requestId: runtimeRequestId,
+                    payload: { answers: resolved },
+                  });
+                  return {
+                    action: {
+                      action: "accept" as const,
+                      content: elicitationContent(params, resolved),
+                    },
+                  };
+                }),
+              ),
+            );
             yield* acp.handleRequestPermission((params) =>
               mapExtensionFailure(
                 Effect.gen(function* () {
@@ -774,9 +933,13 @@ export function makeCursorAdapter(
             runtimeMode: input.runtimeMode,
             interactionMode: undefined,
             modelSelection: cursorModelSelection,
+            ...(options?.applyModelSelection
+              ? { applyModelSelection: options.applyModelSelection }
+              : {}),
             mapError: ({ cause, method }) =>
               mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
           });
+          yield* options?.onSessionStarted?.(started, cwd) ?? Effect.void;
 
           const now = yield* nowIso;
           const session: ProviderSession = {
@@ -820,6 +983,14 @@ export function makeCursorAdapter(
                     yield* Deferred.succeed(event.acknowledge, undefined);
                     return;
                   case "ModeChanged":
+                    return;
+                  case "ConfigOptionsUpdated":
+                    yield* options?.onConfigOptionsUpdated?.(event.configOptions) ?? Effect.void;
+                    return;
+                  case "AvailableCommandsUpdated":
+                    yield* (
+                      options?.onAvailableCommands?.(event.availableCommands, cwd) ?? Effect.void
+                    );
                     return;
                   case "AssistantItemStarted":
                     ctx.assistantReply = new CursorTransportFailure();
@@ -974,6 +1145,9 @@ export function makeCursorAdapter(
                     model,
                     options: turnModelSelection?.options,
                   },
+            ...(options?.applyModelSelection
+              ? { applyModelSelection: options.applyModelSelection }
+              : {}),
             mapError: ({ cause, method }) =>
               mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
           });
@@ -1003,7 +1177,11 @@ export function makeCursorAdapter(
           const rawPrompt = input.input?.trim() ?? "";
           if (rawPrompt) {
             let cursorSkillNames = ctx.cursorSkillNames;
-            if (hasCursorSkillMention(rawPrompt) && cursorSkillNames === undefined) {
+            if (
+              options?.rewriteCursorSkills !== false &&
+              hasCursorSkillMention(rawPrompt) &&
+              cursorSkillNames === undefined
+            ) {
               const skills = yield* discoverCursorSkills(
                 ctx.session.cwd,
                 options?.environment,
@@ -1018,9 +1196,11 @@ export function makeCursorAdapter(
               );
               ctx.cursorSkillNames = cursorSkillNames;
             }
-            const prompt = cursorSkillNames
-              ? rewriteCursorSkillMentions(rawPrompt, cursorSkillNames)
-              : rawPrompt;
+            const prompt = options?.transformPrompt
+              ? options.transformPrompt(rawPrompt, ctx.session.cwd ?? "")
+              : options?.rewriteCursorSkills !== false && cursorSkillNames
+                ? rewriteCursorSkillMentions(rawPrompt, cursorSkillNames)
+                : rawPrompt;
             promptParts.push({ type: "text", text: prompt });
           }
           if (input.attachments && input.attachments.length > 0) {
@@ -1075,7 +1255,10 @@ export function makeCursorAdapter(
                 ...promptParts,
                 {
                   type: "text",
-                  text: buildRuntimeInstructions({ harness: "Cursor", model: resolvedModel }),
+                  text: buildRuntimeInstructions({
+                    harness: options?.harnessName ?? "Cursor",
+                    model: resolvedModel,
+                  }),
                 },
               ],
             })
