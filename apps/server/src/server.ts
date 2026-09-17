@@ -1,6 +1,17 @@
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeHttp from "node:http";
 
+import * as Advisors from "./advisors/Advisors.ts";
+import * as CodeTools from "./codeTools/CodeTools.ts";
+import * as AdvisorStore from "./advisors/AdvisorStore.ts";
+import * as AdvisorRunner from "./advisors/AdvisorRunner.ts";
+import * as ReviewerStore from "./reviewers/ReviewerStore.ts";
+import * as ReviewerRunner from "./reviewers/ReviewerRunner.ts";
+import * as Reviewers from "./reviewers/Reviewers.ts";
+import * as SourceUpdates from "./sourceUpdates/service.ts";
+import * as Secrets from "./secrets/Secrets.ts";
+import * as SecretApprovals from "./secrets/SecretApprovals.ts";
+import { localBackendLayer } from "./secrets/SecretBackend.ts";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {

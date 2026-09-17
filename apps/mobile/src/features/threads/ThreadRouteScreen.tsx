@@ -55,6 +55,8 @@ import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { connectionTone } from "../connection/connectionTone";
+import { appBlurTargetRef } from "../../lib/appBlurTarget";
+import { getMobileConversationBackgroundSource } from "../../conversationBackgrounds";
 import {
   useRemoteConnections,
   useRemoteConnectionStatus,
@@ -237,7 +239,7 @@ function ThreadRouteContent(
     readonly selectedThreadDetailState: ReturnType<typeof useSelectedThreadDetailState>;
   },
 ) {
-  const { themeVariables } = useAppearancePreferences();
+  const { themeAppearance, themeVariables } = useAppearancePreferences();
   const headerColor = themeVariables["--color-header"];
   const {
     fileInspector,
@@ -1282,3 +1284,8 @@ function ThreadRouteContent(
     </>
   );
 }
+import { ThreadAdvisors } from "./ThreadAdvisors";
+import { ThreadCodeChecks } from "./ThreadCodeChecks";
+import { ThreadAgents } from "./ThreadAgents";
+import { ThreadTodos } from "./ThreadTodos";
+import { ThreadNarration } from "../narration/ThreadNarration";

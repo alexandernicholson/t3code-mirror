@@ -4654,6 +4654,7 @@ export default function ChatView(props: ChatViewProps) {
   const hasLinkedPullRequestDetail = activeThreadMetadata?.linkedPullRequest != null;
   const linkedThreadPullRequest =
     activeThreadMetadata?.linkedPullRequest ?? activeThreadMetadata?.branchPullRequest ?? null;
+  const activeProjectRepository = activeProject?.repositoryIdentity?.displayName ?? null;
   const linkedThreadPullRequestKey = linkedThreadPullRequest
     ? JSON.stringify([
         linkedThreadPullRequest.projectId,
@@ -6599,6 +6600,7 @@ export default function ChatView(props: ChatViewProps) {
       terminalOpen: Boolean(terminalUiState.terminalOpen),
       previewFocus: isPreviewFocused(),
       previewOpen: previewPanelOpen,
+      ideFocus: isIdeFocused(),
       modelPickerOpen: composerRef.current?.isModelPickerOpen() ?? false,
     }),
     [composerRef, previewPanelOpen, terminalUiState.terminalOpen],
@@ -7238,7 +7240,8 @@ export default function ChatView(props: ChatViewProps) {
       annotation: PreviewAnnotationPayload;
       image: ComposerImageAttachment | null;
     },
-    /** A queued message being sent now instead of the live composer draft. */
+    deliveryOverride?: TurnDelivery,
+    /** A locally queued message being sent now instead of the live composer draft. */
     queuedMessage?: QueuedComposerMessage,
   ) => {
     e?.preventDefault();
@@ -8310,11 +8313,148 @@ export default function ChatView(props: ChatViewProps) {
     }
   };
 
+  const onSendAgentMessage = async (
+    agent: import("@t3tools/client-runtime/state/subagentRuntime").RuntimeSubagent,
+    text: string,
+  ) => {
+    if (!activeThread || sendInFlightRef.current || isConnecting) return;
+    const createdAt = new Date().toISOString();
+    const instruction = [
+      `<subagent-message target-id=${JSON.stringify(agent.id)} target-name=${JSON.stringify(agent.title)}>`,
+      text,
+      "</subagent-message>",
+      "Deliver this message to the existing subagent with the provider's native agent messaging tool. Do not answer the message yourself. Preserve the subagent's context and let its activity continue to appear in Agents.",
+    ].join("\n");
+    const result = await startThreadTurn({
+      environmentId,
+      input: {
+        threadId: activeThread.id,
+        ...(phase === "running" ? { delivery: "steer" as const } : {}),
+        message: {
+          messageId: newMessageId(),
+          role: "user",
+          text: instruction,
+          attachments: [],
+        },
+        ...(activeThread.modelSelection ? { modelSelection: activeThread.modelSelection } : {}),
+        titleSeed: activeThread.title,
+        runtimeMode,
+        interactionMode,
+        createdAt,
+      },
+    });
+    if (result._tag === "Failure") {
+      const error = squashAtomCommandFailure(result);
+      toastManager.add({
+        type: "error",
+        title: `Could not message ${agent.title}`,
+        description: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+
+  const onTurnQueueAction = async (
+    action: "cancel" | "steer" | "resume",
+    messageId?: MessageId,
+  ) => {
+    const result = await updateTurnQueue({
+      environmentId,
+      input: {
+        threadId,
+        action,
+        ...(messageId ? { messageId } : {}),
+      },
+    });
+    if (result._tag === "Failure") {
+      toastManager.add({
+        type: "error",
+        title: "Could not update queued message",
+        description: String(squashAtomCommandFailure(result)),
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const restoreQueuedTurn = async (item: QueuedTurn) => {
+    const connection = readPreparedConnection(environmentId);
+    if (!connection) return;
+    const images: ComposerImageAttachment[] = [];
+    const files: ComposerFileAttachment[] = [];
+    try {
+      const draft = useComposerDraftStore.getState().getComposerDraft(composerDraftTarget);
+      if (
+        (draft?.images.length ?? 0) + (draft?.files.length ?? 0) + item.attachments.length >
+        PROVIDER_SEND_TURN_MAX_ATTACHMENTS
+      ) {
+        throw new Error("Make room in your draft before restoring these attachments.");
+      }
+      for (const attachment of item.attachments) {
+        if (attachment.type === "file") {
+          files.push({
+            ...attachment,
+            type: "file",
+            file: null,
+            uploadedAttachmentId: attachment.id,
+            uploadEnvironmentId: environmentId,
+          });
+        } else {
+          const result = await createAttachmentAssetUrl({
+            environmentId,
+            input: {
+              resource: {
+                _tag: "attachment",
+                attachmentId: attachment.id,
+                fileName: attachment.name,
+                mimeType: attachment.mimeType,
+              },
+            },
+          });
+          if (result._tag !== "Success") throw new Error(`Could not restore ${attachment.name}`);
+          const response = await fetch(new URL(result.value.relativeUrl, connection.httpBaseUrl));
+          if (!response.ok) throw new Error(`Could not restore ${attachment.name}`);
+          const blob = await response.blob();
+          images.push({
+            id: attachment.id,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            type: "image",
+            file: new File([blob], attachment.name, { type: attachment.mimeType }),
+            previewUrl: URL.createObjectURL(blob),
+          });
+        }
+      }
+      if (!(await onTurnQueueAction("cancel", item.messageId))) {
+        for (const image of images) URL.revokeObjectURL(image.previewUrl);
+        return;
+      }
+      const store = useComposerDraftStore.getState();
+      const current = store.getComposerDraft(composerDraftTarget)?.prompt ?? "";
+      store.setPrompt(composerDraftTarget, current ? `${current}\n\n${item.text}` : item.text);
+      store.addImages(composerDraftTarget, images, { allowOverflow: true });
+      store.addFiles(composerDraftTarget, files, { allowOverflow: true });
+      if (item.modelSelection) store.setModelSelection(composerDraftTarget, item.modelSelection);
+      store.setRuntimeMode(composerDraftTarget, item.runtimeMode);
+      store.setInteractionMode(composerDraftTarget, item.interactionMode);
+      setTurnDelivery("queue");
+      scheduleComposerFocus();
+    } catch (error) {
+      for (const image of images) URL.revokeObjectURL(image.previewUrl);
+      toastManager.add({
+        type: "error",
+        title: "Could not restore queued message",
+        description: String(error),
+      });
+    }
+  };
+
   // Sends the oldest queued message once it is due: a tool call finished
   // after it was queued, or the turn ended. Only one leaves per boundary; the
   // take inside onSend re-anchors the rest.
   const sendQueuedMessage = useEffectEvent((message: QueuedComposerMessage) => {
-    void onSend(undefined, message.submissionIntent, undefined, message);
+    void onSend(undefined, message.submissionIntent, undefined, undefined, message);
   });
   const nextQueuedMessage = queuedMessages[0] ?? null;
   const latestToolActivityId = useMemo(
@@ -8361,7 +8501,7 @@ export default function ChatView(props: ChatViewProps) {
     steer: (id) => {
       const message = queuedMessages.find((entry) => entry.id === id);
       if (!message || sendInFlightRef.current || queueBlockedByPendingRequest) return;
-      void onSend(undefined, message.submissionIntent, undefined, message);
+      void onSend(undefined, message.submissionIntent, undefined, undefined, message);
     },
     remove: (id) => {
       if (!activeThreadKey) return;

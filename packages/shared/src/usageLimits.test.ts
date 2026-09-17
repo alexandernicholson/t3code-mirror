@@ -14,6 +14,7 @@ import {
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
   collectLimitAccounts,
+  collectLimitHistoryLines,
   collectLimitNotices,
   collectLimitPools,
   elapsedShare,

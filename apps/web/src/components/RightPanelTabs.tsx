@@ -24,6 +24,7 @@ import {
   ChevronRight,
   FileDiff,
   Files,
+  GitPullRequestArrow,
   Globe2,
   ListTodo,
   Plus,

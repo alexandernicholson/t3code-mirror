@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.1] - 2026-09-17
+
+- Merge upstream T3 Code main through f17165a76, including the latest web, desktop, mobile, server, and reliability improvements.
+
+---
+
 ## [0.8.0] - 2026-09-16
 
 - Add full Oh My Pi provider support across web, desktop, and mobile through ACP, including model and thinking options, permission modes, structured questions, skills, commands, resume, MCP servers, images, and text-generation tasks.

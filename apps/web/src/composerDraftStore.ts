@@ -618,14 +618,14 @@ interface ComposerDraftStoreState {
   addImages: (
     threadRef: ComposerThreadTarget,
     images: ComposerImageAttachment[],
-    options?: { allowDuplicates?: boolean },
+    options?: { allowOverflow?: boolean; allowDuplicates?: boolean },
   ) => string[];
   removeImage: (threadRef: ComposerThreadTarget, imageId: string) => void;
   /** Returns the ids of files appended; a re-pick that replaces a marker is not listed. */
   addFiles: (
     threadRef: ComposerThreadTarget,
     files: ComposerFileAttachment[],
-    options?: { allowDuplicates?: boolean; appendReference?: boolean },
+    options?: { allowOverflow?: boolean; allowDuplicates?: boolean; appendReference?: boolean },
   ) => string[];
   removeFile: (threadRef: ComposerThreadTarget, fileId: string) => void;
   setFileUpload: (

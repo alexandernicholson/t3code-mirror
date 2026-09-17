@@ -125,6 +125,25 @@ export interface CursorAdapterLiveOptions {
    * the latest snapshot so the closure isn't stale.
    */
   readonly resolveSettings?: Effect.Effect<CursorSettings>;
+  /** ACP-compatible harness override used by providers that share this adapter core. */
+  readonly makeRuntime?: typeof makeCursorAcpRuntime;
+  readonly applyModelSelection?: (input: {
+    readonly runtime: AcpSessionRuntime.AcpSessionRuntime["Service"];
+    readonly model: string | null | undefined;
+    readonly selections: ReadonlyArray<ProviderOptionSelection> | null | undefined;
+    readonly mapError: (cause: EffectAcpErrors.AcpError) => ProviderAdapterError;
+  }) => Effect.Effect<void, ProviderAdapterError>;
+  readonly rewriteCursorSkills?: boolean;
+  readonly transformPrompt?: (prompt: string, cwd: string) => string;
+  readonly harnessName?: string;
+  readonly managedMcpProvider?: ProviderDriverKind;
+  readonly onSessionStarted?: (
+    started: AcpSessionRuntime.AcpSessionRuntimeStartResult,
+    cwd: string,
+  ) => Effect.Effect<void>;
+  readonly onConfigOptionsUpdated?: (
+    options: ReadonlyArray<EffectAcpSchema.SessionConfigOption>,
+  ) => Effect.Effect<void>;
   readonly onAvailableCommands?: (
     commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>,
     cwd: string,

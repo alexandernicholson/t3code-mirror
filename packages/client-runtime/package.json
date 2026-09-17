@@ -3,6 +3,18 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./code-tool-results": {
+      "types": "./src/codeToolResults.ts",
+      "default": "./src/codeToolResults.ts"
+    },
+    "./mermaid-browser": {
+      "types": "./src/mermaidBrowser.ts",
+      "default": "./src/mermaidBrowser.ts"
+    },
+    "./mermaid-viewport": {
+      "types": "./src/mermaidViewport.ts",
+      "default": "./src/mermaidViewport.ts"
+    },
     "./worktree-setup": {
       "types": "./src/worktreeSetup.ts",
       "default": "./src/worktreeSetup.ts"

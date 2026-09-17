@@ -3,6 +3,18 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./changelog": {
+      "types": "./src/changelog.ts",
+      "import": "./src/changelog.ts"
+    },
+    "./contextWindow": {
+      "types": "./src/contextWindow.ts",
+      "import": "./src/contextWindow.ts"
+    },
+    "./todos": {
+      "types": "./src/todos.ts",
+      "import": "./src/todos.ts"
+    },
     "./legacyCliLauncher": {
       "types": "./src/legacyCliLauncher.ts",
       "import": "./src/legacyCliLauncher.ts"

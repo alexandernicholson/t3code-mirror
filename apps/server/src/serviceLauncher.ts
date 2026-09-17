@@ -18,6 +18,7 @@ import type {
   ServiceState,
   ServiceUpdateRecord,
 } from "./cloud/serviceProtocol.ts";
+import { incompatibleMigration } from "./sourceUpdates/migrations.ts";
 import {
   compareExactServiceVersions,
   decodeServiceLauncherChildMessage,
@@ -53,14 +54,61 @@ const runtimePaths = (baseDir: string, version: string) => {
   return {
     versionDir,
     entryPath: NodePath.join(versionDir, executableName),
+    sourceEntryPath: NodePath.join(versionDir, "node_modules", "t3", "dist", "bin.mjs"),
     sentinelPath: NodePath.join(versionDir, ".install-complete"),
   };
 };
 
-const runtimeSpawnArguments = (paths: ReturnType<typeof runtimePaths>) => ({
-  command: paths.entryPath,
-  args: ["serve"],
-});
+/** Keep the standalone launcher's branch-switch guard independent of candidate executable code. */
+export async function validateSourceTransition(
+  baseDir: string,
+  from: string,
+  to: string,
+): Promise<void> {
+  const read = async (version: string) => {
+    const raw: unknown = JSON.parse(
+      await NodeFSP.readFile(
+        NodePath.join(runtimePaths(baseDir, version).versionDir, "source-build.json"),
+        "utf8",
+      ),
+    );
+    if (
+      typeof raw !== "object" ||
+      raw === null ||
+      !("runtimeVersion" in raw) ||
+      raw.runtimeVersion !== version ||
+      !("commit" in raw) ||
+      typeof raw.commit !== "string" ||
+      !/^[a-f0-9]{40}$/.test(raw.commit) ||
+      !version.endsWith(`+git.${raw.commit}`) ||
+      !("repository" in raw) ||
+      typeof raw.repository !== "string" ||
+      !("migrations" in raw) ||
+      typeof raw.migrations !== "object" ||
+      raw.migrations === null
+    ) {
+      throw new Error("Invalid source build metadata.");
+    }
+    return { repository: raw.repository, migrations: raw.migrations };
+  };
+  const previous = await read(from);
+  const target = await read(to);
+  if (previous.repository !== target.repository)
+    throw new Error("Source updates must stay in the configured fork.");
+  const id = incompatibleMigration(
+    Object.fromEntries(Object.entries(previous.migrations)),
+    Object.fromEntries(Object.entries(target.migrations)),
+  );
+  if (id !== null) {
+    throw new Error(`Branch switch blocked: migration ${id} is missing, changed, or out of order.`);
+  }
+}
+
+const runtimeSpawnArguments = (paths: ReturnType<typeof runtimePaths>) =>
+  NodeFS.existsSync(paths.sourceEntryPath)
+    ? // Source builds retain the package layout and run through Node.
+      { command: process.execPath, args: [paths.sourceEntryPath, "serve"] }
+    : { command: paths.entryPath, args: ["serve"] };
 
 /** SQLite persists across the main file plus its WAL and shared-memory sidecars. */
 const DB_FILE_SUFFIXES = ["", "-wal", "-shm"] as const;
@@ -216,11 +264,11 @@ export async function writeServiceState(filePath: string, state: ServiceState): 
 async function runtimeExists(baseDir: string, version: string): Promise<boolean> {
   const paths = runtimePaths(baseDir, version);
   try {
-    const [entry, sentinel] = await Promise.all([
-      NodeFSP.stat(paths.entryPath),
+    const [entries, sentinel] = await Promise.all([
+      Promise.all([pathExists(paths.entryPath), pathExists(paths.sourceEntryPath)]),
       NodeFSP.readFile(paths.sentinelPath, "utf8"),
     ]);
-    return entry.isFile() && sentinel.trim() === version;
+    return entries.some(Boolean) && sentinel.trim() === version;
   } catch {
     return false;
   }

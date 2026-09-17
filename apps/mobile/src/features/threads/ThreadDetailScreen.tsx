@@ -107,6 +107,8 @@ import type { ThreadContentPresentation } from "./threadContentPresentation";
 import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
 
 export interface ThreadDetailScreenProps {
+  readonly onOpenAdvisors?: () => void;
+  readonly onOpenCodeChecks?: () => void;
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly selectedThread: OrchestrationThreadShell;
@@ -1061,6 +1063,8 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
                   onRemoveDraftImage={props.onRemoveDraftImage}
                   onStopThread={props.onStopThread}
                   onSendMessage={handleSendMessage}
+                  {...(props.onOpenAdvisors ? { onOpenAdvisors: props.onOpenAdvisors } : {})}
+                  {...(props.onOpenCodeChecks ? { onOpenCodeChecks: props.onOpenCodeChecks } : {})}
                   onShowUsageLimits={showUsageLimits}
                   onUpdateModelSelection={props.onUpdateThreadModelSelection}
                   onUpdateRuntimeMode={props.onUpdateThreadRuntimeMode}
@@ -1076,3 +1080,4 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     </View>
   );
 });
+import { SecretAccessCard } from "./SecretAccessCard";

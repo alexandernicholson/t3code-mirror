@@ -107,6 +107,18 @@ export function createThreadEnvironmentAtoms<R, E>(
       JSON.stringify([environmentId, input.threadId]),
   };
   const commands = {
+    editTodos: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:edit-todos",
+      execute: (input: EditThreadTodosInput) => editThreadTodos(input),
+      scheduler,
+      concurrency,
+    }),
+    updateQueue: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:update-queue",
+      execute: (input: UpdateThreadQueueInput) => updateThreadQueue(input),
+      scheduler,
+      concurrency,
+    }),
     create: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:create",
       execute: (input: CreateThreadInput) => createThread(input),

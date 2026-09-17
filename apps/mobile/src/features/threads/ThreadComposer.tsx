@@ -1,6 +1,9 @@
+import { useAtomCommand } from "../../state/use-atom-command";
+import { advisors } from "../../state/advisors";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAtomValue } from "@effect/atom-react";
+import { TurnDeliverySelector, TurnQueueControls } from "./TurnQueueControls";
 import { clampFileAttachmentUploadBytes } from "@t3tools/client-runtime/state/attachments";
 import { pastedTextDisposition, replaceTextSelection } from "@t3tools/client-runtime/text-paste";
 import {
@@ -55,6 +58,7 @@ import { scopedThreadKey } from "../../lib/scopedEntities";
 import {
   composerContextImportsAtom,
   countComposerDraftAttachmentsAfterSelection,
+  useComposerDraft,
 } from "../../state/use-composer-drafts";
 import type { ComposerDocumentAttachment } from "../../lib/composerContext";
 import { useProject } from "../../state/entities";
@@ -298,6 +302,14 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const [previewFile, setPreviewFile] = useState<FilePreviewSource | null>(null);
   const [previewVideo, setPreviewVideo] = useState<VideoPreviewSource | null>(null);
   const hasContent = props.draftMessage.trim().length > 0 || props.draftAttachments.length > 0;
+  const isAgentRunning = props.selectedThread.session?.status === "running";
+  const deliverySelector =
+    isAgentRunning && props.serverConfig?.environment.capabilities.turnQueue === true ? (
+      <TurnDeliverySelector
+        environmentId={props.environmentId}
+        threadId={props.selectedThread.id}
+      />
+    ) : null;
   // Only media belongs above the composer; every other file reads as its inline chip.
   const stripAttachments = useMemo(
     () => composerStripAttachments(props.draftAttachments),

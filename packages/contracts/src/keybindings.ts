@@ -83,6 +83,8 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "codeChecks.toggle",
   "reviewers.toggle",
   "composer.stash",
+  "ide.toggle",
+  "ide.save",
   "composer.host",
   "composer.effort",
   "composer.mode",

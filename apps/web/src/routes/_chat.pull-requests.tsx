@@ -145,6 +145,7 @@ import {
 } from "../state/pullRequests";
 import { useAtomCommand } from "../state/use-atom-command";
 import { cn } from "~/lib/utils";
+import { isIdeFocused } from "~/lib/ideFocus";
 import { primaryServerKeybindingsAtom } from "~/state/server";
 import { getSourceControlPresentationForKind } from "~/sourceControlPresentation";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
@@ -155,6 +156,7 @@ function getShortcutContext() {
     terminalOpen: false,
     previewFocus: false,
     previewOpen: false,
+    ideFocus: isIdeFocused(),
     modelPickerOpen: false,
   };
 }

@@ -1,3 +1,4 @@
+import { SourceUpdateNotifications } from "../SourceUpdateNotifications";
 import { ArrowLeftIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
@@ -91,23 +92,20 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
       )}
       to="/"
     >
-      {/* Center the visible capitals, without the font's ascender/descender space. */}
-      <span className="inline-flex min-w-0 items-baseline gap-1 text-sm font-medium tracking-tight">
-        <T3Wordmark aria-label="T3" className="h-[1cap] w-auto shrink-0" />
+      {brandText === null ? null : customBrand ? (
         <span
-          className={cn(
-            "truncate [text-box:trim-both_cap_alphabetic]",
-            onBackdrop ? "text-white/70" : "text-muted-foreground",
-          )}
+          className="block min-w-0 truncate text-sm font-medium tracking-tight whitespace-nowrap"
+          data-sidebar-brand="custom"
         >
           <SidebarBrandMarkdown text={brandText} />
         </span>
       ) : (
-        <span className="inline-flex min-w-0 items-baseline gap-1">
-          <T3Wordmark aria-label="T3" className="h-2.5 w-auto shrink-0" />
+        /* Center the visible capitals, without the font's ascender/descender space. */
+        <span className="inline-flex min-w-0 items-baseline gap-1 text-sm font-medium tracking-tight">
+          <T3Wordmark aria-label="T3" className="h-[1cap] w-auto shrink-0" />
           <span
             className={cn(
-              "truncate text-sm font-medium tracking-tight",
+              "truncate [text-box:trim-both_cap_alphabetic]",
               onBackdrop ? "text-white/70" : "text-muted-foreground",
             )}
           >

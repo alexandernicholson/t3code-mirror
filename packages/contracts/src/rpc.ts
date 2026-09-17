@@ -293,6 +293,12 @@ import {
 import { UsagePricing, UsageReadError, UsageSummary, UsageSummaryInput } from "./usage.ts";
 import { ServerSettings, ServerSettingsError, ServerSettingsPatch } from "./settings.ts";
 import {
+  ProviderGlobalSettings,
+  ProviderGlobalSettingsError,
+  ProviderGlobalSettingsReadInput,
+  ProviderGlobalSettingsWriteInput,
+} from "./providerGlobalSettings.ts";
+import {
   ProjectCloneActionInput,
   ProjectCloneActionResult,
   ProjectCloneListEvent,

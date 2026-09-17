@@ -4908,6 +4908,12 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       if (requestThinkingSummaries && extraArgs["thinking-display"] === undefined) {
         extraArgs["thinking-display"] = "summarized";
       }
+      const managedMcpConfig = yield* ManagedMcp.resolveManagedMcpConfig(PROVIDER, () =>
+        ManagedMcp.toClaudeMcpServers(
+          ManagedMcp.readManagedMcpServers(input.threadId),
+          claudeEnvironment,
+        ),
+      );
       const mcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
       // The attachments dir grant lets the agent Read/copy pasted images at
       // the paths ProviderService injects into the turn text, without an

@@ -1578,11 +1578,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           },
         });
       }
-      return [
-        ...lifecycleResetEvents,
-        ...(userMessageEvent ? [userMessageEvent] : []),
-        turnStartRequestedEvent,
-      ];
+      return queuedEvent
+        ? [...lifecycleResetEvents, queuedEvent]
+        : [
+            ...lifecycleResetEvents,
+            ...(userMessageEvent ? [userMessageEvent] : []),
+            turnStartRequestedEvent,
+          ];
     }
 
     case "thread.message.user.append": {
@@ -1625,6 +1627,107 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           updatedAt: command.createdAt,
         },
       };
+    }
+
+    case "thread.turn.queue":
+    case "thread.turn.queue.drain": {
+      const thread = yield* requireThread({ readModel, command, threadId: command.threadId });
+      const queue = {
+        ...(thread.turnQueue ?? { items: [], paused: false }),
+        ...(command.type === "thread.turn.queue.drain" && command.completedTurnId
+          ? { completedTurnId: command.completedTurnId }
+          : {}),
+      };
+      const boundaryEvent =
+        command.type === "thread.turn.queue.drain" && command.completedTurnId
+          ? yield* queueEvent(command, queue)
+          : undefined;
+      if (
+        command.type === "thread.turn.queue" &&
+        command.action === "resume" &&
+        (thread.session?.status === "running" ||
+          thread.session?.status === "starting" ||
+          queue.items.length === 0)
+      ) {
+        return yield* queueEvent(command, { ...queue, paused: false });
+      }
+      const automatic = command.type === "thread.turn.queue.drain";
+      const item =
+        automatic || command.action === "resume"
+          ? queue.items[0]
+          : queue.items.find((item) => item.messageId === command.messageId);
+      if (!item && boundaryEvent) return boundaryEvent;
+      if (!item)
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "This message has already been sent or removed.",
+        });
+      if (
+        automatic &&
+        (queue.paused ||
+          queue.dispatchingMessageId !== undefined ||
+          thread.archivedAt !== null ||
+          thread.settledOverride === "settled" ||
+          thread.session?.status === "running" ||
+          thread.session?.status === "starting" ||
+          openRequests(thread).size > 0 ||
+          hasQueuedTurnStartForThread(thread, command.createdAt) ||
+          (thread.latestTurn !== null &&
+            queue.completedTurnId !== thread.latestTurn.turnId &&
+            !thread.checkpoints.some(
+              (checkpoint) =>
+                checkpoint.turnId === thread.latestTurn?.turnId && checkpoint.status === "ready",
+            )))
+      )
+        return boundaryEvent ?? [];
+      const updated = yield* queueEvent(command, {
+        ...queue,
+        paused: !automatic && command.action === "resume" ? false : queue.paused,
+        items: queue.items.filter((entry) => entry.messageId !== item.messageId),
+        ...(automatic || command.action === "resume"
+          ? { dispatchingMessageId: item.messageId }
+          : {}),
+      });
+      if (!automatic && command.action === "cancel") return updated;
+      const nextReadModel = yield* projectEvent(readModel, {
+        ...updated,
+        sequence: readModel.snapshotSequence + 1,
+      }).pipe(Effect.orDie);
+      const started = yield* decideCommandSequence({
+        readModel: nextReadModel,
+        commands: [
+          {
+            type: "thread.runtime-mode.set",
+            commandId: command.commandId,
+            threadId: command.threadId,
+            runtimeMode: item.runtimeMode,
+            createdAt: command.createdAt,
+          },
+          {
+            type: "thread.interaction-mode.set",
+            commandId: command.commandId,
+            threadId: command.threadId,
+            interactionMode: item.interactionMode,
+            createdAt: command.createdAt,
+          },
+          {
+            type: "thread.turn.start",
+            commandId: command.commandId,
+            threadId: command.threadId,
+            message: {
+              messageId: item.messageId,
+              role: "user",
+              text: item.text,
+              attachments: item.attachments,
+            },
+            modelSelection: item.modelSelection,
+            runtimeMode: item.runtimeMode,
+            interactionMode: item.interactionMode,
+            createdAt: command.createdAt,
+          },
+        ],
+      });
+      return [updated, ...(Array.isArray(started) ? started : [started])];
     }
 
     case "thread.turn.interrupt": {

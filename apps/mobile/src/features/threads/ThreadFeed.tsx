@@ -1518,6 +1518,7 @@ function renderFeedEntry(
               {messages.map((reasoningMessage) => (
                 <AssistantMarkdownContent
                   key={reasoningMessage.id}
+                  isStreaming={false}
                   markdown={reasoningMessage.text}
                   markdownStyles={markdownStyles.assistant}
                   linkHandlers={props.markdownLinkHandlers}
@@ -3027,3 +3028,4 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     </PresentationSource>
   );
 });
+import { ThreadMermaidDiagram, useMermaidCodeBlockRenderer } from "./ThreadMermaidDiagram";
