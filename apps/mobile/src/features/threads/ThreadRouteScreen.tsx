@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import * as Option from "effect/Option";
 import {
   CommandId,
+  customConversationBackgroundAssetResource,
   MessageId,
   DEFAULT_SERVER_SETTINGS,
   EnvironmentId,
@@ -57,6 +58,7 @@ import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { connectionTone } from "../connection/connectionTone";
 import { appBlurTargetRef } from "../../lib/appBlurTarget";
 import { getMobileConversationBackgroundSource } from "../../conversationBackgrounds";
+import { useAssetUrl } from "../../state/assets";
 import {
   useRemoteConnections,
   useRemoteConnectionStatus,
@@ -259,9 +261,16 @@ function ThreadRouteContent(
   } = useThreadSelection();
   const selectedThreadDetailState = props.selectedThreadDetailState;
   const selectedThreadDetail = Option.getOrNull(selectedThreadDetailState.data);
-  const conversationBackgroundSource = getMobileConversationBackgroundSource(
+  const builtInConversationBackgroundSource = getMobileConversationBackgroundSource(
     selectedThreadProject?.conversationBackground,
   );
+  const customConversationBackgroundUrl = useAssetUrl(
+    selectedThread?.environmentId ?? null,
+    customConversationBackgroundAssetResource(selectedThreadProject?.conversationBackground),
+  );
+  const conversationBackgroundSource =
+    builtInConversationBackgroundSource ??
+    (customConversationBackgroundUrl ? { uri: customConversationBackgroundUrl } : null);
   // "Load earlier turns" header state for windowed (paginated) thread loads.
   const loadEarlierTurns = useMemo(() => {
     if (selectedThread === null || !threadHasOlderTurns(selectedThreadDetailState)) {

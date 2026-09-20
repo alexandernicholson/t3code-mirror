@@ -35,6 +35,16 @@ const uploadInput = {
   sizeBytes: 6,
 } as const;
 
+function validPng(): Uint8Array {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, 1920);
+  view.setUint32(20, 1080);
+  return bytes;
+}
+
 const LegacyAttachmentUploadClaims = Schema.Struct({
   version: Schema.Literal(1),
   kind: Schema.Literal("attachment-upload"),
@@ -176,6 +186,31 @@ describe("AttachmentUpload", () => {
       expect(
         NodeFS.readFileSync(NodePath.join(config.attachmentsDir, `${issued.attachmentId}.pdf`)),
       ).toEqual(Buffer.from([1, 2, 3, 4, 5, 6]));
+
+      yield* deletePendingAttachment(issued.attachmentId);
+      expect(NodeFS.readdirSync(config.attachmentsDir)).toEqual([]);
+    }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("stores validated backgrounds under durable asset ids", () =>
+    Effect.gen(function* () {
+      const config = yield* ServerConfig.ServerConfig;
+      const body = validPng();
+      const issued = yield* issueAttachmentUploadUrl({
+        type: "background",
+        name: "backdrop.png",
+        mimeType: "image/png",
+        sizeBytes: body.byteLength,
+      });
+      const token = issued.relativeUrl.slice(`${ATTACHMENT_UPLOAD_ROUTE_PREFIX}/`.length);
+      const claims = yield* validateAttachmentUploadToken(token);
+      if (!claims) throw new Error("Expected valid upload claims.");
+
+      expect(parseThreadSegmentFromAttachmentId(issued.attachmentId)).toBe("background");
+      expect(yield* storeAttachmentUpload(claims, body)).toEqual({ ok: true });
+      expect(
+        NodeFS.existsSync(NodePath.join(config.attachmentsDir, `${issued.attachmentId}.png`)),
+      ).toBe(true);
 
       yield* deletePendingAttachment(issued.attachmentId);
       expect(NodeFS.readdirSync(config.attachmentsDir)).toEqual([]);

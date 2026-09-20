@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.2] - 2026-09-20
+
+- Add secure custom conversation background uploads with automatic photo conversion and animated GIF, WebP, and PNG support across web, desktop, and mobile.
+
+---
+
 ## [0.8.1] - 2026-09-17
 
 - Merge upstream T3 Code main through f17165a76, including the latest web, desktop, mobile, server, and reliability improvements.

@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
-import { AttachmentCreateUploadUrlInput } from "./assets.ts";
+import { AttachmentCreateUploadUrlInput, CUSTOM_BACKGROUND_MAX_UPLOAD_BYTES } from "./assets.ts";
 import {
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
@@ -41,6 +41,25 @@ describe("AttachmentCreateUploadUrlInput", () => {
         sizeBytes: 3,
       }),
     ).toBe(true);
+  });
+
+  it("accepts bounded browser-safe custom background formats", () => {
+    expect(
+      isUploadInput({
+        type: "background",
+        name: "rain.gif",
+        mimeType: "image/gif",
+        sizeBytes: CUSTOM_BACKGROUND_MAX_UPLOAD_BYTES,
+      }),
+    ).toBe(true);
+    expect(
+      isUploadInput({
+        type: "background",
+        name: "vector.svg",
+        mimeType: "image/svg+xml",
+        sizeBytes: 100,
+      }),
+    ).toBe(false);
   });
 
   it("rejects empty and oversized uploads", () => {

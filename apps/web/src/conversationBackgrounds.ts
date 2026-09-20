@@ -88,7 +88,7 @@ export const CONVERSATION_BACKGROUND_COLLECTIONS = [
   },
 ] as const satisfies ReadonlyArray<ConversationBackgroundCollection>;
 
-const optionById = new Map(
+const optionById = new Map<ProjectConversationBackground, ConversationBackgroundOption>(
   CONVERSATION_BACKGROUND_COLLECTIONS.flatMap((collection) =>
     collection.options.map((option) => [option.id, option] as const),
   ),

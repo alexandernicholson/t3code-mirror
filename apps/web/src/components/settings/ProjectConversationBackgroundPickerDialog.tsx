@@ -1,5 +1,6 @@
 import type { ProjectConversationBackground } from "@t3tools/contracts";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, UploadIcon } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { CONVERSATION_BACKGROUND_COLLECTIONS } from "../../conversationBackgrounds";
 import { cn } from "~/lib/utils";
@@ -12,15 +13,42 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { ScrollArea } from "../ui/scroll-area";
+import { Button } from "../ui/button";
+import { Alert } from "../ui/alert";
 
 export function ProjectConversationBackgroundPickerDialog(props: {
   readonly current: ProjectConversationBackground | null;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSelect: (background: ProjectConversationBackground) => void;
+  readonly onUpload: (file: File) => Promise<void>;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload(file: File | undefined) {
+    if (!file || uploading) return;
+    setUploading(true);
+    setError(null);
+    try {
+      await props.onUpload(file);
+      props.onOpenChange(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The background could not be uploaded.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!uploading || open) props.onOpenChange(open);
+      }}
+    >
       <DialogPopup className="w-full sm:w-[44rem]">
         <DialogHeader>
           <DialogTitle>Choose conversation background</DialogTitle>
@@ -31,6 +59,44 @@ export function ProjectConversationBackgroundPickerDialog(props: {
         <DialogPanel className="min-h-0">
           <ScrollArea scrollFade className="max-h-[min(34rem,72vh)]">
             <div className="space-y-6 p-0.5 pb-3">
+              <section aria-labelledby="background-custom">
+                <h3
+                  id="background-custom"
+                  className="mb-2 text-xs font-medium text-muted-foreground"
+                >
+                  Custom
+                </h3>
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-border p-4">
+                  <div>
+                    <p className="text-sm font-medium">Upload an image or animation</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Photos are resized automatically. GIF, animated WebP, and animated PNG stay
+                      animated.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <UploadIcon aria-hidden className="size-4" />
+                    {uploading ? "Uploading…" : "Upload"}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="sr-only"
+                    accept="image/*,.heic,.heif"
+                    onChange={(event) => void upload(event.currentTarget.files?.[0])}
+                  />
+                </div>
+                {error ? (
+                  <Alert variant="error" className="mt-2">
+                    {error}
+                  </Alert>
+                ) : null}
+              </section>
               {CONVERSATION_BACKGROUND_COLLECTIONS.map((collection) => (
                 <section key={collection.id} aria-labelledby={`background-${collection.id}`}>
                   <h3
@@ -46,6 +112,7 @@ export function ProjectConversationBackgroundPickerDialog(props: {
                         <button
                           key={option.id}
                           type="button"
+                          disabled={uploading}
                           aria-label={option.label}
                           aria-pressed={selected}
                           className={cn(

@@ -1,6 +1,6 @@
 import type { ProjectConversationBackground } from "@t3tools/contracts";
 
-const BACKGROUND_SOURCE_BY_ID: Record<ProjectConversationBackground, number> = {
+const BACKGROUND_SOURCE_BY_ID: Partial<Record<ProjectConversationBackground, number>> = {
   "workstation-mountain-cabin": require("../assets/conversation-backgrounds/workstation-mountain-cabin.jpg"),
   "workstation-brutalist-studio": require("../assets/conversation-backgrounds/workstation-brutalist-studio.jpg"),
   "workstation-rainy-loft": require("../assets/conversation-backgrounds/workstation-rainy-loft.jpg"),
@@ -21,5 +21,5 @@ const BACKGROUND_SOURCE_BY_ID: Record<ProjectConversationBackground, number> = {
 export function getMobileConversationBackgroundSource(
   id: ProjectConversationBackground | null | undefined,
 ): number | null {
-  return id ? BACKGROUND_SOURCE_BY_ID[id] : null;
+  return id ? (BACKGROUND_SOURCE_BY_ID[id] ?? null) : null;
 }

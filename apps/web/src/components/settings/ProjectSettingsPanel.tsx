@@ -9,6 +9,7 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import { AsyncResult } from "effect/unstable/reactivity";
 import {
   type EnvironmentId,
+  customConversationBackgroundAssetResource,
   type ProjectConversationBackground,
   type ProjectIconOverride,
 } from "@t3tools/contracts";
@@ -45,6 +46,12 @@ import {
 import { ProjectActionsSettings } from "./ProjectActionsSettings";
 import { projectGroupTitleNeedsUpdate } from "./ProjectSettingsPanel.logic";
 import { getConversationBackground } from "../../conversationBackgrounds";
+import { useAssetUrlState } from "../../assets/assetUrls";
+import {
+  deleteConversationBackgroundAsset,
+  prepareConversationBackgroundUpload,
+  uploadPreparedConversationBackground,
+} from "../../lib/conversationBackgroundUpload";
 import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
 
 const ProjectIconPickerDialog = lazy(() =>
@@ -192,6 +199,13 @@ function ProjectDetail({
   const projectIcon = representative.projectIcon ?? null;
   const conversationBackground = representative.conversationBackground ?? null;
   const conversationBackgroundOption = getConversationBackground(conversationBackground);
+  const conversationBackgroundAsset = useAssetUrlState(
+    representative.environmentId,
+    customConversationBackgroundAssetResource(conversationBackground),
+  );
+  const conversationBackgroundPreview =
+    conversationBackgroundOption?.src ??
+    (conversationBackgroundAsset._tag === "Success" ? conversationBackgroundAsset.url : null);
   const mixedConversationBackground = group.memberProjects.some(
     (member) => (member.conversationBackground ?? null) !== conversationBackground,
   );
@@ -306,6 +320,57 @@ function ProjectDetail({
       }
     },
     [updateAllMembers],
+  );
+
+  const uploadProjectBackground = useCallback(
+    async (file: File) => {
+      const preparedFile = await prepareConversationBackgroundUpload(file);
+      const backgroundByEnvironment = new Map<EnvironmentId, ProjectConversationBackground>();
+      for (const member of group.memberProjects) {
+        if (!backgroundByEnvironment.has(member.environmentId)) {
+          backgroundByEnvironment.set(
+            member.environmentId,
+            await uploadPreparedConversationBackground(member.environmentId, preparedFile),
+          );
+        }
+        const result = mapAtomCommandResult(
+          await updateProject({
+            environmentId: member.environmentId,
+            input: {
+              projectId: member.id,
+              conversationBackground: backgroundByEnvironment.get(member.environmentId)!,
+            },
+          }),
+          () => undefined,
+        );
+        if (result._tag === "Failure") {
+          reportFailure("Failed to update conversation background", result);
+          throw new Error("The background uploaded, but the project could not be updated.");
+        }
+      }
+      for (const member of group.memberProjects) {
+        deleteConversationBackgroundAsset(member.environmentId, member.conversationBackground);
+      }
+    },
+    [group.memberProjects, reportFailure, updateProject],
+  );
+
+  const setProjectBackground = useCallback(
+    async (background: ProjectConversationBackground | null) => {
+      const result = await updateAllMembers(
+        { conversationBackground: background },
+        background === null
+          ? "Failed to clear conversation background"
+          : "Failed to update conversation background",
+      );
+      if (result._tag !== "Success") return;
+      for (const member of group.memberProjects) {
+        if (member.conversationBackground !== background) {
+          deleteConversationBackgroundAsset(member.environmentId, member.conversationBackground);
+        }
+      }
+    },
+    [group.memberProjects, updateAllMembers],
   );
 
   const hasMultipleCheckouts = group.memberProjects.length > 1;
@@ -502,26 +567,23 @@ function ProjectDetail({
             description={
               mixedConversationBackground
                 ? "Mixed across project checkouts"
-                : (conversationBackgroundOption?.label ?? "None")
+                : conversationBackground?.startsWith("custom:")
+                  ? "Custom image"
+                  : (conversationBackgroundOption?.label ?? "None")
             }
             resetAction={
               conversationBackground !== null || mixedConversationBackground ? (
                 <SettingResetButton
                   label="conversation background"
-                  onClick={() =>
-                    void updateAllMembers(
-                      { conversationBackground: null },
-                      "Failed to clear conversation background",
-                    )
-                  }
+                  onClick={() => void setProjectBackground(null)}
                 />
               ) : null
             }
             control={
               <div className="flex items-center gap-2">
-                {conversationBackgroundOption ? (
+                {conversationBackgroundPreview ? (
                   <img
-                    src={conversationBackgroundOption.src}
+                    src={conversationBackgroundPreview}
                     alt=""
                     className="aspect-video w-20 rounded-md border border-border/70 object-cover"
                   />
@@ -604,12 +666,8 @@ function ProjectDetail({
             current={conversationBackground}
             open
             onOpenChange={setBackgroundPickerOpen}
-            onSelect={(background) =>
-              void updateAllMembers(
-                { conversationBackground: background },
-                "Failed to update conversation background",
-              )
-            }
+            onSelect={(background) => void setProjectBackground(background)}
+            onUpload={uploadProjectBackground}
           />
         </Suspense>
       ) : null}

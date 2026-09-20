@@ -53,6 +53,15 @@ When no image is found, web and desktop show a two-character monogram with a col
 from the icon palette, derived from the saved project name. For example, `Nebula` becomes `NA`,
 `Silver Orchard` becomes `SO`, and `M7 Forge` becomes `M7`.
 
+## Conversation backgrounds
+
+Select the project and open Project to choose a built-in conversation background or upload your
+own. Photos, including HEIC and HEIF images from phones, are converted and resized automatically.
+GIF, animated WebP, and animated PNG uploads keep their animation. The background is stored on the
+selected environment and appears in web, desktop, and mobile conversations for that project.
+
+Reset the conversation background to remove the custom image and return to the standard canvas.
+
 ## Keep the default branch current
 
 In Source Control, enable **Automatically pull** to keep the default-branch checkout up to date
