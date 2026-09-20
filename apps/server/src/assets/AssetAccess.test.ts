@@ -768,6 +768,33 @@ describe("AssetAccess", () => {
       });
     }).pipe(Effect.provide(testLayer)),
   );
+
+  it.effect("serves custom backgrounds inline with an extension-derived MIME type", () =>
+    Effect.gen(function* () {
+      const config = yield* ServerConfig.ServerConfig;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const attachmentId = "background-00000000-0000-4000-8000-000000000001-webp";
+      const attachmentPath = path.join(config.attachmentsDir, `${attachmentId}.webp`);
+      yield* fileSystem.makeDirectory(config.attachmentsDir, { recursive: true });
+      yield* fileSystem.writeFile(attachmentPath, new Uint8Array([1, 2, 3]));
+
+      const result = yield* issueAssetUrl({
+        resource: { _tag: "attachment", attachmentId, mimeType: "text/html" },
+      });
+      const suffix = result.relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+      const separatorIndex = suffix.indexOf("/");
+
+      expect(
+        yield* resolveAsset(suffix.slice(0, separatorIndex), suffix.slice(separatorIndex + 1)),
+      ).toEqual({
+        kind: "file",
+        path: attachmentPath,
+        mimeType: "image/webp",
+      });
+    }).pipe(Effect.provide(testLayer)),
+  );
+
   it.effect("issues signed native application icon capabilities", () =>
     Effect.gen(function* () {
       const result = yield* issueAssetUrl({

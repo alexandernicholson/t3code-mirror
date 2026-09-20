@@ -1,4 +1,4 @@
-import type { AssetResource } from "@t3tools/contracts";
+import { customConversationBackgroundMimeType, type AssetResource } from "@t3tools/contracts";
 import {
   AssetAttachmentNotFoundError,
   AssetGitHubMediaUrlValidationError,
@@ -47,7 +47,12 @@ import {
   timingSafeEqualBase64Url,
 } from "../auth/utils.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import { parseAttachmentFileExtension, resolveAttachmentPathById } from "../attachmentStore.ts";
+import {
+  BACKGROUND_ATTACHMENT_THREAD_SEGMENT,
+  parseAttachmentFileExtension,
+  parseThreadSegmentFromAttachmentId,
+  resolveAttachmentPathById,
+} from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProjectFaviconResolver from "../project/ProjectFaviconResolver.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
@@ -535,6 +540,11 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       // a supported document or audio format inline.
       const extension = parseAttachmentFileExtension(input.resource.attachmentId);
       const isGenericFile = extension !== null;
+      const backgroundMimeType =
+        parseThreadSegmentFromAttachmentId(input.resource.attachmentId) ===
+        BACKGROUND_ATTACHMENT_THREAD_SEGMENT
+          ? customConversationBackgroundMimeType(`custom:${input.resource.attachmentId}`)
+          : null;
       const videoMimeType = input.resource.mimeType?.split(";", 1)[0]?.trim() ?? "";
       const isVideo = INLINE_VIDEO_MIME_TYPE_PATTERN.test(videoMimeType);
       const inlinePreviewMimeType =
@@ -548,15 +558,20 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
         version: 1,
         kind: "attachment",
         attachmentId: input.resource.attachmentId,
-        ...(isGenericFile && !isVideo && inlinePreviewMimeType === undefined
+        ...(isGenericFile &&
+        !isVideo &&
+        backgroundMimeType === null &&
+        inlinePreviewMimeType === undefined
           ? { download: true }
           : {}),
         ...(input.resource.fileName !== undefined ? { fileName: input.resource.fileName } : {}),
-        ...(inlinePreviewMimeType !== undefined
-          ? { mimeType: inlinePreviewMimeType }
-          : input.resource.mimeType !== undefined
-            ? { mimeType: isVideo ? videoMimeType : input.resource.mimeType }
-            : {}),
+        ...(backgroundMimeType !== null
+          ? { mimeType: backgroundMimeType }
+          : inlinePreviewMimeType !== undefined
+            ? { mimeType: inlinePreviewMimeType }
+            : input.resource.mimeType !== undefined
+              ? { mimeType: isVideo ? videoMimeType : input.resource.mimeType }
+              : {}),
         expiresAt,
       };
       fileName = input.resource.fileName ?? path.basename(attachmentPath);

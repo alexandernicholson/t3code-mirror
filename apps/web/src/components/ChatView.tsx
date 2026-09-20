@@ -25,6 +25,7 @@ import {
   type AssistantCitation,
   type ApprovalRequestId,
   type ChatFileAttachment,
+  customConversationBackgroundAssetResource,
   DEFAULT_MODEL,
   type EnvironmentId,
   type MessageId,
@@ -524,7 +525,7 @@ import {
   supportsDesktopAppUpdate,
   supportsServerUpdateThreadContinuation,
 } from "../versionSkew";
-import { useAssetUrls } from "../assets/assetUrls";
+import { useAssetUrlState, useAssetUrls } from "../assets/assetUrls";
 import {
   ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
   recallableComposerPrompt,
@@ -2123,6 +2124,17 @@ export default function ChatView(props: ChatViewProps) {
   );
   const activeProject = useProject(activeProjectRef);
   const conversationBackground = getConversationBackground(activeProject?.conversationBackground);
+  const conversationBackgroundResource = useMemo(
+    () => customConversationBackgroundAssetResource(activeProject?.conversationBackground),
+    [activeProject?.conversationBackground],
+  );
+  const customConversationBackground = useAssetUrlState(
+    activeThread?.environmentId ?? null,
+    conversationBackgroundResource,
+  );
+  const conversationBackgroundSrc =
+    conversationBackground?.src ??
+    (customConversationBackground._tag === "Success" ? customConversationBackground.url : null);
   // Environment settings with the active project's overrides applied.
   const activeProjectSettings = useMemo(
     () => resolveProjectSettings(settings, activeProject?.id ?? null, activeProject ?? undefined),
@@ -9799,17 +9811,17 @@ export default function ChatView(props: ChatViewProps) {
           {/* Chat column */}
           <div
             className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-            data-conversation-background={conversationBackground?.id}
+            data-conversation-background={activeProject?.conversationBackground ?? undefined}
             data-chat-workspace-drop-target="true"
             onDragEnter={workspaceFileDropHandlers.onDragEnter}
             onDragOver={workspaceFileDropHandlers.onDragOver}
             onDragLeave={workspaceFileDropHandlers.onDragLeave}
             onDrop={workspaceFileDropHandlers.onDrop}
           >
-            {conversationBackground ? (
+            {conversationBackgroundSrc ? (
               <>
                 <img
-                  src={conversationBackground.src}
+                  src={conversationBackgroundSrc}
                   alt=""
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 size-full object-cover"
@@ -9852,7 +9864,7 @@ export default function ChatView(props: ChatViewProps) {
             </div>
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
-              {conversationBackground ? (
+              {conversationBackgroundSrc ? (
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-y-0 left-1/2 z-0 w-full max-w-[52rem] -translate-x-1/2 border-x border-white/12 bg-background/58 shadow-2xl backdrop-blur-xl backdrop-saturate-125"

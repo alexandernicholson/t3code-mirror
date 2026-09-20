@@ -1,3 +1,8 @@
+import {
+  IMAGE_DIMENSIONS_HEADER_BYTES,
+  readImageDimensions,
+} from "@t3tools/shared/imageDimensions";
+
 /**
  * Downscale + re-encode for image attachments that are too big for where
  * they're headed. Two consumers share the same pipeline:
@@ -450,9 +455,13 @@ export async function compressImageForStash(
 export async function compressImageToByteLimit(
   file: File,
   maxBytes: number,
-  options?: { preferredMimeType?: "image/jpeg"; sourceSizeBytes?: number },
+  options?: {
+    preferredMimeType?: "image/jpeg";
+    sourceSizeBytes?: number;
+    forceReencode?: boolean;
+  },
 ): Promise<CompressImageFileResult> {
-  if (file.size <= maxBytes) {
+  if (file.size <= maxBytes && options?.forceReencode !== true) {
     return { ok: true, file, recompressed: false };
   }
   if ((options?.sourceSizeBytes ?? file.size) > MAX_COMPRESSIBLE_SOURCE_BYTES) {
@@ -476,6 +485,56 @@ export async function compressImageToByteLimit(
     recompressed: true,
     imageSize: reencoded.imageSize,
   };
+}
+
+async function isAnimatedBackgroundFile(file: File): Promise<boolean> {
+  const name = file.name.toLowerCase();
+  if (file.type === "image/gif" || name.endsWith(".gif")) return true;
+  const bytes = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
+  if (file.type === "image/png" || name.endsWith(".png")) {
+    for (let offset = 8; offset + 8 <= bytes.length;) {
+      const length = new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+      const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+      if (type === "acTL") return true;
+      if (type === "IDAT" || length > bytes.length - offset - 12) return false;
+      offset += length + 12;
+    }
+    return false;
+  }
+  if (file.type === "image/webp" || name.endsWith(".webp")) {
+    return (
+      bytes.length >= 21 && bytes[12] === 0x56 && bytes[15] === 0x58 && (bytes[20]! & 0x02) !== 0
+    );
+  }
+  return false;
+}
+
+/** Normalizes static uploads while preserving browser-native animated formats. */
+export async function prepareImageForBackground(
+  file: File,
+  maxBytes: number,
+): Promise<CompressImageFileResult> {
+  if (isHeicImageFile(file)) {
+    const converted = await prepareImageForAttachment(file, maxBytes);
+    return converted.ok
+      ? compressImageToByteLimit(converted.file, maxBytes, {
+          forceReencode: true,
+          preferredMimeType: "image/jpeg",
+          sourceSizeBytes: file.size,
+        })
+      : converted;
+  }
+  if (await isAnimatedBackgroundFile(file)) {
+    return file.size <= maxBytes
+      ? { ok: true, file, recompressed: false }
+      : { ok: false, reason: "too-large" };
+  }
+  const header = new Uint8Array(await file.slice(0, IMAGE_DIMENSIONS_HEADER_BYTES).arrayBuffer());
+  const dimensions = readImageDimensions(header);
+  if (dimensions && dimensions.width > MAX_HEIC_DECODE_PIXELS / dimensions.height) {
+    return { ok: false, reason: "too-large" };
+  }
+  return compressImageToByteLimit(file, maxBytes, { forceReencode: true });
 }
 
 /**

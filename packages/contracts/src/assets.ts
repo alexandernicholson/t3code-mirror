@@ -5,6 +5,9 @@ import {
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   PROVIDER_SEND_TURN_SUPPORTED_IMAGE_MIME_TYPES,
+  customConversationBackgroundAttachmentId,
+  customConversationBackgroundMimeType,
+  type ProjectConversationBackground,
   ProjectFaviconPath,
 } from "./orchestration.ts";
 import { ToolActivityNativeAppReference } from "./providerRuntime.ts";
@@ -60,6 +63,14 @@ export const AssetResource = Schema.Union([
 ]);
 export type AssetResource = typeof AssetResource.Type;
 
+export function customConversationBackgroundAssetResource(
+  background: ProjectConversationBackground | null | undefined,
+): Extract<AssetResource, { readonly _tag: "attachment" }> | null {
+  const attachmentId = customConversationBackgroundAttachmentId(background);
+  const mimeType = customConversationBackgroundMimeType(background);
+  return attachmentId && mimeType ? { _tag: "attachment", attachmentId, mimeType } : null;
+}
+
 export const AssetCreateUrlInput = Schema.Struct({
   resource: AssetResource,
 });
@@ -83,6 +94,14 @@ export const AssetCreateUrlResult = Schema.Struct({
 export type AssetCreateUrlResult = typeof AssetCreateUrlResult.Type;
 
 export const ATTACHMENT_UPLOAD_URL_TTL_MS = 10 * 60_000;
+export const CUSTOM_BACKGROUND_MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+export const CUSTOM_BACKGROUND_MAX_PIXELS = 32_000_000;
+export const CUSTOM_BACKGROUND_MIME_TYPES = [
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
 
 const ImageAttachmentCreateUploadUrlInput = Schema.Struct({
   type: Schema.optionalKey(Schema.Literal("image")),
@@ -104,9 +123,20 @@ const FileAttachmentCreateUploadUrlInput = Schema.Struct({
   ),
 });
 
+const BackgroundAttachmentCreateUploadUrlInput = Schema.Struct({
+  type: Schema.Literal("background"),
+  name: TrimmedNonEmptyString.check(Schema.isMaxLength(255)),
+  mimeType: Schema.Literals(CUSTOM_BACKGROUND_MIME_TYPES),
+  sizeBytes: NonNegativeInt.check(
+    Schema.isGreaterThanOrEqualTo(1),
+    Schema.isLessThanOrEqualTo(CUSTOM_BACKGROUND_MAX_UPLOAD_BYTES),
+  ),
+});
+
 export const AttachmentCreateUploadUrlInput = Schema.Union([
   ImageAttachmentCreateUploadUrlInput,
   FileAttachmentCreateUploadUrlInput,
+  BackgroundAttachmentCreateUploadUrlInput,
 ]);
 export type AttachmentCreateUploadUrlInput = typeof AttachmentCreateUploadUrlInput.Type;
 

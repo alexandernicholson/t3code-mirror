@@ -518,7 +518,7 @@ export const ProjectIconOverride = Schema.Union([
 );
 export type ProjectIconOverride = typeof ProjectIconOverride.Type;
 
-export const ProjectConversationBackground = Schema.Literals([
+export const BUILT_IN_PROJECT_CONVERSATION_BACKGROUNDS = [
   "workstation-mountain-cabin",
   "workstation-brutalist-studio",
   "workstation-rainy-loft",
@@ -534,8 +534,40 @@ export const ProjectConversationBackground = Schema.Literals([
   "abstract-moss-contours",
   "abstract-frosted-plum",
   "abstract-monumental-graphite",
+] as const;
+
+export const CUSTOM_PROJECT_CONVERSATION_BACKGROUND_PATTERN =
+  /^custom:background-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(?:gif|jpe?g|png|webp)$/;
+
+export const CustomProjectConversationBackground = Schema.String.check(
+  Schema.isPattern(CUSTOM_PROJECT_CONVERSATION_BACKGROUND_PATTERN),
+);
+export type CustomProjectConversationBackground = typeof CustomProjectConversationBackground.Type;
+
+export const ProjectConversationBackground = Schema.Union([
+  Schema.Literals(BUILT_IN_PROJECT_CONVERSATION_BACKGROUNDS),
+  CustomProjectConversationBackground,
 ]);
 export type ProjectConversationBackground = typeof ProjectConversationBackground.Type;
+
+export function customConversationBackgroundAttachmentId(
+  background: ProjectConversationBackground | null | undefined,
+): string | null {
+  return typeof background === "string" && background.startsWith("custom:")
+    ? background.slice("custom:".length)
+    : null;
+}
+
+export function customConversationBackgroundMimeType(
+  background: ProjectConversationBackground | null | undefined,
+): "image/gif" | "image/jpeg" | "image/png" | "image/webp" | null {
+  const attachmentId = customConversationBackgroundAttachmentId(background);
+  if (attachmentId?.endsWith("-gif")) return "image/gif";
+  if (attachmentId?.endsWith("-jpg") || attachmentId?.endsWith("-jpeg")) return "image/jpeg";
+  if (attachmentId?.endsWith("-png")) return "image/png";
+  if (attachmentId?.endsWith("-webp")) return "image/webp";
+  return null;
+}
 
 export const OrchestrationProject = Schema.Struct({
   id: ProjectId,

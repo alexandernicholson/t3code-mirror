@@ -9,6 +9,7 @@ import {
   MAX_COMPRESSIBLE_SOURCE_BYTES,
   MAX_STASH_IMAGE_DATA_URL_CHARS,
   prepareImageForAttachment,
+  prepareImageForBackground,
 } from "./imageCompression";
 
 import type { SnapShotSource } from "@t3tools/contracts";
@@ -75,6 +76,16 @@ function makeHeicFile(options?: {
       ...(options?.lastModified !== undefined ? { lastModified: options.lastModified } : {}),
     },
   );
+}
+
+function makePngFile(width: number, height: number): File {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return new File([bytes], "background.png", { type: "image/png" });
 }
 
 /**
@@ -519,6 +530,31 @@ describe("HEIC attachment preparation", () => {
     expect(result.ok && result.file).toBe(original);
     expect(result.ok && result.recompressed).toBe(false);
     expect(mocks.heicTo).not.toHaveBeenCalled();
+  });
+});
+
+describe("background image preparation", () => {
+  it("normalizes a small static image instead of preserving untrusted bytes", async () => {
+    stubCanvasPipeline(() => 500);
+    const decode = vi.mocked(createImageBitmap);
+
+    const original = makePngFile(1920, 1080);
+    const result = await prepareImageForBackground(original, 1024);
+
+    expect(result.ok && result.recompressed).toBe(true);
+    expect(result.ok && result.file.type).toBe("image/webp");
+    expect(decode).toHaveBeenCalledWith(original);
+  });
+
+  it("rejects oversized raster dimensions before browser decoding", async () => {
+    const decode = vi.fn();
+    vi.stubGlobal("createImageBitmap", decode);
+
+    expect(await prepareImageForBackground(makePngFile(16_000, 5000), 1024)).toEqual({
+      ok: false,
+      reason: "too-large",
+    });
+    expect(decode).not.toHaveBeenCalled();
   });
 });
 

@@ -5,6 +5,7 @@ import {
   type AttachmentCreateUploadUrlInput,
   AttachmentUploadSigningKeyError,
 } from "@t3tools/contracts";
+import { IMAGE_DIMENSIONS_HEADER_BYTES } from "@t3tools/shared/imageDimensions";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -16,6 +17,8 @@ import type * as HttpServerRequest from "effect/unstable/http/HttpServerRequest"
 
 import {
   attachmentFileExtension,
+  BACKGROUND_ATTACHMENT_THREAD_SEGMENT,
+  createBackgroundAttachmentId,
   createPendingAttachmentId,
   parseThreadSegmentFromAttachmentId,
   PENDING_ATTACHMENT_THREAD_SEGMENT,
@@ -32,6 +35,7 @@ import {
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { inferImageExtension } from "../imageMime.ts";
+import { validateBackgroundUpload } from "./BackgroundUploadValidation.ts";
 
 export const ATTACHMENT_UPLOAD_ROUTE_PREFIX = "/api/attachments/upload";
 
@@ -43,7 +47,7 @@ const lastPendingSweepByDirectory = new Map<string, number>();
 const AttachmentUploadClaims = Schema.Struct({
   version: Schema.Literal(1),
   kind: Schema.Literal("attachment-upload"),
-  type: Schema.Literals(["image", "file"]).pipe(
+  type: Schema.Literals(["image", "file", "background"]).pipe(
     Schema.withDecodingDefault(Effect.succeed("image" as const)),
   ),
   attachmentId: Schema.String,
@@ -95,9 +99,14 @@ export const issueAttachmentUploadUrl = Effect.fn("AttachmentUpload.issueUrl")(f
   }
 
   const attachmentType = input.type ?? "image";
-  const attachmentId = createPendingAttachmentId(
-    attachmentType === "file" ? attachmentFileExtension(input.name) : undefined,
-  );
+  const extension =
+    attachmentType === "file"
+      ? attachmentFileExtension(input.name)
+      : inferImageExtension({ mimeType: input.mimeType, fileName: input.name });
+  const attachmentId =
+    attachmentType === "background"
+      ? createBackgroundAttachmentId(extension)
+      : createPendingAttachmentId(attachmentType === "file" ? extension : undefined);
   const expiresAt = nowMs + ATTACHMENT_UPLOAD_URL_TTL_MS;
   const encodedPayload = base64UrlEncode(
     encodeAttachmentUploadClaims({
@@ -200,6 +209,25 @@ export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(functio
         detail: `Body was ${receivedBytes} bytes, expected ${claims.sizeBytes}.`,
       } satisfies StoreAttachmentUploadResult;
     }
+    if (claims.type === "background") {
+      const header = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const file = yield* fileSystem.open(partPath, { flag: "r" });
+          return Option.getOrElse(
+            yield* file.readAlloc(IMAGE_DIMENSIONS_HEADER_BYTES),
+            () => new Uint8Array(),
+          );
+        }),
+      );
+      const validationError = validateBackgroundUpload(header, claims.mimeType);
+      if (validationError !== null) {
+        return {
+          ok: false,
+          status: 415,
+          detail: validationError,
+        } satisfies StoreAttachmentUploadResult;
+      }
+    }
     yield* fileSystem.rename(partPath, finalPath);
     return { ok: true } satisfies StoreAttachmentUploadResult;
   }).pipe(
@@ -224,7 +252,11 @@ export const storeAttachmentUpload = Effect.fn("AttachmentUpload.store")(functio
 export const deletePendingAttachment = Effect.fn("AttachmentUpload.deletePending")(function* (
   attachmentId: string,
 ) {
-  if (parseThreadSegmentFromAttachmentId(attachmentId) !== PENDING_ATTACHMENT_THREAD_SEGMENT) {
+  const segment = parseThreadSegmentFromAttachmentId(attachmentId);
+  if (
+    segment !== PENDING_ATTACHMENT_THREAD_SEGMENT &&
+    segment !== BACKGROUND_ATTACHMENT_THREAD_SEGMENT
+  ) {
     return;
   }
 

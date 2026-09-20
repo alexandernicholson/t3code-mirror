@@ -22,6 +22,7 @@ const ATTACHMENT_ID_PATTERN = new RegExp(
 );
 
 export const PENDING_ATTACHMENT_THREAD_SEGMENT = "pending";
+export const BACKGROUND_ATTACHMENT_THREAD_SEGMENT = "background";
 const PENDING_ATTACHMENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PARTIAL_UPLOAD_MAX_AGE_MS = 60 * 60 * 1000;
 
@@ -62,6 +63,10 @@ function attachmentIdExtensionSuffix(extension: string | undefined): string {
 
 export function createPendingAttachmentId(extension?: string): string {
   return `${PENDING_ATTACHMENT_THREAD_SEGMENT}-${NodeCrypto.randomUUID()}${attachmentIdExtensionSuffix(extension)}`;
+}
+
+export function createBackgroundAttachmentId(extension: string): string {
+  return `${BACKGROUND_ATTACHMENT_THREAD_SEGMENT}-${NodeCrypto.randomUUID()}${attachmentIdExtensionSuffix(extension)}`;
 }
 
 export function parseAttachmentUuid(attachmentId: string): string | null {

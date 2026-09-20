@@ -66,8 +66,8 @@ This fork currently adds or changes the following:
   Native provider checklists and the fallback TODO tool feed the same state, while
   user edits are reconciled back into the conversation. See
   [TODOs](./docs/user/composer.md#todos).
-- Adds project-scoped conversation backgrounds with grouped workstation,
-  landscape, and abstract collections. See
+- Adds project-scoped conversation backgrounds with built-in collections and
+  secure custom image or animation uploads, including automatic HEIC conversion. See
   [Conversation backgrounds](./docs/user/project-settings.md#conversation-backgrounds).
 - Makes delegated agents inspectable and messageable from web, desktop, and
   mobile, with durable per-agent process logs built from every provider's
