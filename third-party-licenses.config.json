@@ -153,6 +153,38 @@
   ],
   "packageOverrides": [
     {
+      "name": "fastdom",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) 2016 Wilson Page <wilsonpage@me.com>"]
+      }
+    },
+    {
+      "name": "strictdom",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) 2013 Wilson Page <wilsonpage@me.com>"]
+      }
+    },
+    {
+      "license": "MIT",
+      "name": "khroma"
+    },
+    {
+      "repositoryUrl": "https://github.com/Microsoft/onnxruntime",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Microsoft Corporation"]
+      }
+    },
+    {
+      "name": "guid-typescript",
+      "generatedNotice": {
+        "licenseId": "ISC",
+        "copyrights": ["Copyright (c) 2018 Nicolas Senac"]
+      }
+    },
+    {
       "license": "MIT",
       "name": "@react-grab/cli",
       "sourceUrl": "https://github.com/aidenybai/react-grab/tree/main/packages/cli",

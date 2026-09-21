@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.3] - 2026-09-21
+
+- Source updates no longer fail when bundled dependencies publish license metadata without notice files.
+
+---
+
 ## [0.8.2] - 2026-09-20
 
 - Add secure custom conversation background uploads with automatic photo conversion and animated GIF, WebP, and PNG support across web, desktop, and mobile.
