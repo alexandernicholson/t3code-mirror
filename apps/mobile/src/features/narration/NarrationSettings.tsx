@@ -29,7 +29,7 @@ export function NarrationSettings() {
   }, [narration.enabled]);
   return (
     <>
-      <SettingsSection title="Voice narration" card>
+      <SettingsSection title="Voice narration">
         <SettingsRow
           icon="speaker.wave.2"
           label={globalNarration.enabled ? "Stop Global Narrate" : "Start Global Narrate"}

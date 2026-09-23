@@ -274,7 +274,7 @@ function ProviderForm({
             label={field.title}
             details={`${field.description}${field.effectiveValue !== null ? `\n\nCurrent value: ${String(field.effectiveValue)}.${field.overriddenBy ? ` Set by ${field.overriddenBy}.` : ""}` : ""}`}
           />
-          <SettingsSection card>
+          <SettingsSection>
             <View className="gap-3 p-4">
               {field.control === "select" ? (
                 <View className="flex-row flex-wrap gap-2">

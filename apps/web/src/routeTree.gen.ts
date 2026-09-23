@@ -18,6 +18,7 @@ import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as SettingsUpdatesRouteImport } from './routes/settings.updates'
 import { Route as SettingsToolsRouteImport } from './routes/settings.tools'
+import { Route as SettingsStorageRouteImport } from './routes/settings.storage'
 import { Route as SettingsSourceControlRouteImport } from './routes/settings.source-control'
 import { Route as SettingsSnapShotRouteImport } from './routes/settings.snap-shot'
 import { Route as SettingsSecretsRouteImport } from './routes/settings.secrets'
@@ -79,6 +80,11 @@ const SettingsUpdatesRoute = SettingsUpdatesRouteImport.update({
 const SettingsToolsRoute = SettingsToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsStorageRoute = SettingsStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsSourceControlRoute = SettingsSourceControlRouteImport.update({
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/snap-shot': typeof SettingsSnapShotRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/tools': typeof SettingsToolsRoute
   '/settings/updates': typeof SettingsUpdatesRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/snap-shot': typeof SettingsSnapShotRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/tools': typeof SettingsToolsRoute
   '/settings/updates': typeof SettingsUpdatesRoute
   '/': typeof ChatIndexRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/snap-shot': typeof SettingsSnapShotRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/settings/tools': typeof SettingsToolsRoute
   '/settings/updates': typeof SettingsUpdatesRoute
   '/_chat/': typeof ChatIndexRoute
@@ -285,6 +294,7 @@ export interface FileRouteTypes {
     | '/settings/secrets'
     | '/settings/snap-shot'
     | '/settings/source-control'
+    | '/settings/storage'
     | '/settings/tools'
     | '/settings/updates'
     | '/$environmentId/$threadId'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/settings/secrets'
     | '/settings/snap-shot'
     | '/settings/source-control'
+    | '/settings/storage'
     | '/settings/tools'
     | '/settings/updates'
     | '/'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/settings/secrets'
     | '/settings/snap-shot'
     | '/settings/source-control'
+    | '/settings/storage'
     | '/settings/tools'
     | '/settings/updates'
     | '/_chat/'
@@ -421,6 +433,13 @@ declare module '@tanstack/react-router' {
       path: '/tools'
       fullPath: '/settings/tools'
       preLoaderRoute: typeof SettingsToolsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/storage': {
+      id: '/settings/storage'
+      path: '/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof SettingsStorageRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/source-control': {
@@ -583,6 +602,7 @@ interface SettingsRouteChildren {
   SettingsSecretsRoute: typeof SettingsSecretsRoute
   SettingsSnapShotRoute: typeof SettingsSnapShotRoute
   SettingsSourceControlRoute: typeof SettingsSourceControlRoute
+  SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsToolsRoute: typeof SettingsToolsRoute
   SettingsUpdatesRoute: typeof SettingsUpdatesRoute
 }
@@ -602,6 +622,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSecretsRoute: SettingsSecretsRoute,
   SettingsSnapShotRoute: SettingsSnapShotRoute,
   SettingsSourceControlRoute: SettingsSourceControlRoute,
+  SettingsStorageRoute: SettingsStorageRoute,
   SettingsToolsRoute: SettingsToolsRoute,
   SettingsUpdatesRoute: SettingsUpdatesRoute,
 }

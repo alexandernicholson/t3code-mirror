@@ -277,20 +277,20 @@ export function UsageRouteScreen() {
             <>
               {/* Period and metric together: neither applies to Limits, and
                 both change every number below, so they share one bar. */}
-              <View className={cn("gap-3", Platform.OS !== "android" && "flex-row items-center")}>
+              <View className="gap-3 ios:flex-row ios:items-center">
                 <SegmentedControl
                   options={WINDOW_OPTIONS}
                   selected={windowDays}
                   onSelect={selectWindow}
                   size="compact"
-                  className={Platform.OS === "android" ? "w-full" : "flex-1"}
+                  className="w-full ios:flex-1"
                 />
                 <SegmentedControl
                   options={METRIC_OPTIONS}
                   selected={metric}
                   onSelect={setMetric}
                   size="compact"
-                  className={Platform.OS === "android" ? "w-full" : "w-36"}
+                  className="w-full ios:w-36"
                 />
               </View>
               {merged.duplicateSources.length > 0 ? (
@@ -422,7 +422,7 @@ function ProviderSection(props: {
   );
 
   return (
-    <SettingsSection title="Providers" card>
+    <SettingsSection title="Providers">
       {ordered.map((provider, index) => {
         const share = metric === "cost" ? provider.costShare : provider.tokenShare;
         return (
@@ -479,7 +479,7 @@ function TotalsSection(props: { readonly merged: MergedUsage; readonly isPast24H
   });
 
   return (
-    <SettingsSection title="Totals" card>
+    <SettingsSection title="Totals">
       <Text className="px-4 pt-4 text-sm text-foreground-muted">
         Coverage: Claude, Codex, and Grok. Cache hit rate is cached reads divided by all input
         tokens, including cache writes.
@@ -544,7 +544,7 @@ function ModelsSection(props: { readonly merged: MergedUsage }) {
   if (merged.models.length === 0) return null;
 
   return (
-    <SettingsSection title="By model" card>
+    <SettingsSection title="By model">
       {merged.models.map((model, index) => (
         <View
           key={`${model.provider}:${model.model}`}

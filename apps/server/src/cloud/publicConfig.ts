@@ -14,7 +14,7 @@ declare const __T3CODE_BUILD_CLERK_CLI_OAUTH_CLIENT_ID__: string | undefined;
 const CLOUD_CLI_OAUTH_LOOPBACK_PORT = 34338;
 const CLOUD_CLI_OAUTH_SCOPES = CONNECT_OAUTH_SCOPES;
 
-export const cloudEnabledConfig = Config.boolean("T3CODE_CLOUD_ENABLED").pipe(
+export const cloudEnabledConfig = Config.Boolean("T3CODE_CLOUD_ENABLED").pipe(
   Config.withDefault(false),
 );
 
@@ -68,9 +68,9 @@ const buildTimeClerkCliOAuthClientId = readBuildTimeValue(
 );
 
 export function makeRelayUrlConfig(fallback = buildTimeRelayUrl) {
-  const runtimeConfig = Config.nonEmptyString("T3CODE_RELAY_URL");
+  const runtimeConfig = Config.NonEmptyString("T3CODE_RELAY_URL");
   return (fallback ? runtimeConfig.pipe(Config.withDefault(fallback)) : runtimeConfig).pipe(
-    Config.mapOrFail(validateRelayUrl),
+    Config.mapEffect(validateRelayUrl),
   );
 }
 
@@ -82,7 +82,7 @@ export const relayUrlConfig = requireCloudEnabled.pipe(Effect.andThen(makeRelayU
  * matching hosted deployment.
  */
 export const hostedAppUrlConfig = makePublicValueConfig("T3CODE_HOSTED_APP_URL", "").pipe(
-  Config.mapOrFail(validateHostedAppUrl),
+  Config.mapEffect(validateHostedAppUrl),
 );
 
 function validateHostedAppUrl(value: string) {
@@ -114,7 +114,7 @@ function validateHostedAppUrl(value: string) {
 }
 
 function makePublicValueConfig(name: string, fallback: string) {
-  const runtimeConfig = Config.nonEmptyString(name);
+  const runtimeConfig = Config.NonEmptyString(name);
   return (fallback ? runtimeConfig.pipe(Config.withDefault(fallback)) : runtimeConfig).pipe(
     Config.map((value) => value.trim()),
   );
@@ -153,7 +153,7 @@ export function makeCloudCliOAuthConfig({
       clerkCliOAuthClientIdFallback,
     ),
   }).pipe(
-    Config.mapOrFail(({ clerkPublishableKey, clientId }) =>
+    Config.mapEffect(({ clerkPublishableKey, clientId }) =>
       Effect.try({
         try: () => clerkFrontendApiUrlFromPublishableKey(clerkPublishableKey),
         catch: (cause) =>

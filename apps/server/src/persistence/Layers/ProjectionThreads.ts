@@ -1,4 +1,4 @@
-import { ThreadTodos } from "@t3tools/contracts";
+import { ThreadTodos, TurnQueue } from "@t3tools/contracts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 import * as Effect from "effect/Effect";
@@ -23,6 +23,8 @@ const ProjectionThreadDbRow = ProjectionThread.mapFields(
     titleState: Schema.NullOr(Schema.fromJsonString(ThreadTitleState)),
     linkedPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
     branchPullRequest: Schema.NullOr(Schema.fromJsonString(ThreadLinkedPullRequest)),
+    turnQueue: Schema.NullOr(Schema.fromJsonString(TurnQueue)),
+    todos: Schema.NullOr(Schema.fromJsonString(ThreadTodos)),
   }),
 );
 type ProjectionThreadDbRow = typeof ProjectionThreadDbRow.Type;

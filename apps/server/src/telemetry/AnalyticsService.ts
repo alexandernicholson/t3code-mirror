@@ -30,13 +30,13 @@ interface BufferedAnalyticsEvent {
 }
 
 const TelemetryEnvConfig = Config.all({
-  posthogKey: Config.string("T3CODE_POSTHOG_KEY").pipe(Config.withDefault("")),
-  posthogHost: Config.string("T3CODE_POSTHOG_HOST").pipe(Config.withDefault("")),
-  flushBatchSize: Config.number("T3CODE_TELEMETRY_FLUSH_BATCH_SIZE").pipe(Config.withDefault(20)),
-  maxBufferedEvents: Config.number("T3CODE_TELEMETRY_MAX_BUFFERED_EVENTS").pipe(
+  posthogKey: Config.String("T3CODE_POSTHOG_KEY").pipe(Config.withDefault("")),
+  posthogHost: Config.String("T3CODE_POSTHOG_HOST").pipe(Config.withDefault("")),
+  flushBatchSize: Config.Number("T3CODE_TELEMETRY_FLUSH_BATCH_SIZE").pipe(Config.withDefault(20)),
+  maxBufferedEvents: Config.Number("T3CODE_TELEMETRY_MAX_BUFFERED_EVENTS").pipe(
     Config.withDefault(1_000),
   ),
-  wslDistroName: Config.string("WSL_DISTRO_NAME").pipe(Config.option),
+  wslDistroName: Config.String("WSL_DISTRO_NAME").pipe(Config.option),
 });
 
 export class AnalyticsService extends Context.Service<
@@ -79,7 +79,7 @@ function serverOsFromNodePlatform(platform: string): ClientOs {
 
 /** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.gen(function* () {
-  const enabled = yield* Config.boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false));
+  const enabled = yield* Config.Boolean("T3CODE_TELEMETRY_ENABLED").pipe(Config.withDefault(false));
   const disabled = AnalyticsService.of({ record: () => Effect.void, flush: Effect.void });
   if (!enabled) return disabled;
 

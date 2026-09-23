@@ -4,6 +4,7 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -19,7 +20,11 @@ const TestLayer = ServerConfig.ServerConfig.layerTest(process.cwd(), {
   prefix: "t3-server-log-test-",
 }).pipe(Layer.provideMerge(NodeServices.layer));
 
-const IntegrationLayer = Layer.mergeAll(TestLayer, ResourceAttribution.layer);
+const IntegrationLayer = Layer.mergeAll(
+  TestLayer,
+  ResourceAttribution.layer,
+  NodeHttpClient.layerUndici,
+);
 
 function makeLogConfig(overrides: Partial<ServerConfig.ServerLogConfig> = {}) {
   return {

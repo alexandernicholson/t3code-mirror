@@ -1,6 +1,12 @@
-import type { EnvironmentId, ScopedProjectRef, ScopedThreadRef } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  PullRequestRef,
+  ScopedProjectRef,
+  ScopedThreadRef,
+} from "@t3tools/contracts";
+import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
-import { type MouseEvent, useCallback } from "react";
+import { type MouseEvent, useCallback, useMemo } from "react";
 
 import { pullRequestHostOf, type SourceControlProviderKind } from "@t3tools/contracts";
 import { parseChangeRequestUrl, type ChangeRequestLink } from "@t3tools/shared/changeRequestUrl";
@@ -15,6 +21,7 @@ import { useRightPanelStore } from "../rightPanelStore";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 
 import { useProjects, useServerConfigs } from "../state/entities";
+import { serverEnvironment } from "../state/server";
 import { usePrimaryEnvironmentId } from "../state/environments";
 
 export {
@@ -79,6 +86,10 @@ export function findProjectForChangeRequest(
     const kind = identity.provider as SourceControlProviderKind | undefined;
     if (kind === undefined) return false;
     const web = resolvedForgejoRepository(project);
+    if (projectRef && kind !== "azure-devops") {
+      const projectHost = web?.host.toLowerCase() ?? pullRequestHostOf(identity, kind);
+      return projectHost === (link.authority ?? link.host).toLowerCase();
+    }
     if (web)
       return (
         web.host.toLowerCase() === (link.authority ?? link.host).toLowerCase() &&
@@ -118,6 +129,51 @@ export function resolveChangeRequestLink(
       ? canonicalRepository
       : parsed.repository;
   return { project, repository, number: parsed.number, url: targetUrl };
+}
+
+export function resolvePullRequestPreviewTarget({
+  environmentId,
+  projects,
+  pullRequestsEnabled,
+  url,
+}: {
+  environmentId: EnvironmentId | null;
+  projects: ReadonlyArray<EnvironmentProject>;
+  pullRequestsEnabled: boolean;
+  url: string;
+}): { environmentId: EnvironmentId; input: PullRequestRef } | null {
+  if (!pullRequestsEnabled || environmentId === null) return null;
+  const parsed = parseChangeRequestUrl(url);
+  if (parsed === null) return null;
+  const project = findProjectForChangeRequest(
+    projects.filter((candidate) => candidate.environmentId === environmentId),
+    parsed,
+  );
+  if (project === undefined) return null;
+  return {
+    environmentId,
+    input: {
+      projectId: project.id,
+      host: parsed.authority ?? parsed.host,
+      repository: sourceControlRepositorySelector(project.repositoryIdentity) ?? parsed.repository,
+      number: parsed.number,
+    },
+  };
+}
+
+export function usePullRequestPreviewTarget(environmentId: EnvironmentId | null, url: string) {
+  const projects = useProjects();
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
+  return useMemo(
+    () =>
+      resolvePullRequestPreviewTarget({
+        environmentId,
+        projects,
+        pullRequestsEnabled: serverConfig?.environment.capabilities.pullRequests === true,
+        url,
+      }),
+    [environmentId, projects, serverConfig, url],
+  );
 }
 
 /**

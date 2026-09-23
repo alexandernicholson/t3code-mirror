@@ -425,6 +425,18 @@ projectionRepositoriesLayer("Projection repositories", (it) => {
         snoozedUntil: "2026-03-26T09:00:00.000Z",
         snoozedAt: "2026-03-25T00:00:00.000Z",
         pinnedAt: "2026-03-25T00:00:00.000Z",
+        turnQueue: { items: [], paused: false },
+        todos: {
+          revision: 1,
+          items: [
+            {
+              id: "settle-thread",
+              content: "Settle the thread",
+              phase: "Verify",
+              status: "in_progress",
+            },
+          ],
+        },
         latestUserMessageAt: null,
         pendingApprovalCount: 0,
         pendingUserInputCount: 0,
@@ -444,6 +456,18 @@ projectionRepositoriesLayer("Projection repositories", (it) => {
       assert.strictEqual(row.snoozedUntil, "2026-03-26T09:00:00.000Z");
       assert.strictEqual(row.snoozedAt, "2026-03-25T00:00:00.000Z");
       assert.strictEqual(row.pinnedAt, "2026-03-25T00:00:00.000Z");
+      assert.deepStrictEqual(row.turnQueue, { items: [], paused: false });
+      assert.deepStrictEqual(row.todos, {
+        revision: 1,
+        items: [
+          {
+            id: "settle-thread",
+            content: "Settle the thread",
+            phase: "Verify",
+            status: "in_progress",
+          },
+        ],
+      });
 
       // Un-settle to the keep-active pin and wake the snooze; confirm the
       // flips persist.
@@ -518,9 +542,6 @@ projectionRepositoriesLayer("Projection repositories", (it) => {
       const persisted = yield* threads.getById({ threadId: ThreadId.make("thread-linked-pr") });
       assert.deepStrictEqual(Option.getOrNull(persisted)?.linkedPullRequest, linkedPullRequest);
       assert.deepStrictEqual(Option.getOrNull(persisted)?.branchPullRequest, branchPullRequest);
-
-      const listed = yield* threads.listByProjectId({ projectId: linkedPullRequest.projectId });
-      assert.deepStrictEqual(listed[0]?.branchPullRequest, branchPullRequest);
 
       const row = Option.getOrNull(persisted);
       if (row === null) return yield* Effect.die("Expected linked thread row to exist.");

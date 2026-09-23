@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.5] - 2026-09-23
+
+- Fix thread settlement when queued turns or checklists are stored, and merge the latest upstream changes.
+
+---
+
 ## [0.8.4] - 2026-09-23
 
 - Source updates build successfully after the service launcher moved into the main server bundle.

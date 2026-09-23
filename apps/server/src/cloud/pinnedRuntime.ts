@@ -286,7 +286,7 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
     yield* input.validate(paths);
     return paths;
   }
-  const packageName = yield* Config.nonEmptyString("T3CODE_SERVER_PACKAGE").pipe(
+  const packageName = yield* Config.NonEmptyString("T3CODE_SERVER_PACKAGE").pipe(
     Effect.mapError(
       (cause) =>
         new PinnedRuntimeInstallError({
