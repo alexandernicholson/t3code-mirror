@@ -4,6 +4,17 @@ T3 Code uses Claude Code's login and configuration. Start with the default provi
 for one account; [provider setup](./install.md#providers) covers installation and
 shared provider settings.
 
+## Updates
+
+When **Binary path** is `claude`, T3 Code installs one-click updates into the
+environment's T3 home and uses that managed copy for new provider sessions. It
+does not modify a system-wide Claude package or version-manager installation. An
+explicit custom binary path keeps using that installation's own update method.
+
+Wait for active Claude turns to finish before updating. T3 Code closes idle
+Claude sessions after a successful update, so their next turn resumes with the
+new binary.
+
 ## Separate accounts or configurations
 
 Use a separate Claude config directory for each account. This also works for named

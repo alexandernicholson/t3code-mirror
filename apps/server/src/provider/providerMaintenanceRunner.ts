@@ -22,6 +22,7 @@ import { HttpClient } from "effect/unstable/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { ProviderRegistry } from "./Services/ProviderRegistry.ts";
+import { ProviderService } from "./Services/ProviderService.ts";
 import { makeProviderMaintenanceCommandCoordinator } from "./providerMaintenanceCommandCoordinator.ts";
 import {
   enrichProviderSnapshotWithVersionAdvisory,
@@ -214,6 +215,7 @@ function makeUpdateState(input: {
 /** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
   const providerRegistry = yield* ProviderRegistry;
+  const providerService = yield* ProviderService;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const httpClient = yield* HttpClient.HttpClient;
   const versionCache = yield* ProviderVersionCache;
@@ -357,6 +359,24 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               }),
             );
 
+            const sessionsBeforeUpdate = (yield* providerService.listSessions()).filter(
+              (session) => session.providerInstanceId === instanceId,
+            );
+            if (
+              sessionsBeforeUpdate.some(
+                (session) => session.status === "connecting" || session.status === "running",
+              )
+            ) {
+              return yield* finish(
+                makeUpdateState({
+                  status: "failed",
+                  startedAt,
+                  finishedAt: yield* nowIso,
+                  message: "Wait for active provider turns to finish, then try the update again.",
+                }),
+              );
+            }
+
             // The cached capabilities chose the lock; re-derive ownership
             // now so the command that runs matches the executable as it is
             // at click time, not as it was at the last health refresh.
@@ -389,6 +409,14 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                 }),
               );
             }
+
+            yield* Effect.forEach(
+              (yield* providerService.listSessions()).filter(
+                (session) => session.providerInstanceId === instanceId,
+              ),
+              (session) => providerService.stopSession({ threadId: session.threadId }),
+              { concurrency: "unbounded", discard: true },
+            );
 
             // Homebrew's "latest" moves once the upgrade lands; read it again.
             const verified = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(

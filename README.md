@@ -22,7 +22,10 @@ This fork currently adds or changes the following:
   secrets, and explicit approval controls for highly sensitive reads. See
   [Secrets](./docs/user/project-settings.md#secrets).
 - Adds shared provider settings across clients, including configurable Codex
-  model context windows. See [Codex accounts and settings](./docs/user/providers-codex.md).
+  model context windows. Default Codex and Claude instances can update into
+  environment-owned, portable installations under T3 home instead of requiring
+  write access to system packages. See [Codex accounts and settings](./docs/user/providers-codex.md)
+  and [Claude](./docs/user/providers-claude.md).
 - Adds full Oh My Pi provider support through ACP, including native model and
   thinking options, modes, permissions, questions, skills, commands, session
   resume, MCP servers, images, and text-generation tasks. See

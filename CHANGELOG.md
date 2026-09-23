@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.4] - 2026-09-23
+
+- Source updates build successfully after the service launcher moved into the main server bundle.
+- Default Codex and Claude instances install updates into the environment's T3 home instead of modifying system-owned packages; custom binary paths remain externally managed.
+- Provider updates wait for active turns, then restart idle sessions on the updated binary. Deleted worktrees no longer block provider refreshes.
+
+---
+
 ## [0.8.3] - 2026-09-21
 
 - Source updates no longer fail when bundled dependencies publish license metadata without notice files.

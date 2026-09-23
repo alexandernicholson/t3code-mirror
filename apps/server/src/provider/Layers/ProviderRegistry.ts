@@ -815,12 +815,35 @@ export const ProviderRegistryLive = Layer.effect(
     }) {
       const providers = yield* Ref.get(providersRef);
       const provider = providers.find((candidate) => candidate.instanceId === input.instanceId);
-      if (
-        !provider ||
-        !provider.enabled ||
-        provider.workspaceSnapshots?.some((s) => s.cwd === input.cwd)
-      ) {
+      if (!provider || !provider.enabled) {
         return providers;
+      }
+      if (!(yield* fileSystem.exists(input.cwd))) {
+        if (!provider.workspaceSnapshots?.some((snapshot) => snapshot.cwd === input.cwd)) {
+          return providers;
+        }
+        return yield* upsertProviders(
+          [
+            {
+              ...provider,
+              workspaceSnapshots: provider.workspaceSnapshots.filter(
+                (snapshot) => snapshot.cwd !== input.cwd,
+              ),
+            },
+          ],
+          { persist: false },
+        );
+      }
+      if (provider.workspaceSnapshots?.some((snapshot) => snapshot.cwd === input.cwd)) {
+        return providers;
+      }
+      const providersAfterCwdCheck = yield* Ref.get(providersRef);
+      if (
+        providersAfterCwdCheck
+          .find((candidate) => candidate.instanceId === input.instanceId)
+          ?.workspaceSnapshots?.some((snapshot) => snapshot.cwd === input.cwd)
+      ) {
+        return providersAfterCwdCheck;
       }
       const instance = yield* instanceRegistry.getInstance(input.instanceId);
       if (!instance?.snapshotForCwd) return providers;

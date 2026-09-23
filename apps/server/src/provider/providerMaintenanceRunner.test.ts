@@ -2,6 +2,8 @@ import { describe, it, assert } from "@effect/vitest";
 import {
   ProviderDriverKind,
   ProviderInstanceId,
+  ThreadId,
+  TurnId,
   type ServerProvider,
   type ServerProviderUpdateState,
 } from "@t3tools/contracts";
@@ -21,6 +23,7 @@ import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hos
 import { SpawnExecutableResolution } from "@t3tools/shared/shell";
 
 import { ProviderRegistry, type ProviderRegistryShape } from "./Services/ProviderRegistry.ts";
+import { ProviderService } from "./Services/ProviderService.ts";
 import * as ProviderMaintenanceRunner from "./providerMaintenanceRunner.ts";
 import {
   makeProviderMaintenanceCapabilities,
@@ -36,6 +39,7 @@ const CODEX_INSTANCE_ID = ProviderInstanceId.make("codex");
 const CURSOR_INSTANCE_ID = ProviderInstanceId.make("cursor");
 const OPENCODE_INSTANCE_ID = ProviderInstanceId.make("opencode");
 const encoder = new TextEncoder();
+const SESSION_THREAD_ID = ThreadId.make("thread-provider-update");
 
 // Pin a non-win32 platform so `resolveSpawnCommand` is a no-op and the raw
 // `{ command, args }` assertions below hold deterministically on any host
@@ -208,13 +212,22 @@ function makeRegistry(
   });
 }
 
-const makeTestRunner = (registry: ProviderRegistryShape) =>
+const emptyProviderService = Layer.mock(ProviderService)({
+  listSessions: () => Effect.succeed([]),
+  stopSession: () => Effect.void,
+});
+
+const makeTestRunner = (
+  registry: ProviderRegistryShape,
+  providerService: Layer.Layer<ProviderService> = emptyProviderService,
+) =>
   Effect.service(ProviderMaintenanceRunner.ProviderMaintenanceRunner).pipe(
     Effect.provide(
       ProviderMaintenanceRunner.layer.pipe(
         Layer.provide(
           Layer.mergeAll(
             Layer.succeed(ProviderRegistry, registry),
+            providerService,
             // Fresh per runner so a version cached by one test cannot leak into another.
             Layer.sync(ProviderVersionCache, () => new Map()),
           ),
@@ -251,6 +264,84 @@ describe("providerMaintenanceRunner", () => {
             calls.push({ command, args });
             return { stdout: "updated" };
           }),
+        ),
+      ),
+    );
+  });
+
+  it.effect("waits for active provider turns before updating", () => {
+    const calls: string[] = [];
+    return Effect.gen(function* () {
+      const { registry } = yield* makeRegistry(baseProvider);
+      const providerService = Layer.mock(ProviderService)({
+        listSessions: () =>
+          Effect.succeed([
+            {
+              provider: CODEX_DRIVER,
+              providerInstanceId: CODEX_INSTANCE_ID,
+              status: "running" as const,
+              runtimeMode: "full-access" as const,
+              threadId: SESSION_THREAD_ID,
+              activeTurnId: TurnId.make("turn-provider-update"),
+              createdAt: "2026-04-10T00:00:00.000Z",
+              updatedAt: "2026-04-10T00:00:00.000Z",
+            },
+          ]),
+        stopSession: () => Effect.void,
+      });
+      const updater = yield* makeTestRunner(registry, providerService);
+
+      const result = yield* updater.updateProvider(CODEX_DRIVER);
+      assert.strictEqual(result.providers[0]?.updateState?.status, "failed");
+      assert.match(result.providers[0]?.updateState?.message ?? "", /active provider turns/);
+      assert.deepStrictEqual(calls, []);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          NonWindowsPlatform,
+          latestVersionHttpClient("0.0.0"),
+          mockSpawnerLayer((command) => {
+            calls.push(command);
+            return { stdout: "updated" };
+          }),
+        ),
+      ),
+    );
+  });
+
+  it.effect("stops idle sessions after an update so the next turn uses the new binary", () => {
+    const stopped: string[] = [];
+    return Effect.gen(function* () {
+      const { registry } = yield* makeRegistry(baseProvider);
+      const providerService = Layer.mock(ProviderService)({
+        listSessions: () =>
+          Effect.succeed([
+            {
+              provider: CODEX_DRIVER,
+              providerInstanceId: CODEX_INSTANCE_ID,
+              status: "ready" as const,
+              runtimeMode: "full-access" as const,
+              threadId: SESSION_THREAD_ID,
+              createdAt: "2026-04-10T00:00:00.000Z",
+              updatedAt: "2026-04-10T00:00:00.000Z",
+            },
+          ]),
+        stopSession: ({ threadId }) =>
+          Effect.sync(() => {
+            stopped.push(threadId);
+          }),
+      });
+      const updater = yield* makeTestRunner(registry, providerService);
+
+      const result = yield* updater.updateProvider(CODEX_DRIVER);
+      assert.strictEqual(result.providers[0]?.updateState?.status, "succeeded");
+      assert.deepStrictEqual(stopped, [SESSION_THREAD_ID]);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          NonWindowsPlatform,
+          latestVersionHttpClient("0.0.0"),
+          mockSpawnerLayer(() => ({ stdout: "updated" })),
         ),
       ),
     );

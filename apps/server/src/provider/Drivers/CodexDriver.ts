@@ -34,6 +34,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { HttpClient } from "effect/unstable/http";
 import { ChildProcessSpawner } from "effect/unstable/process";
+import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
 
 import { makeCodexTextGeneration } from "../../textGeneration/CodexTextGeneration.ts";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
@@ -72,6 +73,7 @@ import {
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
 } from "../providerUpdateSettings.ts";
+import { makeManagedProviderToolchain } from "../managedProviderToolchain.ts";
 import {
   codexContinuationIdentity,
   materializeCodexShadowHome,
@@ -140,7 +142,20 @@ export const CodexDriver: ProviderDriver<CodexSettings, CodexDriverEnv> = {
       const serverSettings = yield* ServerSettingsService;
       const eventLoggers = yield* ProviderEventLoggers;
       const modelManifest = yield* ModelManifest.ModelManifest;
-      const processEnv = mergeProviderInstanceEnvironment(environment);
+      const { baseDir } = yield* ServerConfig;
+      const platform = HostProcessPlatform.defaultValue();
+      const configuredProcessEnv = mergeProviderInstanceEnvironment(environment);
+      const managedToolchain = makeManagedProviderToolchain({
+        baseDir,
+        commandName: "codex",
+        environment: configuredProcessEnv,
+        packageName: "@openai/codex",
+        path: pathService,
+        platform,
+        provider: DRIVER_KIND,
+      });
+      const usesManagedToolchain = config.binaryPath === "codex";
+      const processEnv = usesManagedToolchain ? managedToolchain.environment : configuredProcessEnv;
       const homeLayout = yield* resolveCodexHomeLayout(config);
       const continuationIdentity = codexContinuationIdentity(homeLayout);
       const withIdentity = withInstanceIdentity({
@@ -210,17 +225,19 @@ export const CodexDriver: ProviderDriver<CodexSettings, CodexDriverEnv> = {
         ),
       );
       const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
-        resolveProviderMaintenanceCapabilitiesEffect(
-          makeCodexMaintenanceResolver(homeLayout.sharedHomePath),
-          {
-            binaryPath: effectiveConfig.binaryPath,
-            env: processEnv,
-          },
-        ).pipe(
-          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-          Effect.provideService(FileSystem.FileSystem, fileSystem),
-          Effect.provideService(Path.Path, pathService),
-        ),
+        usesManagedToolchain
+          ? Effect.succeed(managedToolchain.maintenance)
+          : resolveProviderMaintenanceCapabilitiesEffect(
+              makeCodexMaintenanceResolver(homeLayout.sharedHomePath),
+              {
+                binaryPath: effectiveConfig.binaryPath,
+                env: processEnv,
+              },
+            ).pipe(
+              Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+              Effect.provideService(FileSystem.FileSystem, fileSystem),
+              Effect.provideService(Path.Path, pathService),
+            ),
       );
 
       // `makeCodexAdapter` and `makeCodexTextGeneration` have `never` error

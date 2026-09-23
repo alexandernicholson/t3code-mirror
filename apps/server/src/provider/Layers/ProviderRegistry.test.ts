@@ -4,6 +4,7 @@ import { describe, it, assert } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
@@ -1461,6 +1462,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
 
       it.effect("deduplicates cwd probes and clears snapshots when an instance rebuilds", () =>
         Effect.gen(function* () {
+          const fileSystem = yield* FileSystem.FileSystem;
+          const workspace = yield* fileSystem.makeTempDirectoryScoped({
+            prefix: "t3-provider-workspace-",
+          });
           const driver = ProviderDriverKind.make("codex");
           const instanceId = ProviderInstanceId.make("codex");
           const machineProvider = {
@@ -1573,7 +1578,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
 
           yield* Effect.gen(function* () {
             const registry = yield* ProviderRegistry.ProviderRegistry;
-            yield* registry.refreshWorkspaceSnapshot({ instanceId, cwd: "/workspace" });
+            yield* registry.refreshWorkspaceSnapshot({ instanceId, cwd: workspace });
             assert.strictEqual((yield* registry.getProviders)[0]?.workspaceSnapshots, undefined);
             yield* Ref.set(returnPendingSnapshot, false);
             const workspaceUpdate = yield* registry.streamChanges.pipe(
@@ -1582,11 +1587,11 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
             );
             yield* Effect.yieldNow;
             const firstRefresh = yield* registry
-              .refreshWorkspaceSnapshot({ instanceId, cwd: "/workspace" })
+              .refreshWorkspaceSnapshot({ instanceId, cwd: workspace })
               .pipe(Effect.forkChild);
             yield* Deferred.await(probeStarted);
             const duplicateRefresh = yield* registry
-              .refreshWorkspaceSnapshot({ instanceId, cwd: "/workspace" })
+              .refreshWorkspaceSnapshot({ instanceId, cwd: workspace })
               .pipe(Effect.forkChild);
             yield* Effect.yieldNow;
             assert.strictEqual(yield* Ref.get(snapshotCalls), 2);
@@ -1601,8 +1606,12 @@ it.layer(Layer.mergeAll(NodeServices.layer, ServerSettingsModule.layerTest(), Te
               providers[0]?.workspaceSnapshots?.[0]?.skills,
               scopedProvider.skills,
             );
-            yield* registry.refreshWorkspaceSnapshot({ instanceId, cwd: "/workspace" });
+
+            yield* fileSystem.remove(workspace, { recursive: true });
+            yield* registry.refreshWorkspaceSnapshot({ instanceId, cwd: workspace });
+            assert.deepStrictEqual((yield* registry.getProviders)[0]?.workspaceSnapshots, []);
             assert.strictEqual(yield* Ref.get(snapshotCalls), 2);
+            yield* fileSystem.makeDirectory(workspace);
 
             yield* Ref.set(instancesRef, [rebuiltInstance]);
             yield* PubSub.publish(registryChanges, undefined);

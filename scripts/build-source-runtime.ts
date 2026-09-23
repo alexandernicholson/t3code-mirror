@@ -69,7 +69,7 @@ async function buildSourceRuntime(input: {
     env,
     stdio: "inherit",
   });
-  for (const file of ["dist/bin.mjs", "dist/service-launcher.mjs", "dist/client/index.html"]) {
+  for (const file of ["dist/bin.mjs", "dist/client/index.html"]) {
     await NodeFSP.readFile(NodePath.join(input.root, "apps/server", file));
   }
   await NodeFSP.mkdir(NodePath.join(input.runtimeDir, "node_modules"), { recursive: true });

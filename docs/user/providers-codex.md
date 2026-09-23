@@ -4,6 +4,17 @@ For one account, use the default Codex provider with your normal Codex login.
 [Provider setup](./install.md#providers) covers installation, Settings > Providers,
 and custom binaries or environment variables.
 
+## Updates
+
+When **Binary path** is `codex`, T3 Code installs one-click updates into the
+environment's T3 home and uses that managed copy for new provider sessions. It
+does not modify a system-wide Codex package. An explicit custom binary path keeps
+using that installation's own update method.
+
+Wait for active Codex turns to finish before updating. T3 Code closes idle Codex
+sessions after a successful update, so their next turn resumes with the new
+binary.
+
 ## Configure global settings
 
 Open **Settings > Providers**, choose the environment and Codex instance, then
