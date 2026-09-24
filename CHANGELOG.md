@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.5] - 2026-09-24
+
+- Fix replying to or settling threads that have saved TODOs or queued follow-ups.
+
+---
+
 ## [0.8.4] - 2026-09-23
 
 - Source updates build successfully after the service launcher moved into the main server bundle.
