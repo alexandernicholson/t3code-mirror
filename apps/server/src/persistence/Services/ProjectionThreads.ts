@@ -1,4 +1,3 @@
-import { ThreadTodos } from "@t3tools/contracts";
 /**
  * ProjectionThreadRepository - Projection repository interface for threads.
  *
@@ -17,6 +16,7 @@ import {
   RuntimeMode,
   ThreadLinkedPullRequest,
   ThreadTitleState,
+  ThreadTodos,
   ThreadId,
   TurnId,
   TurnQueue,

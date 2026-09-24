@@ -1,5 +1,6 @@
 import {
   ProjectId,
+  MessageId,
   ThreadId,
   TurnId,
   ProviderInstanceId,
@@ -466,6 +467,79 @@ projectionRepositoriesLayer("Projection repositories", (it) => {
       assert.strictEqual(updated?.snoozedUntil, null);
       assert.strictEqual(updated?.snoozedAt, null);
       assert.strictEqual(updated?.pinnedAt, null);
+    }),
+  );
+
+  it.effect("round-trips queued turns and todos through the thread row", () =>
+    Effect.gen(function* () {
+      const threads = yield* ProjectionThreadRepository;
+      const turnQueue = {
+        items: [
+          {
+            messageId: MessageId.make("message-queued"),
+            text: "Follow up",
+            attachments: [],
+            runtimeMode: "full-access" as const,
+            interactionMode: "default" as const,
+            createdAt: "2026-03-24T00:00:01.000Z" as const,
+          },
+        ],
+        paused: false,
+      };
+      const todos = {
+        revision: 1,
+        items: [
+          {
+            id: "todo-1",
+            content: "Verify the fix",
+            phase: "Testing",
+            status: "in_progress" as const,
+          },
+        ],
+      };
+
+      yield* threads.upsert({
+        threadId: ThreadId.make("thread-json-state"),
+        projectId: ProjectId.make("project-json-state"),
+        title: "JSON state thread",
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("codex"),
+          model: "gpt-5.4",
+        },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        latestTurnId: null,
+        createdAt: "2026-03-24T00:00:00.000Z",
+        updatedAt: "2026-03-24T00:00:00.000Z",
+        archivedAt: null,
+        settledOverride: null,
+        settledAt: null,
+        unsettledAt: null,
+        snoozedUntil: null,
+        snoozedAt: null,
+        pinnedAt: null,
+        turnQueue,
+        todos,
+        latestUserMessageAt: null,
+        pendingApprovalCount: 0,
+        pendingUserInputCount: 0,
+        hasActionableProposedPlan: 0,
+        deletedAt: null,
+      });
+
+      const persisted = yield* threads.getById({
+        threadId: ThreadId.make("thread-json-state"),
+      });
+      assert.deepStrictEqual(Option.getOrNull(persisted)?.turnQueue, turnQueue);
+      assert.deepStrictEqual(Option.getOrNull(persisted)?.todos, todos);
+
+      const listed = yield* threads.listByProjectId({
+        projectId: ProjectId.make("project-json-state"),
+      });
+      assert.deepStrictEqual(listed[0]?.turnQueue, turnQueue);
+      assert.deepStrictEqual(listed[0]?.todos, todos);
     }),
   );
 
