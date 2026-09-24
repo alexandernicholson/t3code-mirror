@@ -1,8 +1,14 @@
 # Changelog
 
-## [0.8.5] - 2026-09-23
+## [0.8.6] - 2026-09-24
 
-- Fix thread settlement when queued turns or checklists are stored, and merge the latest upstream changes.
+- Add mobile environment and provider update controls, restore provider compatibility ranges, and use the visible preview for new agent sessions.
+
+---
+
+## [0.8.5] - 2026-09-24
+
+- Fix replying to or settling threads that have saved TODOs or queued follow-ups.
 
 ---
 
