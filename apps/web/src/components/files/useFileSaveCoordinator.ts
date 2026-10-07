@@ -1,12 +1,16 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import { AuthFilesystemWriteScope, type EnvironmentId } from "@t3tools/contracts";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { createRef, useEffect, useMemo, useRef } from "react";
 
 import { projectEnvironment } from "~/state/projects";
+import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { FileSaveCoordinator } from "./fileSaveCoordinator";
-import { confirmProjectFileQueryData } from "./projectFilesQueryState";
+import {
+  confirmProjectFileQueryData,
+  getUnsavedProjectFileQueryData,
+} from "./projectFilesQueryState";
 
 const FILE_SAVE_DEBOUNCE_MS = 500;
 
@@ -35,6 +39,7 @@ export function useFileSaveCoordinator({
   onWriteConflict,
   onSaved,
 }: FileSaveOptions): Pick<FileSaveCoordinator, "change" | "flush"> {
+  const canWriteFiles = useEnvironmentScope(environmentId, AuthFilesystemWriteScope);
   const writeFile = useAtomCommand(projectEnvironment.writeFile);
   // Callbacks live behind refs so an inline prop does not tear down and
   // rebuild the debounce session on every render.
@@ -54,6 +59,7 @@ export function useFileSaveCoordinator({
       setup: () => {
         const coordinator = new FileSaveCoordinator({
           debounceMs: FILE_SAVE_DEBOUNCE_MS,
+          canPersist: () => readEnvironmentScope(environmentId, AuthFilesystemWriteScope),
           onPendingChange: (pending) => onPendingChange(relativePath, pending),
           persist: (nextContents) => {
             const revision = expectedRevisionRef.current?.(nextContents);
@@ -91,5 +97,18 @@ export function useFileSaveCoordinator({
   // StrictMode replays effect setup. Retired file sessions stay inert, while the
   // replay gets a fresh coordinator instead of reusing a disposed one.
   useEffect(session.setup, [session]);
+  useEffect(() => {
+    if (!canWriteFiles) return;
+    let cancelled = false;
+    // Replay must retire the first session before recovery queues a draft to flush.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const unsaved = getUnsavedProjectFileQueryData(environmentId, cwd, relativePath);
+      if (unsaved) session.change(unsaved.contents);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canWriteFiles, cwd, environmentId, relativePath, session]);
   return session;
 }

@@ -14,6 +14,7 @@ import {
   GripVerticalIcon,
   ListOrderedIcon,
   PencilIcon,
+  Undo2Icon,
 } from "lucide-react";
 import { useId, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 
@@ -62,6 +63,7 @@ export function QueuedRunsControl({
   /** The saved queue entry stays visible while its draft is edited in the composer. */
   readonly editingRunId: RunId | null;
   readonly onEditQueuedRun: (request: EditQueuedRunRequest) => void;
+  readonly onRestoreQueuedRun?: (messageId: MessageId) => Promise<void>;
   readonly onCancelEdit: () => void;
 }) {
   const projection = useThreadProjection(
@@ -415,6 +417,19 @@ export function QueuedRunsControl({
                       </Button>
                     ) : (
                       <>
+                        {props.onRestoreQueuedRun && item.messageId ? (
+                          <Button
+                            size="icon-xs"
+                            variant="ghost-muted"
+                            aria-label="Restore queued message to draft"
+                            disabled={item.pending || busyRunId !== null}
+                            onClick={() => {
+                              if (item.messageId) void props.onRestoreQueuedRun?.(item.messageId);
+                            }}
+                          >
+                            <Undo2Icon />
+                          </Button>
+                        ) : null}
                         <Tooltip>
                           <TooltipTrigger
                             render={

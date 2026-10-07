@@ -94,7 +94,7 @@ describe("DesktopClerk", () => {
     Effect.gen(function* () {
       vi.stubGlobal("__T3CODE_BUILD_CLOUD_ENABLED__", undefined);
       const events: string[] = [];
-      yield* Effect.scoped(Layer.build(makeDesktopClerkLayer(true, events)));
+      yield* Effect.scoped(Layer.build(layerDesktopClerk(true, events)));
       assert.equal(createClerkBridgeMock.mock.calls.length, 0);
       assert.equal(storageMock.mock.calls.length, 0);
       assert.include(events, "local-single-instance-lock");

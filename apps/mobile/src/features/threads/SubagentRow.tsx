@@ -1,3 +1,4 @@
+import { formatSubagentTokenCount } from "@t3tools/client-runtime/state/subagentRuntime";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { resolveProviderInstanceDisplayName } from "@t3tools/client-runtime/state/provider-instance-display";
 import { resolveSubagentMetadata } from "@t3tools/client-runtime/state/subagent-display";
@@ -26,6 +27,7 @@ type SubagentRowSubagent = Pick<
   | "status"
   | "progress"
   | "result"
+  | "usage"
 >;
 
 /**
@@ -46,6 +48,14 @@ export function SubagentRow(props: {
         <SubagentStatusDot tone={presentation.tone} placement="sheet" />
       </View>
       <View className="min-w-0 flex-1 gap-1">
+        {props.subagent.usage ? (
+          <Text className="text-xs text-foreground-muted">
+            {formatSubagentTokenCount(props.subagent.usage.totalTokens)} tokens
+            {props.subagent.usage.toolUses === undefined
+              ? ""
+              : ` · ${props.subagent.usage.toolUses} tool uses`}
+          </Text>
+        ) : null}
         <View className="min-h-5 flex-row items-center gap-2">
           <View className="min-w-0 flex-1 flex-row items-baseline gap-1.5">
             <Text

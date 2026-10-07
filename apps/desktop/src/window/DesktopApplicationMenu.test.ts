@@ -29,6 +29,7 @@ const environmentInput = {
 
 const layerElectronApp = Layer.succeed(ElectronApp.ElectronApp, {
   metadata: Effect.die("unexpected metadata read"),
+  acquireSingleInstanceLock: Effect.succeed(true),
   name: Effect.succeed("T3 Code"),
   systemLocale: Effect.succeed("en-US"),
   whenReady: Effect.void,
