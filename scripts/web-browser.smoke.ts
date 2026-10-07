@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off - Standalone browser tooling uses Node directly.
 import * as NodeAssert from "node:assert/strict";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeHttp from "node:http";

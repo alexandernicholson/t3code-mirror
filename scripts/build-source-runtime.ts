@@ -9,6 +9,21 @@ import * as NodePath from "node:path";
 import * as NodeUtil from "node:util";
 import { RELEASE_VERSION, parseChangelog } from "@t3tools/shared/changelog";
 
+export async function readSourceMigrationHashes(
+  migrationDir: string,
+): Promise<Record<string, string>> {
+  const migrations: Record<string, string> = {};
+  for (const file of (await NodeFSP.readdir(migrationDir)).sort()) {
+    if (!/^\d+_.*\.ts$/.test(file) || file.endsWith(".test.ts")) continue;
+    const id = file.split("_", 1)[0]!;
+    if (migrations[id]) throw new Error(`Duplicate migration ${id}`);
+    migrations[id] = NodeCrypto.createHash("sha256")
+      .update(await NodeFSP.readFile(NodePath.join(migrationDir, file)))
+      .digest("hex");
+  }
+  return migrations;
+}
+
 /** Run only in a disposable checkout. The parent publishes the whole directory after preflight. */
 async function buildSourceRuntime(input: {
   root: string;
@@ -32,15 +47,7 @@ async function buildSourceRuntime(input: {
     throw new Error("VERSION and CHANGELOG.md disagree.");
   const runtimeVersion = `${version}+git.${input.commit}`;
   const migrationDir = NodePath.join(input.root, "apps/server/src/persistence/Migrations");
-  const migrations: Record<string, string> = {};
-  for (const file of (await NodeFSP.readdir(migrationDir)).sort()) {
-    if (!/^\d+_.*\.ts$/.test(file) || file.endsWith(".test.ts")) continue;
-    const id = file.split("_", 1)[0]!;
-    if (migrations[id]) throw new Error(`Duplicate migration ${id}`);
-    migrations[id] = NodeCrypto.createHash("sha256")
-      .update(await NodeFSP.readFile(NodePath.join(migrationDir, file)))
-      .digest("hex");
-  }
+  const migrations = await readSourceMigrationHashes(migrationDir);
   const metadata = {
     version,
     runtimeVersion,

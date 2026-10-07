@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off - Standalone browser tooling uses Node directly.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";

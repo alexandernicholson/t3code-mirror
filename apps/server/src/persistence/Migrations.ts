@@ -73,12 +73,12 @@ import Migration0057 from "./Migrations/057_ProjectionThreadPullRequests.ts";
 import Migration0058 from "./Migrations/058_ProjectionThreadMessageContext.ts";
 import Migration0059 from "./Migrations/059_ProjectionThreadTitleState.ts";
 
-import Migration0060 from "./Migrations/053_PullRequestFilesViewed.ts";
-import Migration0061 from "./Migrations/054_ProjectionThreadsAutoSettleDisabledAt.ts";
-import Migration0062 from "./Migrations/055_OrchestrationV2.ts";
-import Migration0063 from "./Migrations/056_RemoveRedundantProjectionIndexes.ts";
-import Migration0064 from "./Migrations/057_ScheduledTaskWebhooks.ts";
-import Migration0065 from "./Migrations/058_WebhookRelayDeliveries.ts";
+import Migration0060 from "./Migrations/060_PullRequestFilesViewed.ts";
+import Migration0061 from "./Migrations/061_ProjectionThreadsAutoSettleDisabledAt.ts";
+import Migration0062 from "./Migrations/062_OrchestrationV2.ts";
+import Migration0063 from "./Migrations/063_RemoveRedundantProjectionIndexes.ts";
+import Migration0064 from "./Migrations/064_ScheduledTaskWebhooks.ts";
+import Migration0065 from "./Migrations/065_WebhookRelayDeliveries.ts";
 
 /**
  * Migration loader with all migrations defined inline.

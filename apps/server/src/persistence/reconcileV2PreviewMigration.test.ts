@@ -6,9 +6,9 @@ import * as Migrator from "effect/sql/Migrator";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import { migrationManifest, runMigrations } from "./Migrations.ts";
-import PullRequestFilesViewed from "./Migrations/053_PullRequestFilesViewed.ts";
-import RemoveRedundantProjectionIndexes from "./Migrations/056_RemoveRedundantProjectionIndexes.ts";
-import OrchestrationV2 from "./Migrations/055_OrchestrationV2.ts";
+import PullRequestFilesViewed from "./Migrations/060_PullRequestFilesViewed.ts";
+import RemoveRedundantProjectionIndexes from "./Migrations/063_RemoveRedundantProjectionIndexes.ts";
+import OrchestrationV2 from "./Migrations/062_OrchestrationV2.ts";
 
 // The V2 schema is unchanged from the published September 15–16 previews.
 const seedPreview = Effect.gen(function* () {

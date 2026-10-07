@@ -137,3 +137,14 @@ index c037015185da1e0c664653b5a496832a9449f3c1..a8b0d8be28bbbd3a0d0d3f1a222c2f07
    }
  
    get remoteAddress(): Option.Option<string> {
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -50,5 +50,7 @@
+     "./socket": "./dist/socket/index.js",
+     "./sql": "./dist/sql/index.js",
++    "./unstable/sql": "./dist/sql/index.js",
++    "./unstable/sql/SqlClient": "./dist/sql/SqlClient.js",
+     "./workflow": "./dist/workflow/index.js",
+     "./workers": "./dist/workers/index.js",
+     "./*": "./dist/*.js",
