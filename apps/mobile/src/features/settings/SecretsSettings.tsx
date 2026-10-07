@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState, type ReactNode } from "react";
 import { Alert, Modal, Pressable, ScrollView, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

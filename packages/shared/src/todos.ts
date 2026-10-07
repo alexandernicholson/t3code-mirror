@@ -194,3 +194,22 @@ export function appendTodoContext(message: string, todos: ThreadTodos | undefine
   if (/^\s*\/[\w-]+(?:\s|$)/.test(message)) return message;
   return `${message}\n\n<t3-todos>\n${todoAgentContext(todos)}\n</t3-todos>`;
 }
+
+/** Reconcile V2 native plans with the fork's editable checklist state. */
+export function reconcileV2NativeTodos(
+  current: ThreadTodos | undefined,
+  steps: readonly {
+    readonly id: string;
+    readonly text: string;
+    readonly status: "pending" | "running" | "completed";
+  }[],
+): ThreadTodos {
+  return reconcileNativeTodos(
+    current ?? emptyTodos,
+    steps.map((step) => ({
+      id: step.id,
+      step: step.text,
+      status: step.status === "running" ? "inProgress" : step.status,
+    })),
+  );
+}

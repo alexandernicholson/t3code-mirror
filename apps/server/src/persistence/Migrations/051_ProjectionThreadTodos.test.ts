@@ -1,14 +1,14 @@
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import { ThreadTodos } from "@t3tools/contracts";
 import { runMigrations } from "../Migrations.ts";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeTodos = Schema.decodeUnknownSync(Schema.fromJsonString(ThreadTodos));
-it.layer(NodeSqliteClient.layerMemory())("051_ProjectionThreadTodos", (it) => {
+it.layer(NodeSqliteClient.layer({ filename: ":memory:" }))("051_ProjectionThreadTodos", (it) => {
   it.effect(
     "backfills the latest checklist including explicit clears, without changing thread timestamps",
     () =>

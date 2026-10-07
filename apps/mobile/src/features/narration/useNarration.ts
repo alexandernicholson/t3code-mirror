@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import {
   NarrationCursor,
   NarrationQueue,

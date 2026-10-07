@@ -8,8 +8,9 @@
  * schema is always up to date before the application starts.
  */
 
-import * as Migrator from "effect/unstable/sql/Migrator";
+import * as Migrator from "effect/sql/Migrator";
 import * as Effect from "effect/Effect";
+import * as SqlClient from "effect/sql/SqlClient";
 
 // Import all migrations statically
 import Migration0001 from "./Migrations/001_OrchestrationEvents.ts";
@@ -72,6 +73,13 @@ import Migration0057 from "./Migrations/057_ProjectionThreadPullRequests.ts";
 import Migration0058 from "./Migrations/058_ProjectionThreadMessageContext.ts";
 import Migration0059 from "./Migrations/059_ProjectionThreadTitleState.ts";
 
+import Migration0060 from "./Migrations/053_PullRequestFilesViewed.ts";
+import Migration0061 from "./Migrations/054_ProjectionThreadsAutoSettleDisabledAt.ts";
+import Migration0062 from "./Migrations/055_OrchestrationV2.ts";
+import Migration0063 from "./Migrations/056_RemoveRedundantProjectionIndexes.ts";
+import Migration0064 from "./Migrations/057_ScheduledTaskWebhooks.ts";
+import Migration0065 from "./Migrations/058_WebhookRelayDeliveries.ts";
+
 /**
  * Migration loader with all migrations defined inline.
  *
@@ -82,7 +90,7 @@ import Migration0059 from "./Migrations/059_ProjectionThreadTitleState.ts";
  * Uses Migrator.fromRecord which parses the key format and
  * returns migrations sorted by ID.
  */
-const migrationEntries = [
+export const migrationEntries = [
   [1, "OrchestrationEvents", Migration0001],
   [2, "OrchestrationCommandReceipts", Migration0002],
   [3, "CheckpointDiffBlobs", Migration0003],
@@ -142,6 +150,12 @@ const migrationEntries = [
   [57, "ProjectionThreadPullRequests", Migration0057],
   [58, "ProjectionThreadMessageContext", Migration0058],
   [59, "ProjectionThreadTitleState", Migration0059],
+  [60, "PullRequestFilesViewed", Migration0060],
+  [61, "ProjectionThreadsAutoSettleDisabledAt", Migration0061],
+  [62, "OrchestrationV2", Migration0062],
+  [63, "RemoveRedundantProjectionIndexes", Migration0063],
+  [64, "ScheduledTaskWebhooks", Migration0064],
+  [65, "WebhookRelayDeliveries", Migration0065],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);
@@ -183,5 +197,30 @@ export const runMigrations = Effect.fn("runMigrations")(function* ({
   yield* migrations.length === 0
     ? Effect.logDebug("Database schema is current")
     : Effect.log("Migrations ran successfully").pipe(Effect.annotateLogs({ migrations }));
+
+  // The migrator keys on migration_id: a database that recorded a different
+  // migration under a shared id (local or fork builds) keeps that id and
+  // silently skips this build's migration at it. Surface the divergence so the
+  // skipped schema change is diagnosable.
+  const sql = yield* SqlClient.SqlClient;
+  const recorded = yield* sql<{
+    readonly migration_id: number;
+    readonly name: string;
+  }>`SELECT migration_id, name FROM effect_sql_migrations`;
+  const manifestNames = new Map<number, string>(migrationEntries.map(([id, name]) => [id, name]));
+  const divergent = recorded.flatMap((row) => {
+    const expected = manifestNames.get(row.migration_id);
+    if (expected === undefined) {
+      return [`${row.migration_id}:${row.name} (unknown to this build)`];
+    }
+    return expected === row.name
+      ? []
+      : [`${row.migration_id}:${row.name} (this build: ${expected})`];
+  });
+  if (divergent.length > 0) {
+    yield* Effect.logWarning(
+      "Database migration history diverges from this build; recorded migration ids are skipped, not reconciled by name.",
+    ).pipe(Effect.annotateLogs({ divergent }));
+  }
   return executedMigrations;
 });

@@ -78,8 +78,9 @@ describe("advisor review input", () => {
     correlationId: null,
     metadata: {},
   };
-  for (const kind of ["context-window.updated", "checkpoint.captured"]) {
-    it(`does not review ${kind} bookkeeping`, () => {
+  it.each(["context-window.updated", "checkpoint.captured"])(
+    "does not review %s bookkeeping",
+    (kind) => {
       expect(
         advisorSourceText({
           ...base,
@@ -98,8 +99,8 @@ describe("advisor review input", () => {
           },
         }),
       ).toBeNull();
-    });
-  }
+    },
+  );
   it("ignores empty assistant completions", () => {
     expect(
       advisorSourceText({

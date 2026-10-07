@@ -17,7 +17,8 @@ import type * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 
 import { sweepStalePendingAttachments } from "./attachmentStore.ts";
-import { OtlpProtocol } from "@t3tools/shared/observability";
+import { DEFAULT_SIGNAL_EXPORT, type SignalExport } from "@t3tools/shared/observability";
+import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
 
 export const DEFAULT_PORT = 3773;
 
@@ -72,8 +73,8 @@ export interface ServerDerivedPaths {
   /** Screenshots the agent asks the collaborative browser to keep for the user. */
   readonly browserArtifactsDir: string;
   readonly logsDir: string;
-  readonly serverLogPath: string;
   readonly serverTracePath: string;
+  readonly serverLogPath: string;
   readonly providerLogsDir: string;
   readonly providerEventLogPath: string;
   readonly terminalLogsDir: string;
@@ -102,10 +103,16 @@ export class ServerConfig extends Context.Service<
     readonly serverLog?: ServerLogConfig;
     readonly otlpTracesUrl: string | undefined;
     readonly otlpMetricsUrl: string | undefined;
-    readonly otlpExportIntervalMs: number;
-    readonly otlpServiceName: string;
-    readonly otlpHeaders: Readonly<Record<string, string>> | undefined;
-    readonly otlpProtocol: OtlpProtocol;
+    readonly otlpLogsUrl: string | undefined;
+    /**
+     * How each signal is exported. Read instead of a process-wide setting so
+     * the wire format, credential, and schedule travel with the endpoint they
+     * were configured beside.
+     */
+    readonly otlpTracesExport: SignalExport;
+    readonly otlpMetricsExport: SignalExport;
+    readonly otlpLogsExport: SignalExport;
+    readonly otelEnvironment: OtelEnvironment.OtelEnvironment;
     readonly mode: RuntimeMode;
     readonly port: number;
     readonly host: string | undefined;
@@ -118,8 +125,11 @@ export class ServerConfig extends Context.Service<
     readonly noBrowser: boolean;
     readonly startupPresentation: StartupPresentation;
     readonly desktopBootstrapToken: string | undefined;
+    readonly desktopBootstrapSecret?: string | undefined;
     readonly desktopTelemetryFd?: number | undefined;
     readonly desktopTelemetryControlFd?: number | undefined;
+    readonly desktopBrowserFd?: number | undefined;
+    readonly desktopBrowserControlFd?: number | undefined;
     readonly resourceMonitorPath?: string | undefined;
     readonly autoBootstrapProjectFromCwd: boolean;
     readonly logWebSocketEvents: boolean;
@@ -145,6 +155,18 @@ export const make = (config: ServerConfigInput) =>
   });
 
 export const layer = (config: ServerConfigInput) => Layer.succeed(ServerConfig, make(config));
+/**
+ * Resource attributes shared by every OTLP exporter, so traces, metrics, and
+ * logs report the same service identity to the collector.
+ */
+export const otlpResource = (config: ServerConfig["Service"]) => ({
+  serviceName: "t3code-server",
+  attributes: {
+    "service.namespace": "t3code",
+    "service.runtime": "t3-server",
+    "service.mode": config.mode,
+  },
+});
 
 export const deriveServerPaths = Effect.fn(function* (
   baseDir: ServerConfig["Service"]["baseDir"],
@@ -156,7 +178,7 @@ export const deriveServerPaths = Effect.fn(function* (
     baseDir,
     devUrl !== undefined && !options.baseDirIsExplicit ? "dev" : "userdata",
   );
-  const dbPath = join(stateDir, "state.sqlite");
+  const dbPath = join(stateDir, "statev2.sqlite");
   const attachmentsDir = join(stateDir, "attachments");
   const logsDir = join(stateDir, "logs");
   const providerLogsDir = join(logsDir, "provider");
@@ -172,8 +194,8 @@ export const deriveServerPaths = Effect.fn(function* (
     attachmentsDir,
     browserArtifactsDir: join(stateDir, "browser-artifacts"),
     logsDir,
-    serverLogPath: join(logsDir, "server.log"),
     serverTracePath: join(logsDir, "server.trace.ndjson"),
+    serverLogPath: join(logsDir, "server.application.ndjson"),
     providerLogsDir,
     providerEventLogPath: join(providerLogsDir, "events.log"),
     terminalLogsDir: join(logsDir, "terminals"),
@@ -237,10 +259,11 @@ const makeTest = Effect.fn("ServerConfig.makeTest")(function* (
     serverLog: DEFAULT_SERVER_LOG_CONFIG,
     otlpTracesUrl: undefined,
     otlpMetricsUrl: undefined,
-    otlpExportIntervalMs: 10_000,
-    otlpServiceName: "t3-server",
-    otlpHeaders: undefined,
-    otlpProtocol: "http/json",
+    otlpLogsUrl: undefined,
+    otlpTracesExport: DEFAULT_SIGNAL_EXPORT,
+    otlpMetricsExport: DEFAULT_SIGNAL_EXPORT,
+    otlpLogsExport: DEFAULT_SIGNAL_EXPORT,
+    otelEnvironment: OtelEnvironment.none,
     cwd,
     baseDir,
     ...derivedPaths,
@@ -254,6 +277,8 @@ const makeTest = Effect.fn("ServerConfig.makeTest")(function* (
     desktopBootstrapToken: undefined,
     desktopTelemetryFd: undefined,
     desktopTelemetryControlFd: undefined,
+    desktopBrowserFd: undefined,
+    desktopBrowserControlFd: undefined,
     resourceMonitorPath: undefined,
     staticDir: undefined,
     devUrl,

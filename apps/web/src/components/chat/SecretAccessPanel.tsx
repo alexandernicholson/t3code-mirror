@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 import { type EnvironmentId, type SecretApprovalInput, type ThreadId } from "@t3tools/contracts";
 import { secrets } from "~/state/secrets";

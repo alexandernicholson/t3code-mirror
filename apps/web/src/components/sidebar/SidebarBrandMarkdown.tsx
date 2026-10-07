@@ -42,7 +42,7 @@ const REHYPE_PLUGINS = [rehypeRaw, [rehypeSanitize, SIDEBAR_BRAND_SANITIZE_SCHEM
 const COMPONENTS: Components = {
   p: ({ children }) => <>{children}</>,
   code: ({ children }) => (
-    <code className="rounded bg-foreground/10 px-1 font-mono text-[0.85em]">{children}</code>
+    <code className="rounded bg-foreground/10 px-1 font-mono text-xs">{children}</code>
   ),
   u: ({ children }) => <u className="underline underline-offset-2">{children}</u>,
   ins: ({ children }) => <u className="underline underline-offset-2">{children}</u>,

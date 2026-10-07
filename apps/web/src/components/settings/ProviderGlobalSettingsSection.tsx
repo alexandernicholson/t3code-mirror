@@ -350,7 +350,7 @@ function GlobalSettingsForm({
             value={advancedValue}
             onChange={(event) => setAdvancedValue(event.target.value)}
             placeholder={'e.g. true, "value", ["item"]'}
-            className="min-h-28 font-mono"
+            className="min-h-28 "
             spellCheck={false}
           />
           {dirty ? (

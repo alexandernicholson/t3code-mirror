@@ -1,8 +1,8 @@
 import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
-import type { Atom, AtomRegistry } from "effect/unstable/reactivity";
+import type { Atom, AtomRegistry } from "effect/reactivity";
 import type { EnvironmentThreadShell } from "../state/models.ts";
 import type { EnvironmentThreadState } from "../state/threadState.ts";
-import { Option } from "effect";
+import { Option, DateTime } from "effect";
 import { NarrationCursor, type NarrationMessage } from "./controller.ts";
 
 export const narrationThreadKey = (ref: ScopedThreadRef) =>
@@ -10,17 +10,22 @@ export const narrationThreadKey = (ref: ScopedThreadRef) =>
 
 /** Observe only threads that work or change during this session, using existing windowed subscriptions. */
 export function subscribeNarrationFeed<
-  T extends Pick<
-    EnvironmentThreadShell,
-    "environmentId" | "id" | "createdAt" | "updatedAt" | "latestTurn"
-  >,
+  T extends Pick<EnvironmentThreadShell, "environmentId" | "id" | "createdAt" | "updatedAt"> & {
+    readonly latestRun?: { readonly status: string } | null;
+    readonly latestTurn?: { readonly state: string } | null;
+  },
 >(input: {
   registry: AtomRegistry.AtomRegistry;
   shells: Atom.Atom<readonly T[]>;
   environmentBaseline: (environmentId: EnvironmentId) => string | undefined;
   state: (ref: ScopedThreadRef) => Atom.Atom<{
     status: EnvironmentThreadState["status"];
-    data: Option.Option<{ messages: readonly NarrationMessage[] }>;
+    data: Option.Option<{
+      readonly messages: readonly (Omit<NarrationMessage, "createdAt" | "updatedAt"> & {
+        readonly createdAt?: string | DateTime.Utc;
+        readonly updatedAt?: string | DateTime.Utc;
+      })[];
+    }>;
   }>;
   fullText: boolean;
   onUpdate: (thread: T, text: string) => void;
@@ -67,10 +72,14 @@ export function subscribeNarrationFeed<
         tracked.set(key, entry);
       }
       entry.shell = shell;
-      if (entry.unsubscribe || (!changed && shell.latestTurn?.state !== "running")) continue;
+      if (
+        entry.unsubscribe ||
+        (!changed && (shell.latestRun?.status ?? shell.latestTurn?.state) !== "running")
+      )
+        continue;
       const current = entry;
       let cursor: NarrationCursor | undefined;
-      let previousMessages: readonly NarrationMessage[] | undefined;
+      let previousMessages: readonly unknown[] | undefined;
       const stateAtom = input.state(ref);
       current.unsubscribe = input.registry.subscribe(
         stateAtom,
@@ -82,9 +91,26 @@ export function subscribeNarrationFeed<
           // Baseline uses the environment's own clock and survives delayed snapshot loading.
           cursor ??= new NarrationCursor([], input.fullText);
           const text = cursor.next(
-            messages.filter(
-              (message) => message.createdAt !== undefined && message.createdAt > current.baseline,
-            ),
+            messages
+              .map((message) => ({
+                ...message,
+                createdAt:
+                  typeof message.createdAt === "string"
+                    ? message.createdAt
+                    : message.createdAt === undefined
+                      ? ""
+                      : DateTime.formatIso(message.createdAt),
+                updatedAt:
+                  typeof message.updatedAt === "string"
+                    ? message.updatedAt
+                    : message.updatedAt === undefined
+                      ? ""
+                      : DateTime.formatIso(message.updatedAt),
+              }))
+              .filter(
+                (message) =>
+                  message.createdAt !== undefined && message.createdAt > current.baseline,
+              ),
           );
           if (text) input.onUpdate(current.shell, text);
         },

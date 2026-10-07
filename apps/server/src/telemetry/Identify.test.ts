@@ -1,6 +1,8 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
+import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
+import * as Hex from "effect/encoding/Hex";
 import * as FileSystem from "effect/FileSystem";
 
 import * as ServerConfig from "../config.ts";
@@ -12,16 +14,21 @@ it.layer(NodeServices.layer)("telemetry identity", (it) => {
       const config = yield* ServerConfig.ServerConfig;
       const fileSystem = yield* FileSystem.FileSystem;
       // Any read outside the installation id is forbidden, including provider auth files.
-      const restrictedFileSystem = FileSystem.makeNoop({
+      const restrictedFileSystem: FileSystem.FileSystem = {
+        ...fileSystem,
         readFileString: (filePath) => {
           assert.equal(filePath, config.anonymousIdPath);
           return fileSystem.readFileString(filePath);
         },
         writeFileString: (filePath, content) => {
-          assert.equal(filePath, config.anonymousIdPath);
+          assert.ok(
+            filePath.startsWith(
+              config.anonymousIdPath.slice(0, config.anonymousIdPath.lastIndexOf("/")) + "/",
+            ),
+          );
           return fileSystem.writeFileString(filePath, content);
         },
-      });
+      };
       const identifier = yield* Identify.getTelemetryIdentifier.pipe(
         Effect.provideService(FileSystem.FileSystem, restrictedFileSystem),
       );

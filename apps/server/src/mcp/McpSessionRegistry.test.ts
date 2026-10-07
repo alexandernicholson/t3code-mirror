@@ -2,7 +2,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
-import { HttpServer } from "effect/unstable/http";
+import { HttpServer } from "effect/http";
+import * as NetAddress from "effect/net/NetAddress";
 
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as McpSessionRegistry from "./McpSessionRegistry.ts";
@@ -10,7 +11,7 @@ import * as McpSessionRegistry from "./McpSessionRegistry.ts";
 const environmentId = EnvironmentId.make("environment-1");
 const makeFakeHttpServer = (hostname: string, port = 43123) =>
   HttpServer.HttpServer.of({
-    address: { _tag: "TcpAddress", hostname, port },
+    address: NetAddress.inetAddressFromIpStringUnsafe(hostname, port),
     serve: (() => Effect.void) as HttpServer.HttpServer["Service"]["serve"],
   });
 const fakeHttpServer = makeFakeHttpServer("127.0.0.1");
@@ -46,7 +47,10 @@ it.effect("stores only a token hash, resolves the bearer token, and revokes by t
     expect(token.length).toBeGreaterThan(20);
 
     const resolved = yield* registry.resolve(token);
-    expect(resolved?.threadId).toBe(threadId);
+    expect(resolved?.thread.threadId).toBe(threadId);
+    expect(resolved?.capabilities).toEqual(
+      new Set(["preview", "orchestration", "worktree", "pull-requests", "todos", "code-tools"]),
+    );
 
     yield* registry.revokeThread(threadId);
     expect(yield* registry.resolve(token)).toBeUndefined();
@@ -80,16 +84,26 @@ it.effect("always grants pull-requests and gates browser and device access indep
 
     expect(yield* capabilitiesOf(withPreview)).toEqual([
       "code-tools",
+      "orchestration",
       "preview",
       "pull-requests",
       "todos",
+      "worktree",
     ]);
-    expect(yield* capabilitiesOf(withoutPreview)).toEqual(["code-tools", "pull-requests", "todos"]);
+    expect(yield* capabilitiesOf(withoutPreview)).toEqual([
+      "code-tools",
+      "orchestration",
+      "pull-requests",
+      "todos",
+      "worktree",
+    ]);
     expect(yield* capabilitiesOf(withDevice)).toEqual([
       "code-tools",
       "device",
+      "orchestration",
       "pull-requests",
       "todos",
+      "worktree",
     ]);
   }),
 );
@@ -99,7 +113,8 @@ it.effect("builds MCP endpoints from the bound server host", () =>
     const cases = [
       ["100.64.0.40", "http://100.64.0.40:43123/mcp"],
       ["0.0.0.0", "http://127.0.0.1:43123/mcp"],
-      ["localhost", "http://localhost:43123/mcp"],
+      ["::", "http://127.0.0.1:43123/mcp"],
+      ["::1", "http://[::1]:43123/mcp"],
       ["127.0.0.1", "http://127.0.0.1:43123/mcp"],
     ] as const;
 
@@ -149,7 +164,7 @@ it.effect("keeps a credential alive across turns that never touch an MCP tool", 
       yield* registry.touch(threadId);
     }
 
-    expect((yield* registry.resolve(token))?.threadId).toBe(threadId);
+    expect((yield* registry.resolve(token))?.thread.threadId).toBe(threadId);
   }),
 );
 
@@ -182,7 +197,7 @@ it.effect("keeps code tools and TODOs available without browser capability", () 
     });
     const token = issued.config.authorizationHeader.replace(/^Bearer\s+/, "");
     expect((yield* registry.resolve(token))?.capabilities).toEqual(
-      new Set(["pull-requests", "todos", "code-tools"]),
+      new Set(["orchestration", "worktree", "pull-requests", "todos", "code-tools"]),
     );
   }),
 );

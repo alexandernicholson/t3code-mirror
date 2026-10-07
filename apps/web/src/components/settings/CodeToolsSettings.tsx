@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 import { Schema } from "effect";
 import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
@@ -574,7 +574,7 @@ function ServerEditor({
             server defaults.
           </DialogDescription>
         </DialogHeader>
-        <DialogPanel className="space-y-4">
+        <DialogPanel className="">
           <label className="block space-y-1.5 text-sm">
             Server identifier
             <Input
@@ -602,7 +602,7 @@ function ServerEditor({
           <label className="block space-y-1.5 text-sm">
             Arguments <span className="text-xs text-muted-foreground">(one per line)</span>
             <Textarea
-              className="min-h-16 font-mono text-xs"
+              className="min-h-16  "
               value={args}
               onChange={(event) => setArgs(event.target.value)}
             />
@@ -629,7 +629,7 @@ function ServerEditor({
               <label className="block space-y-1.5 text-sm">
                 Server settings (JSON)
                 <Textarea
-                  className="min-h-24 font-mono text-xs"
+                  className="min-h-24  "
                   value={settings}
                   onChange={(event) => setSettings(event.target.value)}
                 />
@@ -637,7 +637,7 @@ function ServerEditor({
               <label className="block space-y-1.5 text-sm">
                 Initialization options (JSON)
                 <Textarea
-                  className="min-h-24 font-mono text-xs"
+                  className="min-h-24  "
                   value={initialization}
                   onChange={(event) => setInitialization(event.target.value)}
                 />

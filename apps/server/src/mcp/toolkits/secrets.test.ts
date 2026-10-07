@@ -8,44 +8,31 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import { Effect, Fiber, Layer, Option, Schema, Stream } from "effect";
-import { McpSchema, McpServer } from "effect/unstable/ai";
+import { McpSchema, McpServer } from "effect/ai";
 import * as ServerConfig from "../../config.ts";
 import * as ServerSecretStore from "../../auth/ServerSecretStore.ts";
-import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import * as ForkFeatureRuntime from "../../orchestration-v2/testkit/ForkFeatureRuntime.ts";
 import * as Secrets from "../../secrets/Secrets.ts";
 import * as SecretApprovals from "../../secrets/SecretApprovals.ts";
 import { localBackendLayer } from "../../secrets/SecretBackend.ts";
 import { McpInvocationContext, type McpInvocationScope } from "../McpInvocationContext.ts";
-import { SecretsToolkitRegistrationLive } from "./secrets.ts";
+import { SecretsToolkitRegistrationLive } from "../McpHttpServer.ts";
 
 const threadId = ThreadId.make("thread-a");
 const projectId = ProjectId.make("project-a");
 const otherProjectId = ProjectId.make("project-b");
 const invocation: McpInvocationScope = {
   environmentId: EnvironmentId.make("environment-a"),
-  threadId,
-  providerSessionId: "provider-session",
-  providerInstanceId: ProviderInstanceId.make("codex"),
+  requestNamespace: "test",
+  client: undefined,
+  thread: {
+    threadId,
+    providerSessionId: "provider-session",
+    providerInstanceId: ProviderInstanceId.make("codex"),
+  },
   capabilities: new Set(["secrets"]),
   issuedAt: 1,
 };
-const thread = Schema.decodeUnknownSync(OrchestrationThreadShell)({
-  id: threadId,
-  projectId,
-  title: "Secrets test",
-  modelSelection: { provider: "codex", model: "gpt-5" },
-  runtimeMode: "full-access",
-  branch: null,
-  worktreePath: null,
-  latestTurn: null,
-  createdAt: "2026-09-08T00:00:00.000Z",
-  updatedAt: "2026-09-08T00:00:00.000Z",
-  session: null,
-  latestUserMessageAt: null,
-  hasPendingApprovals: false,
-  hasPendingUserInput: false,
-  hasActionableProposedPlan: false,
-});
 const client = McpSchema.McpServerClient.of({
   clientId: 1,
   protocolVersion: "2025-06-18",
@@ -63,12 +50,7 @@ const TestLayer = SecretsToolkitRegistrationLive.pipe(
   Layer.provideMerge(
     Secrets.layer.pipe(Layer.provide(SecretApprovals.layer), Layer.provide(localBackendLayer)),
   ),
-  Layer.provide(
-    Layer.mock(ProjectionSnapshotQuery)({
-      getThreadShellById: (id) =>
-        Effect.succeed(id === threadId ? Option.some(thread) : Option.none()),
-    }),
-  ),
+  Layer.provideMerge(ForkFeatureRuntime.layer),
   Layer.provide(ServerSecretStore.layer),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-secrets-mcp-" })),
   Layer.provide(NodeServices.layer),
@@ -77,6 +59,14 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 it.effect("MCP reads and writes are scoped to the authenticated thread's project", () =>
   Effect.gen(function* () {
+    yield* ForkFeatureRuntime.seedThread({
+      threadId,
+      projectId,
+      cwd: "/tmp",
+      title: "Secrets test",
+      active: false,
+      modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+    });
     const server = yield* McpServer.McpServer;
     const secrets = yield* Secrets.Secrets;
     yield* secrets.create({
@@ -120,6 +110,14 @@ it.effect(
   "MCP retrieval blocks until the user approves and invalid input never echoes a secret",
   () =>
     Effect.gen(function* () {
+      yield* ForkFeatureRuntime.seedThread({
+        threadId,
+        projectId,
+        cwd: "/tmp",
+        title: "Secrets test",
+        active: false,
+        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+      });
       const server = yield* McpServer.McpServer;
       const secrets = yield* Secrets.Secrets;
       yield* secrets.create({
@@ -164,10 +162,21 @@ it.effect(
 
 it.effect("MCP denies credentials without secrets capability and unknown threads", () =>
   Effect.gen(function* () {
+    yield* ForkFeatureRuntime.seedThread({
+      threadId,
+      projectId,
+      cwd: "/tmp",
+      title: "Secrets test",
+      active: false,
+      modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+    });
     const server = yield* McpServer.McpServer;
     for (const caller of [
       { ...invocation, capabilities: new Set<"secrets">() },
-      { ...invocation, threadId: ThreadId.make("deleted-thread") },
+      {
+        ...invocation,
+        thread: { ...invocation.thread!, threadId: ThreadId.make("deleted-thread") },
+      },
     ]) {
       const result = yield* server
         .callTool({ name: "secrets_list", arguments: {} })

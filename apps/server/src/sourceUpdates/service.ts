@@ -13,11 +13,8 @@ import { ServerConfig } from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { ServiceLauncherClient } from "../cloud/serviceLauncherClient.ts";
 import { parseServiceState, SERVICE_STATE_FILE } from "../cloud/serviceProtocol.ts";
-import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
-import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
-import { CheckpointReactor } from "../orchestration/Services/CheckpointReactor.ts";
-import { ProviderCommandReactor } from "../orchestration/Services/ProviderCommandReactor.ts";
-import { ProviderRuntimeIngestionService } from "../orchestration/Services/ProviderRuntimeIngestion.ts";
+import { OrchestrationEffectWorkerV2 } from "../orchestration-v2/EffectWorker.ts";
+import { ForkThreadRuntime as ProjectionSnapshotQuery } from "../orchestration-v2/ForkThreadRuntime.ts";
 import { TerminalManager } from "../terminal/Manager.ts";
 import { forkParked } from "../serverActivation.ts";
 import { recoverSourceUpdate } from "./recovery.ts";
@@ -53,11 +50,8 @@ export const layer = Layer.effect(
     const platform = yield* HostProcessPlatform;
     const launcher = yield* ServiceLauncherClient;
     const settingsService = yield* ServerSettingsService;
-    const engine = yield* OrchestrationEngineService;
+    const worker = yield* OrchestrationEffectWorkerV2;
     const projection = yield* ProjectionSnapshotQuery;
-    const checkpoints = yield* CheckpointReactor;
-    const commands = yield* ProviderCommandReactor;
-    const ingestion = yield* ProviderRuntimeIngestionService;
     const terminals = yield* TerminalManager;
     const gate = yield* SourceUpdateGate;
     const supported =
@@ -137,9 +131,7 @@ export const layer = Layer.effect(
       activate: (target, accepted) =>
         Effect.gen(function* () {
           // Drain queued side effects before taking the same permit used by every dispatch transport.
-          yield* commands.drain;
-          yield* ingestion.drain;
-          yield* checkpoints.drain;
+          yield* worker.drain();
           return yield* gate.withPermit(
             Effect.gen(function* () {
               const currentSettings = yield* settings;
@@ -149,7 +141,9 @@ export const layer = Layer.effect(
               if (
                 snapshot.threads.some(
                   (thread) =>
-                    thread.latestTurn?.state === "running" ||
+                    ["queued", "preparing", "starting", "running", "waiting"].includes(
+                      thread.session.status,
+                    ) ||
                     thread.backgroundLiveness != null ||
                     thread.session?.status === "starting" ||
                     thread.session?.status === "running" ||
@@ -199,7 +193,7 @@ export const layer = Layer.effect(
             ...(current.target ? [current.target.runtimeVersion] : []),
           ])
           .pipe(Effect.ignore);
-        const events = yield* engine.subscribeDomainEvents;
+        const events = yield* projection.subscribeDomainEvents;
         yield* events.pipe(
           Stream.debounce("250 millis"),
           Stream.runForEach(() => controller.tick(false).pipe(Effect.ignore)),

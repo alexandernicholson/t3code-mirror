@@ -6,7 +6,7 @@ import type {
   ServerConfig,
   ThreadId,
 } from "@t3tools/contracts";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import {
   Check,
   ChevronDown,
@@ -274,12 +274,12 @@ export function ReviewersPanel({
             >
               <div className="flex items-start gap-2">
                 <span
-                  className={`mt-1 size-2 shrink-0 rounded-full ${finding.severity === "blocker" ? "bg-destructive" : finding.severity === "concern" ? "bg-amber-500" : "bg-muted-foreground"}`}
+                  className={`mt-1 size-2 shrink-0 rounded-full ${finding.severity === "blocker" ? "bg-destructive" : finding.severity === "concern" ? "bg-warning" : "bg-muted-foreground"}`}
                 />
                 <div className="min-w-0">
                   <h3 className="text-sm font-medium">{finding.title}</h3>
                   {finding.filePath && (
-                    <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                    <p className="mt-0.5 truncate font-mono text-3xs text-muted-foreground">
                       {finding.filePath}
                       {finding.line ? `:${finding.line}` : ""}
                     </p>

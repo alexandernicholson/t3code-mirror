@@ -1,7 +1,7 @@
 import { SettingsModelPicker } from "./SettingsModelPicker";
 import { randomUUID } from "~/lib/utils";
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 import {
   inheritedAdvisorIds,
@@ -285,7 +285,7 @@ export function AdvisorConfigurationEditor({
               {value.definitions.some((item) => item.id === definition.id) && (
                 <Button
                   variant="ghost"
-                  className="justify-self-start text-destructive-foreground"
+                  className="justify-self-start "
                   onClick={() => {
                     update({
                       definitions: value.definitions.filter((item) => item.id !== definition.id),

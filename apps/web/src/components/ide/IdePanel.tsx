@@ -49,7 +49,7 @@ export interface IdePanelProps {
   readonly projectName: string;
   readonly threadRef: ScopedThreadRef;
   readonly workspaceMutationId: string | null;
-  readonly checkpoints: ReadonlyArray<OrchestrationCheckpointSummary>;
+  readonly checkpoints: ReadonlyArray<Pick<OrchestrationCheckpointSummary, "files">>;
   readonly activities: ReadonlyArray<OrchestrationThreadActivity>;
   readonly isAgentRunning: boolean;
 }
@@ -347,7 +347,7 @@ export default function IdePanel(props: IdePanelProps) {
                 className={cn(
                   "group flex shrink-0 cursor-pointer items-center gap-1 border-r border-border/50 px-2.5 py-1 text-xs",
                   activePath === path
-                    ? "bg-[var(--code-background)] text-foreground"
+                    ? "bg-code text-foreground"
                     : "text-muted-foreground hover:bg-muted/60",
                 )}
                 onClick={() => setActivePath(path)}
@@ -413,7 +413,7 @@ export default function IdePanel(props: IdePanelProps) {
         <aside className="flex min-h-0 w-64 shrink-0 flex-col border-l border-border/60 bg-background">
           {changedFiles.length > 0 ? (
             <div className="shrink-0 border-b border-border/60 px-2.5 py-1.5">
-              <div className="mb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              <div className="mb-1 text-2xs font-medium tracking-wide text-muted-foreground uppercase">
                 Changed by agent
               </div>
               <ScrollArea className="max-h-32">
@@ -425,11 +425,11 @@ export default function IdePanel(props: IdePanelProps) {
                         className="flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-xs text-foreground/90 hover:bg-muted"
                         onClick={() => openFile(file.path)}
                       >
-                        <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
+                        <span className="min-w-0 flex-1 truncate font-mono text-2xs">
                           {file.path}
                         </span>
-                        <span className="shrink-0 text-[10px] text-success">+{file.additions}</span>
-                        <span className="shrink-0 text-[10px] text-destructive">
+                        <span className="shrink-0 text-3xs text-success">+{file.additions}</span>
+                        <span className="shrink-0 text-3xs text-destructive">
                           -{file.deletions}
                         </span>
                       </button>
@@ -454,7 +454,7 @@ export default function IdePanel(props: IdePanelProps) {
           />
         </aside>
       </div>
-      <footer className="flex h-6 shrink-0 items-center gap-2 border-t border-border/60 px-2.5 text-[10px] text-muted-foreground">
+      <footer className="flex h-6 shrink-0 items-center gap-2 border-t border-border/60 px-2.5 text-3xs text-muted-foreground">
         <span className="min-w-0 flex-1 truncate font-mono">{activePath ?? props.projectName}</span>
         {activeBuffer !== null && isIdeBufferDirty(activeBuffer) ? (
           <span>{pendingPaths.has(activePath ?? "") ? "Saving…" : "Unsaved changes"}</span>

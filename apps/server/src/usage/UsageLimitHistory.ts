@@ -15,9 +15,9 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
-import { SqlClient } from "effect/unstable/sql";
+import { SqlClient } from "effect/sql";
 
-import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
+import { ProviderRegistry } from "../provider/ProviderRegistry.ts";
 import { UsageLimitSources } from "./UsageLimitSources.ts";
 
 const SAMPLE_BUCKET_MS = 5 * 60_000;
@@ -224,10 +224,9 @@ export const make = Effect.gen(function* () {
         series,
       };
     },
-    Effect.catchTag(
-      "SqlError",
-      () => new UsageLimitHistoryError({ detail: "Usage-limit history is unavailable." }),
-    ),
+    Effect.catchTags({
+      SqlError: () => new UsageLimitHistoryError({ detail: "Usage-limit history is unavailable." }),
+    }),
   );
 
   return UsageLimitHistory.of({ read });

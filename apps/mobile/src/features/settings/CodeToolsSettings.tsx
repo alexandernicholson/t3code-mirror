@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { Schema } from "effect";
 import { useState } from "react";
 import { Modal, ScrollView, View } from "react-native";

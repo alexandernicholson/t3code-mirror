@@ -1,6 +1,6 @@
 import ChatMarkdown from "./ChatMarkdown";
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { Eye, Pause, Play, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -74,7 +74,7 @@ export function AdvisorIndicator({
     <Button
       variant="ghost"
       size="sm"
-      className="pointer-events-auto gap-1.5"
+      className="pointer-events-auto "
       title={`Advisors · ${label}`}
       aria-label={`Open advisors · ${label}`}
       onClick={() => {
@@ -85,7 +85,7 @@ export function AdvisorIndicator({
       <Eye ref={icon} className="size-3.5" />
       <span className="hidden text-xs xl:inline">{label}</span>
       {findingCount > seenFindings && !panelOpen && (
-        <span className="rounded-full bg-accent px-1 text-[10px] tabular-nums">
+        <span className="rounded-full bg-accent px-1 text-3xs tabular-nums">
           {Math.min(99, findingCount - seenFindings)}
         </span>
       )}
@@ -236,7 +236,7 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="mt-1 text-xs"
+                              className="mt-1 "
                               onClick={() =>
                                 void configure({
                                   ...configuration,
@@ -268,9 +268,9 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
               .map((entry) => (
                 <article
                   key={entry.id}
-                  className={`border-l-2 pl-3 ${entry.severity === "blocker" ? "border-destructive" : entry.severity === "concern" ? "border-amber-500" : "border-border"}`}
+                  className={`border-l-2 pl-3 ${entry.severity === "blocker" ? "border-destructive" : entry.severity === "concern" ? "border-warning" : "border-border"}`}
                 >
-                  <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px] text-muted-foreground">
+                  <div className="mb-1 flex items-baseline justify-between gap-2 text-2xs text-muted-foreground">
                     <span>
                       {entry.advisorName} · {entry.severity ?? entry.kind}
                     </span>
@@ -313,7 +313,7 @@ export function AdvisorsPanel({ environmentId, threadId }: Props) {
                         variant="ghost"
                         size="sm"
                         disabled={busy}
-                        className="mt-1 text-xs"
+                        className="mt-1 "
                         onClick={() => void act("address", entry.id)}
                       >
                         Ask agent to address

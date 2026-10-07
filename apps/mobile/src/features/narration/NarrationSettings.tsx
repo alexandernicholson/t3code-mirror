@@ -2,7 +2,7 @@ import type { NarrationMessage } from "@t3tools/client-runtime/narration";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { KITTEN_VOICES } from "@t3tools/client-runtime/narration/kitten";
 import { AppText as Text } from "../../components/AppText";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
@@ -29,7 +29,7 @@ export function NarrationSettings() {
   }, [narration.enabled]);
   return (
     <>
-      <SettingsSection title="Voice narration" card>
+      <SettingsSection title="Voice narration">
         <SettingsRow
           icon="speaker.wave.2"
           label={globalNarration.enabled ? "Stop Global Narrate" : "Start Global Narrate"}

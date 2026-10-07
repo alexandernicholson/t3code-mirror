@@ -1,3 +1,5 @@
+import { ProviderAdapterRegistryV2 } from "../orchestration-v2/ProviderAdapterRegistry.ts";
+import { runReviewSession } from "../orchestration-v2/ReviewSession.ts";
 import {
   ApprovalRequestId,
   ReviewerError,
@@ -5,8 +7,6 @@ import {
   type ModelSelection,
 } from "@t3tools/contracts";
 import { Context, Crypto, Deferred, Effect, Layer, Schema, Stream } from "effect";
-import { ProviderAdapterRegistry } from "../provider/Services/ProviderAdapterRegistry.ts";
-import { ProviderService } from "../provider/Services/ProviderService.ts";
 
 export const ReviewerOutput = Schema.Struct({
   summary: Schema.String.check(Schema.isMaxLength(4_000)),
@@ -40,10 +40,7 @@ export function extractReviewerJson(text: string): string {
 }
 
 export const make = Effect.gen(function* () {
-  const registry = yield* ProviderAdapterRegistry;
-  const providers = yield* ProviderService;
-  const crypto = yield* Crypto.Crypto;
-
+  const services = yield* Effect.context<Crypto.Crypto | ProviderAdapterRegistryV2>();
   const generate = Effect.fn("ReviewerRunner.generate")(
     function* (input: {
       modelSelection: ModelSelection;
@@ -51,81 +48,19 @@ export const make = Effect.gen(function* () {
       prompt: string;
       timeout: "2 minutes" | "10 minutes";
     }) {
-      const info = yield* registry.getInstanceInfo(input.modelSelection.instanceId);
-      if (!info.enabled)
-        return yield* new ReviewerError({ message: "Enable this reviewer's provider first." });
-      const adapter = yield* registry.getByInstance(info.instanceId);
-      const threadId = ThreadId.make(`reviewer:${yield* crypto.randomUUIDv4}`);
-      const result = yield* Deferred.make<string, ReviewerError>();
-      let text = "";
-      const pull = yield* Stream.toPull(
-        providers.streamEvents.pipe(Stream.filter((event) => event.threadId === threadId)),
+      const result = yield* runReviewSession({ ...input, readOnly: false }).pipe(
+        Effect.provide(services),
       );
-      yield* Effect.addFinalizer(() => adapter.stopSession(threadId).pipe(Effect.ignore));
-      yield* Stream.fromPull(Effect.succeed(pull)).pipe(
-        Stream.runForEach((event) =>
-          Effect.gen(function* () {
-            if (event.type === "content.delta" && event.payload.streamKind === "assistant_text") {
-              text = (text + event.payload.delta).slice(-80_000);
-            } else if (
-              event.type === "item.started" &&
-              event.payload.itemType === "assistant_message"
-            ) {
-              text = "";
-            } else if (event.type === "request.opened" && event.requestId) {
-              yield* adapter.respondToRequest(
-                threadId,
-                ApprovalRequestId.make(event.requestId),
-                "accept",
-              );
-            } else if (event.type === "user-input.requested" && event.requestId) {
-              yield* adapter.respondToUserInput(
-                threadId,
-                ApprovalRequestId.make(event.requestId),
-                {},
-              );
-            } else if (event.type === "turn.completed") {
-              if (event.payload.state === "completed") yield* Deferred.succeed(result, text);
-              else
-                yield* Deferred.fail(
-                  result,
-                  new ReviewerError({
-                    message: event.payload.errorMessage ?? "Reviewer run was interrupted.",
-                  }),
-                );
-            } else if (event.type === "runtime.error" || event.type === "session.exited") {
-              yield* Deferred.fail(
-                result,
-                new ReviewerError({ message: "Reviewer session stopped before completing." }),
-              );
-            }
-          }),
-        ),
-        Effect.forkScoped({ startImmediately: true }),
-      );
-      yield* adapter.startSession({
-        threadId,
-        providerInstanceId: info.instanceId,
-        modelSelection: input.modelSelection,
-        cwd: input.cwd,
-        runtimeMode: "full-access",
-        reviewer: false,
-      });
-      yield* adapter.sendTurn({
-        threadId,
-        modelSelection: input.modelSelection,
-        input: input.prompt.slice(0, 115_000),
-      });
-      return yield* Deferred.await(result);
+      return result.text;
     },
     (effect, input) => effect.pipe(Effect.timeout(input.timeout)),
-    Effect.scoped,
     Effect.mapError(
       (cause) =>
         new ReviewerError({
-          message: isReviewerError(cause)
-            ? cause.message
-            : "Reviewer generation failed. Check the selected provider and model.",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Reviewer generation failed. Check the selected provider and model.",
         }),
     ),
   );

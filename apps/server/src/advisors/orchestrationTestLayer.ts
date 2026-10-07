@@ -12,29 +12,11 @@ import { Effect, Fiber, Layer, Option, Stream } from "effect";
 import * as Advisors from "./Advisors.ts";
 import * as Store from "./AdvisorStore.ts";
 import { ServerConfig } from "../config.ts";
-import { OrchestrationEngineLive } from "../orchestration/Layers/OrchestrationEngine.ts";
-import { OrchestrationProjectionPipelineLive } from "../orchestration/Layers/ProjectionPipeline.ts";
-import { OrchestrationProjectionSnapshotQueryLive } from "../orchestration/Layers/ProjectionSnapshotQuery.ts";
-import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
-import * as ThreadBackgroundLiveness from "../orchestration/ThreadBackgroundLiveness.ts";
-import * as ThreadPlanProgress from "../orchestration/ThreadPlanProgress.ts";
-import { OrchestrationEventStoreLive } from "../persistence/Layers/OrchestrationEventStore.ts";
-import { OrchestrationCommandReceiptRepositoryLive } from "../persistence/Layers/OrchestrationCommandReceipts.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
-import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
-
+import * as ForkFeatureRuntime from "../orchestration-v2/testkit/ForkFeatureRuntime.ts";
+import { ForkThreadRuntime as OrchestrationEngineService } from "../orchestration-v2/ForkThreadRuntime.ts";
 export const advisorOrchestrationTestLayer = Advisors.layer.pipe(
   Layer.provideMerge(Store.layer),
-  Layer.provideMerge(
-    OrchestrationEngineLive.pipe(Layer.provide(OrchestrationProjectionPipelineLive)),
-  ),
-  Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
-  Layer.provide(ThreadBackgroundLiveness.layer),
-  Layer.provide(ThreadPlanProgress.layer),
-  Layer.provide(OrchestrationEventStoreLive),
-  Layer.provide(OrchestrationCommandReceiptRepositoryLive),
-  Layer.provide(RepositoryIdentityResolver.layer),
-  Layer.provide(SqlitePersistenceMemory),
+  Layer.provideMerge(ForkFeatureRuntime.layer),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-advisor-orchestration-" })),
   Layer.provide(NodeServices.layer),
 );
@@ -53,41 +35,13 @@ export const runAdvisorTask = Effect.fn("runAdvisorTask")(function* (input: {
   const projectId = ProjectId.make(input.name);
   const turnId = TurnId.make(input.name);
   const createdAt = "2026-09-09T00:00:00.000Z";
-  yield* engine.dispatch({
-    type: "project.create",
-    commandId: CommandId.make(`${input.name}:project`),
-    projectId,
-    title: input.name,
-    workspaceRoot: input.cwd,
-    createdAt,
-  });
-  yield* engine.dispatch({
-    type: "thread.create",
-    commandId: CommandId.make(`${input.name}:thread`),
+  yield* ForkFeatureRuntime.seedThread({
     threadId,
     projectId,
+    cwd: input.cwd,
     title: "Implement isAdult: ages 18 and older return true",
     modelSelection: input.definition.modelSelection,
-    runtimeMode: "full-access",
-    interactionMode: "default",
-    branch: null,
-    worktreePath: null,
-    createdAt,
-  });
-  yield* engine.dispatch({
-    type: "thread.session.set",
-    commandId: CommandId.make(`${input.name}:session`),
-    threadId,
-    createdAt,
-    session: {
-      threadId,
-      status: input.active ? "running" : "ready",
-      providerName: "claudeAgent",
-      activeTurnId: input.active ? turnId : null,
-      runtimeMode: "full-access",
-      lastError: null,
-      updatedAt: createdAt,
-    },
+    active: input.active,
   });
   yield* advisors.start();
   yield* advisors.save({

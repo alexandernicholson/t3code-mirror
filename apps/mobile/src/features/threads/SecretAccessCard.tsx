@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { EnvironmentId, SecretApprovalInput, ThreadId } from "@t3tools/contracts";

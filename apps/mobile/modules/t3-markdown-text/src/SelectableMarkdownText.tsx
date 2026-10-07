@@ -6,6 +6,7 @@ import {
   nativeMarkdownChunkSpacing,
   nativeMarkdownDocumentChunks,
   nativeMarkdownDocumentRuns,
+  nativeMarkdownWithAuthoredWindowsPaths,
   nativeMarkdownWithPreservedSoftBreaks,
 } from "./nativeMarkdownText";
 import {
@@ -57,11 +58,10 @@ export function SelectableMarkdownText({
   marginBottom = 0,
 }: SelectableMarkdownTextProps) {
   const chunks = useMemo(() => {
-    const parsedDocument = parseMarkdownWithOptions(markdown, {
-      gfm: true,
-      html: true,
-      math: false,
-    });
+    const parsedDocument = nativeMarkdownWithAuthoredWindowsPaths(
+      parseMarkdownWithOptions(markdown, { gfm: true, html: true, math: false }),
+      markdown,
+    );
     const document = preserveSoftBreaks
       ? nativeMarkdownWithPreservedSoftBreaks(parsedDocument)
       : parsedDocument;
@@ -85,43 +85,45 @@ export function SelectableMarkdownText({
 
   return (
     <MarkdownContextClipboardContext.Provider value={contextClipboardFragment ?? ""}>
-      <MarkdownImageRendererContext.Provider value={renderImage ?? null}>
-        <MarkdownFileContextMenuContext.Provider value={fileContextMenuHandlers}>
-          {/* A percentage width here creates a cyclic intrinsic measurement inside
+      <MarkdownCodeBlockRendererContext.Provider value={renderCodeBlock ?? null}>
+        <MarkdownImageRendererContext.Provider value={renderImage ?? null}>
+          <MarkdownFileContextMenuContext.Provider value={fileContextMenuHandlers}>
+            {/* A percentage width here creates a cyclic intrinsic measurement inside
           shrink-to-fit containers such as user-message bubbles. Yoga then gives
           the native text node an unbounded second pass and the parent only clips
           the resulting single-line width instead of reflowing it. */}
-          <View style={{ flexShrink: 1, minWidth: 0, marginTop, marginBottom }}>
-            {chunks.map((chunk, index) => {
-              const content =
-                chunk.kind === "rich" ? (
-                  <NativeMarkdownBlock
-                    node={chunk.node}
-                    skills={skills}
-                    textStyle={textStyle}
-                    highlightCode={highlightCode}
-                    onLinkPress={onLinkPress}
-                  />
-                ) : (
-                  <NativeMarkdownSelectableText
-                    runs={chunk.runs}
-                    textStyle={textStyle}
-                    onLinkPress={onLinkPress}
-                  />
-                );
+            <View style={{ flexShrink: 1, minWidth: 0, marginTop, marginBottom }}>
+              {chunks.map((chunk, index) => {
+                const content =
+                  chunk.kind === "rich" ? (
+                    <NativeMarkdownBlock
+                      node={chunk.node}
+                      skills={skills}
+                      textStyle={textStyle}
+                      highlightCode={highlightCode}
+                      onLinkPress={onLinkPress}
+                    />
+                  ) : (
+                    <NativeMarkdownSelectableText
+                      runs={chunk.runs}
+                      textStyle={textStyle}
+                      onLinkPress={onLinkPress}
+                    />
+                  );
 
-              return (
-                <View
-                  key={chunk.key}
-                  style={{ paddingTop: nativeMarkdownChunkSpacing(chunks[index - 1], chunk) }}
-                >
-                  {content}
-                </View>
-              );
-            })}
-          </View>
-        </MarkdownFileContextMenuContext.Provider>
-      </MarkdownImageRendererContext.Provider>
+                return (
+                  <View
+                    key={chunk.key}
+                    style={{ paddingTop: nativeMarkdownChunkSpacing(chunks[index - 1], chunk) }}
+                  >
+                    {content}
+                  </View>
+                );
+              })}
+            </View>
+          </MarkdownFileContextMenuContext.Provider>
+        </MarkdownImageRendererContext.Provider>
+      </MarkdownCodeBlockRendererContext.Provider>
     </MarkdownContextClipboardContext.Provider>
   );
 }

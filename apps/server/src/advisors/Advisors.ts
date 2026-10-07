@@ -27,8 +27,8 @@ import {
 import { AdvisorStore } from "./AdvisorStore.ts";
 import { AdvisorRunner } from "./AdvisorRunner.ts";
 import { advisorMayGuide, advisorSourceText, resolveAdvisors } from "./AdvisorPolicy.ts";
-import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
-import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { ForkThreadRuntime as OrchestrationEngineService } from "../orchestration-v2/ForkThreadRuntime.ts";
+import { ForkThreadRuntime as ProjectionSnapshotQuery } from "../orchestration-v2/ForkThreadRuntime.ts";
 
 const isAdvisorError = Schema.is(AdvisorError);
 const decodeDelivery = Schema.decodeUnknownEffect(Schema.Struct({ findingId: Schema.String }));

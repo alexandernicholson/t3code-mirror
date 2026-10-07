@@ -35,14 +35,14 @@ This fork currently adds or changes the following:
 - Keeps pull-request creation, lookup, and the in-app PR viewer pointed at the
   project's configured repository instead of silently switching to its upstream.
   See [Source control integrations](./docs/user/source-control.md).
-- Renders Mermaid code fences as diagrams on web, desktop, and mobile, with zoom,
-  pan, PNG export, and source and invalid-diagram fallbacks.
+- Extends upstream Mermaid rendering with pan, zoom, and PNG export on web,
+  desktop, and mobile, including source and invalid-diagram fallbacks.
 - Lets each web or desktop client replace the sidebar's T3 Code wordmark with
   custom text, including inline Markdown and emoji. See
   [Sidebar title](./docs/user/appearance.md#sidebar-title).
 - Reports cached input and cache hit rates overall, by provider, and by model.
-- Lets users choose whether a mid-turn message should steer current work or enter
-  a durable environment-side queue. Queued messages survive disconnects and can
+- Preserves fork queued messages when upgrading to upstream’s durable queue.
+  Queued messages survive disconnects and can
   be removed, sent immediately, or restored to the editor with attachments. See
   [Steer or queue a message](./docs/user/composer.md#steer-or-queue-a-message).
 - Adds Global Narrate across threads and pages, with automatic thread voices,
@@ -125,6 +125,14 @@ winget install T3Tools.T3Code
 brew install --cask t3-code
 ```
 
+#### Debian, Ubuntu (`.deb`)
+
+Download the `.deb` from [GitHub Releases](https://github.com/pingdotgg/t3code/releases), then:
+
+```bash
+sudo apt install ./T3-Code-*.deb
+```
+
 #### Arch Linux (AUR)
 
 Stable:
@@ -155,6 +163,7 @@ Full docs live in [docs/](./docs). There's no docs site yet.
 - [Permission modes](./docs/user/permission-modes.md)
 - [Keyboard shortcuts](./docs/user/keybindings.md)
 - [Project settings](./docs/user/project-settings.md)
+- [Appearance preferences](./docs/user/appearance.md)
 - [Remote access from a phone or another machine](./docs/user/remote-access.md)
 - [Keeping app and server in sync](./docs/user/updating.md)
 - [Source control integrations](./docs/user/source-control.md)

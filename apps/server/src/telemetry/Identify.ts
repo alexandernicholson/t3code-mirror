@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
+import { writeFileStringAtomically } from "../atomicWrite.ts";
 import * as ServerConfig from "../config.ts";
 
 class TelemetryIdentityReadError extends Schema.TaggedError<TelemetryIdentityReadError>()(
@@ -82,7 +83,7 @@ const readIdentityFile = (
   filePath: string,
 ) =>
   fileSystem.readFileString(filePath).pipe(
-    Effect.map(Option.some),
+    Effect.asSome,
     Effect.catchTags({
       PlatformError: (cause) =>
         isNotFoundError(cause)
@@ -117,7 +118,7 @@ const upsertAnonymousId = Effect.gen(function* () {
         }),
     ),
   );
-  yield* fileSystem.writeFileString(anonymousIdPath, anonymousId).pipe(
+  yield* writeFileStringAtomically({ filePath: anonymousIdPath, contents: anonymousId }).pipe(
     Effect.mapError(
       (cause) =>
         new TelemetryAnonymousIdPersistenceError({

@@ -1,3 +1,4 @@
+import { CodeToolPreparation } from "../orchestration-v2/CodeToolPreparation.ts";
 import {
   CodeToolsConfiguration,
   CodeToolsError,
@@ -29,11 +30,11 @@ import {
   Stream,
   SubscriptionRef,
 } from "effect";
-import { SqlClient } from "effect/unstable/sql";
+import { SqlClient } from "effect/sql";
 import { ServerConfig } from "../config.ts";
 import { HostProcessPlatform, HostProcessArchitecture } from "@t3tools/shared/hostProcess";
-import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
-import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { ForkThreadRuntime as OrchestrationEngineService } from "../orchestration-v2/ForkThreadRuntime.ts";
+import { ForkThreadRuntime as ProjectionSnapshotQuery } from "../orchestration-v2/ForkThreadRuntime.ts";
 import { advisorMayGuide } from "../advisors/AdvisorPolicy.ts";
 import { languageServers } from "./catalog.ts";
 import { LanguageServerInstaller } from "./installer.ts";
@@ -619,6 +620,7 @@ export const make = Effect.gen(function* () {
     if (resolved.mode === "guide")
       yield* check(threadId, true).pipe(Effect.catch((error) => reportFailure(threadId, error)));
   }, Effect.mapError(failure));
+  yield* (yield* CodeToolPreparation).register((threadId) => prepare(threadId).pipe(Effect.ignore));
   let started = false;
   const start = Effect.fn("CodeTools.start")(function* () {
     if (started) return;

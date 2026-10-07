@@ -8,7 +8,7 @@ import {
   type ReviewerDefinition,
   type ServerConfig,
 } from "@t3tools/contracts";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { ExternalLink, Plus, Sparkles, WandSparkles, X } from "lucide-react";
 import { useState } from "react";
 import { randomUUID } from "~/lib/utils";
@@ -116,7 +116,7 @@ export function ReviewerRulesSettings({ environmentId }: { environmentId: Enviro
         <div className="overflow-auto border-r border-border p-2">
           {categories.map(({ category, rules }) => (
             <div key={category}>
-              <div className="px-2 pb-1 pt-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <div className="px-2 pb-1 pt-3 text-3xs font-medium uppercase tracking-wider text-muted-foreground">
                 {category}
               </div>
               {rules.map((rule) => (
@@ -127,7 +127,7 @@ export function ReviewerRulesSettings({ environmentId }: { environmentId: Enviro
                   onClick={() => setSelectedId(rule.id)}
                 >
                   <span className="block truncate font-medium">{rule.name}</span>
-                  <span className="block truncate text-[10px] text-muted-foreground">
+                  <span className="block truncate text-3xs text-muted-foreground">
                     {reviewerRuleFileName(rule.name, rule.createdAt)}
                   </span>
                 </button>
@@ -181,7 +181,7 @@ export function ReviewerRulesSettings({ environmentId }: { environmentId: Enviro
                   <WandSparkles className="size-3.5" />
                 </Button>
               </div>
-              <p className="font-mono text-[10px] text-muted-foreground">
+              <p className="font-mono text-3xs text-muted-foreground">
                 {reviewerRuleFileName(selected.name, selected.createdAt)}
               </p>
               <label className="grid gap-1 text-xs">
@@ -215,7 +215,7 @@ export function ReviewerRulesSettings({ environmentId }: { environmentId: Enviro
               <label className="grid gap-1 text-xs">
                 Rule Markdown
                 <Textarea
-                  className="min-h-80 font-mono text-xs"
+                  className="min-h-80  "
                   value={selected.prompt}
                   maxLength={16000}
                   onChange={(event) => updateRule(selected.id, { prompt: event.target.value })}
@@ -243,7 +243,7 @@ export function ReviewerRulesSettings({ environmentId }: { environmentId: Enviro
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="ml-auto text-destructive-foreground"
+                  className="ml-auto "
                   onClick={() => {
                     update({
                       definitions: value.definitions.filter((rule) => rule.id !== selected.id),

@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -126,7 +126,7 @@ function AdvisorTimeline({ environmentId, threadId }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState(true);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<import("react").ComponentRef<typeof ScrollView>>(null);
   if (!AsyncResult.isSuccess(snapshot))
     return <Text className="p-4 text-foreground-muted">Loading advisor activity…</Text>;
   const value = snapshot.value;

@@ -1,3 +1,5 @@
+import { OrchestratorV2 } from "../orchestration-v2/Orchestrator.ts";
+import { ProviderSessionManagerV2 } from "../orchestration-v2/ProviderSessionManager.ts";
 import {
   defaultInstanceIdForDriver,
   ProviderDriverKind,
@@ -18,14 +20,17 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
-import { HttpClient } from "effect/unstable/http";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { HttpClient } from "effect/http";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { ProviderRegistry } from "./Services/ProviderRegistry.ts";
-import { ProviderService } from "./Services/ProviderService.ts";
+import * as ModelManifest from "./ModelManifest.ts";
+import { resolveProviderCompatibility } from "./providerCompatibility.ts";
+import * as ProviderRegistry from "./ProviderRegistry.ts";
 import { makeProviderMaintenanceCommandCoordinator } from "./providerMaintenanceCommandCoordinator.ts";
 import {
   enrichProviderSnapshotWithVersionAdvisory,
+  makeTargetedProviderUpdateAction,
+  resolveLatestProviderVersion,
   type ProviderMaintenanceCommandAction,
   ProviderVersionCache,
 } from "./providerMaintenance.ts";
@@ -52,6 +57,7 @@ export interface ProviderMaintenanceRunnerShape {
       | {
           readonly provider: ProviderDriverKind;
           readonly instanceId?: ProviderInstanceId | undefined;
+          readonly targetVersion?: string | undefined;
         },
   ) => Effect.Effect<ServerProviderUpdatedPayload, ServerProviderUpdateError>;
 }
@@ -214,8 +220,10 @@ function makeUpdateState(input: {
 
 /** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
-  const providerRegistry = yield* ProviderRegistry;
-  const providerService = yield* ProviderService;
+  const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
+  const orchestration = yield* OrchestratorV2;
+  const sessions = yield* ProviderSessionManagerV2;
+  const manifestService = yield* ModelManifest.ModelManifest;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const httpClient = yield* HttpClient.HttpClient;
   const versionCache = yield* ProviderVersionCache;
@@ -312,6 +320,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
       typeof target === "string"
         ? defaultInstanceIdForDriver(provider)
         : (target.instanceId ?? defaultInstanceIdForDriver(provider));
+    const targetVersion = typeof target === "string" ? undefined : target.targetVersion;
     const targetKey = `instance:${instanceId}`;
     const capabilities = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(
       instanceId,
@@ -359,12 +368,12 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               }),
             );
 
-            const sessionsBeforeUpdate = (yield* providerService.listSessions()).filter(
-              (session) => session.providerInstanceId === instanceId,
-            );
+            const shell = yield* orchestration.getShellSnapshot();
             if (
-              sessionsBeforeUpdate.some(
-                (session) => session.status === "connecting" || session.status === "running",
+              shell.threads.some(
+                (thread) =>
+                  thread.providerInstanceId === instanceId &&
+                  (thread.activeRunId !== null || (thread.pendingBackgroundTasks?.length ?? 0) > 0),
               )
             ) {
               return yield* finish(
@@ -396,7 +405,44 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               );
             }
 
-            const result = yield* runMaintenanceCommand(fresh.update);
+            const manifest = yield* manifestService.current;
+            const candidateVersion =
+              targetVersion ??
+              (yield* resolveLatestProviderVersion(fresh).pipe(
+                Effect.provideService(HttpClient.HttpClient, httpClient),
+                Effect.provideService(ProviderVersionCache, versionCache),
+              ));
+            const advisory =
+              resolveProviderCompatibility(manifest.compatibility, provider, candidateVersion) ??
+              resolveProviderCompatibility(
+                ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
+                provider,
+                candidateVersion,
+              );
+            const command =
+              targetVersion !== undefined
+                ? makeTargetedProviderUpdateAction(fresh, targetVersion)
+                : fresh.update;
+            const rejected =
+              targetVersion !== undefined
+                ? !command ||
+                  advisory?.recommendedVersion !== targetVersion ||
+                  advisory.status !== "supported"
+                : advisory?.status === "broken" || advisory?.status === "unsupported";
+            if (rejected || !command) {
+              return yield* finish(
+                makeUpdateState({
+                  status: "failed",
+                  startedAt,
+                  finishedAt: yield* nowIso,
+                  message:
+                    targetVersion !== undefined
+                      ? "This version is no longer recommended or this installer cannot install a specific version. Refresh provider settings."
+                      : "The latest provider version is incompatible with this T3 Code release. Review provider settings.",
+                }),
+              );
+            }
+            const result = yield* runMaintenanceCommand(command);
             const finishedAt = yield* nowIso;
             if (result.timedOut || result.exitCode !== 0) {
               return yield* finish(
@@ -410,13 +456,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               );
             }
 
-            yield* Effect.forEach(
-              (yield* providerService.listSessions()).filter(
-                (session) => session.providerInstanceId === instanceId,
-              ),
-              (session) => providerService.stopSession({ threadId: session.threadId }),
-              { concurrency: "unbounded", discard: true },
-            );
+            yield* sessions.closeInstance(instanceId);
 
             // Homebrew's "latest" moves once the upgrade lands; read it again.
             const verified = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(
@@ -435,10 +475,15 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
             // Cursor's `about` probe can fail transiently on a healthy binary.
             const couldNotVerify =
               verifiedProviders.length === 0 ||
-              verifiedProviders.some((verifiedProvider) => !isStillInstalled(verifiedProvider));
-            const stillOutdated = verifiedProviders.some((verifiedProvider) =>
-              isOutdatedProvider(verifiedProvider),
-            );
+              verifiedProviders.some(
+                (verifiedProvider) =>
+                  !isStillInstalled(verifiedProvider) ||
+                  (targetVersion !== undefined &&
+                    verifiedProvider.version?.replace(/^v/, "") !== targetVersion),
+              );
+            const stillOutdated =
+              targetVersion === undefined &&
+              verifiedProviders.some((verifiedProvider) => isOutdatedProvider(verifiedProvider));
             return yield* finish(
               makeUpdateState({
                 status: couldNotVerify || stillOutdated ? "unchanged" : "succeeded",

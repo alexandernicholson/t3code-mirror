@@ -1,6 +1,6 @@
 import { SettingsModelPicker } from "./SettingsModelPicker";
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

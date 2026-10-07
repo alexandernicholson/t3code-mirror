@@ -2,10 +2,9 @@ import { assert, it } from "@effect/vitest";
 import { ClaudeSettings, ProviderInstanceId } from "@t3tools/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { ServerConfig } from "../config.ts";
-import { makeClaudeAdapter } from "../provider/Layers/ClaudeAdapter.ts";
-import { providerServiceTestLayer } from "../provider/testUtils/providerServiceTestLayer.ts";
+import * as LiveReview from "../orchestration-v2/testkit/LiveReview.ts";
 import { make } from "./ReviewerRunner.ts";
 
 const decodeClaudeSettings = Schema.decodeEffect(ClaudeSettings);
@@ -32,10 +31,7 @@ it.live.skipIf(!process.env.T3_REVIEW_LIVE_MODEL)(
         const exitCode = yield* spawner.exitCode(ChildProcess.make("git", args, { cwd }));
         assert.strictEqual(exitCode, 0);
       }
-      const adapter = yield* makeClaudeAdapter(yield* decodeClaudeSettings({})).pipe(
-        Effect.provide(ServerConfig.layerTest(cwd, { prefix: "t3-reviewer-runtime-" })),
-      );
-      const services = yield* Layer.build(providerServiceTestLayer(adapter));
+      const services = yield* Layer.build(LiveReview.layer);
       const runner = yield* make.pipe(Effect.provide(services));
       for (const hasBug of [true, false]) {
         const contents = hasBug ? correct.replace(">=", ">") : correct;

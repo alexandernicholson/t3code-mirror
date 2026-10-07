@@ -1,10 +1,10 @@
 import { ProviderGlobalSettingsError, type ProviderInstanceId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 
-import type { ProviderInstanceRegistryShape } from "./Services/ProviderInstanceRegistry.ts";
+import type { ProviderInstanceRegistry } from "./ProviderInstanceRegistry.ts";
 
 export const providerGlobalSettings = Effect.fn("providerGlobalSettings")(function* (
-  registry: Pick<ProviderInstanceRegistryShape, "getInstance">,
+  registry: Pick<ProviderInstanceRegistry["Service"], "getInstance">,
   instanceId: ProviderInstanceId,
 ) {
   const instance = yield* registry.getInstance(instanceId);

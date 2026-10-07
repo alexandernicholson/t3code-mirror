@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0] - 2026-10-07
+
+- Integrate upstream's new orchestration while preserving fork advisors, reviewers, code checks, editable TODOs, narration, secrets, provider settings, and source updates. Keep released migration IDs intact and import saved queues with their attachments; imported queues remain paused until resumed. Update clients alongside the server.
+
+---
+
 ## [0.8.5] - 2026-09-24
 
 - Fix replying to or settling threads that have saved TODOs or queued follow-ups.

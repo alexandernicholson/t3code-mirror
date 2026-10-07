@@ -50,3 +50,13 @@ export function resolveRelayClerkTokenOptions() {
   }
   return relayClerkTokenOptions(clerkJwtTemplate);
 }
+
+export function resolveRelayTracingConfig() {
+  if (import.meta.env.VITE_T3CODE_CLOUD_ENABLED !== "true") return null;
+  const tracesUrl = trimNonEmpty(import.meta.env.VITE_RELAY_OTLP_TRACES_URL);
+  const tracesDataset = trimNonEmpty(import.meta.env.VITE_RELAY_OTLP_TRACES_DATASET);
+  const tracesToken = trimNonEmpty(import.meta.env.VITE_RELAY_OTLP_TRACES_TOKEN);
+  return tracesUrl && tracesDataset && tracesToken && normalizeSecureRelayUrl(tracesUrl)
+    ? { tracesUrl, tracesDataset, tracesToken }
+    : null;
+}

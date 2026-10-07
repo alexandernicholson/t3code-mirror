@@ -17,7 +17,7 @@ import {
   remainingPercent,
 } from "@t3tools/shared/usageLimits";
 import { GaugeIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { environmentPresentations } from "../../state/presentation";
@@ -128,7 +128,7 @@ function WindowBar({
           />
         ) : null}
       </TooltipTrigger>
-      <TooltipPopup side="top" className="max-w-72 text-xs">
+      <TooltipPopup side="top">
         <div className="flex flex-col gap-0.5">
           <span className="text-foreground">
             {remaining}% left{timeLeft !== null ? ` · ${timeLeft}% of the window left` : ""}
@@ -323,11 +323,13 @@ export function ResetCredits({
 export function UsageLimitsSection({
   selectedEnvironmentIds,
   now,
-  historyDays,
+  cursorPrompt,
+  historyDays = 7,
 }: {
+  readonly historyDays?: number;
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly now: number;
-  readonly historyDays: number;
+  readonly cursorPrompt?: ReactNode;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
   const selected =
@@ -344,6 +346,12 @@ export function UsageLimitsSection({
     selectedEnvironmentIds,
   );
   return (
-    <UsageLimitsPooled presentations={selected} now={now} since={since} histories={histories} />
+    <UsageLimitsPooled
+      presentations={selected}
+      now={now}
+      cursorPrompt={cursorPrompt}
+      since={since}
+      histories={histories}
+    />
   );
 }

@@ -1,19 +1,20 @@
+import { IdAllocatorV2 } from "../../orchestration-v2/IdAllocator.ts";
 import { OmpSettings, ProviderDriverKind } from "@t3tools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import { makeOmpTextGeneration } from "../../textGeneration/OmpTextGeneration.ts";
 import { ProviderDriverError } from "../Errors.ts";
-import { makeOmpAdapter } from "../Layers/OmpAdapter.ts";
-import { ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
-import { makeOmpProvider } from "../Layers/OmpProvider.ts";
+import { makeOmpAdapter } from "../OmpAdapter.ts";
+import { ProviderEventLoggers } from "../ProviderEventLoggers.ts";
+import { makeOmpProvider } from "../OmpProvider.ts";
 import {
   defaultProviderContinuationIdentity,
   type ProviderDriver,
@@ -26,6 +27,7 @@ const DRIVER = ProviderDriverKind.make("omp");
 const decodeSettings = Schema.decodeSync(OmpSettings);
 
 export type OmpDriverEnv =
+  | IdAllocatorV2
   | BackgroundPolicy.BackgroundPolicy
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
@@ -92,7 +94,7 @@ export const OmpDriver: ProviderDriver<OmpSettings, OmpDriverEnv> = {
         enabled,
         snapshot: provider.snapshot,
         snapshotForCwd: provider.snapshotForCwd,
-        adapter,
+        orchestrationAdapter: adapter,
         textGeneration,
       } satisfies ProviderInstance;
     }),

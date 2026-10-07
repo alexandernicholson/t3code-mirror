@@ -3,7 +3,7 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import { ServerConfig, layerTest } from "../config.ts";
 import { ProcessRunner, layer as runnerLayer } from "../processRunner.ts";
 import { makeSourceRuntime } from "./runtime.ts";

@@ -1,6 +1,18 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { ProviderAdapterValidationError } from "../provider/Errors.ts";
+export class ProviderAdapterValidationError extends Schema.TaggedError<ProviderAdapterValidationError>()(
+  "ManagedMcpConfigurationError",
+  {
+    provider: Schema.String,
+    operation: Schema.String,
+    issue: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message() {
+    return this.issue;
+  }
+}
 import type { ManagedMcpServers, ThreadId } from "@t3tools/contracts";
 
 const serversByThread = new Map<ThreadId, ManagedMcpServers>();

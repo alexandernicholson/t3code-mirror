@@ -25,9 +25,10 @@ export function hasNativeSelectableMarkdownText(): boolean {
 }
 
 export function SelectableMarkdownText(props: MobileSelectableMarkdownTextProps) {
+  const renderCodeBlock = useMermaidCodeBlockRenderer();
   const theme = useUniwindTheme();
-  const selectionColor = themeColorWithAlpha(theme["--color-primary"], 0.32);
-  const selectionHandleColor = theme["--color-primary"];
+  const selectionColor = themeColorWithAlpha(theme["--color-focus"], 0.32);
+  const selectionHandleColor = theme["--color-focus"];
   const textStyle = useMemo(
     () => ({ selectionColor, selectionHandleColor, ...props.textStyle }),
     [props.textStyle, selectionColor, selectionHandleColor],
@@ -37,6 +38,7 @@ export function SelectableMarkdownText(props: MobileSelectableMarkdownTextProps)
       {...props}
       textStyle={textStyle}
       highlightCode={highlightCodeSnippet}
+      renderCodeBlock={props.renderCodeBlock ?? renderCodeBlock}
     />
   );
 }

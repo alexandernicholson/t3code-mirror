@@ -11,8 +11,8 @@ import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
-import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
+import { layerMemory } from "../persistence/Sqlite.ts";
+import { ProviderRegistry } from "../provider/ProviderRegistry.ts";
 import { UsageLimitSources } from "./UsageLimitSources.ts";
 import { UsageLimitHistory, layer } from "./UsageLimitHistory.ts";
 
@@ -43,7 +43,7 @@ it.effect("records every native and source limit window and reads bounded series
   Effect.gen(function* () {
     yield* TestClock.setTime(now);
     const testLayer = layer.pipe(
-      Layer.provideMerge(SqlitePersistenceMemory),
+      Layer.provideMerge(layerMemory),
       Layer.provide(
         Layer.mock(ProviderRegistry)({
           getProviders: Effect.succeed([provider]),

@@ -1,4 +1,8 @@
 import {
+  customConversationBackgroundAssetResource,
+  type ProjectConversationBackground,
+} from "@t3tools/contracts";
+import {
   isAtomCommandInterrupted,
   mapAtomCommandResult,
   settlePromise,
@@ -6,16 +10,11 @@ import {
   type AtomCommandResult,
 } from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { AsyncResult } from "effect/unstable/reactivity";
-import {
-  type EnvironmentId,
-  customConversationBackgroundAssetResource,
-  type ProjectConversationBackground,
-  type ProjectIconOverride,
-} from "@t3tools/contracts";
+import { AsyncResult } from "effect/reactivity";
+import { type EnvironmentId, type ProjectIconOverride } from "@t3tools/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
-import { Trash2Icon } from "lucide-react";
+import { InfoIcon, Trash2Icon } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useComposerDraftStore } from "../../composerDraftStore";
@@ -30,6 +29,7 @@ import { useThreadShells } from "../../state/entities";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { ProjectFavicon } from "../ProjectFavicon";
+import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { stackedThreadToast, toastManager } from "../ui/toast";
@@ -44,6 +44,7 @@ import {
   ProjectFaviconPickerDialog,
 } from "./ProjectFaviconPickerDialog";
 import { ProjectActionsSettings } from "./ProjectActionsSettings";
+import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { projectGroupTitleNeedsUpdate } from "./ProjectSettingsPanel.logic";
 import { getConversationBackground } from "../../conversationBackgrounds";
 import { useAssetUrlState } from "../../assets/assetUrls";
@@ -70,7 +71,8 @@ function memberKey(member: { environmentId: string; id: string }): string {
   return `${member.environmentId}:${member.id}`;
 }
 
-export type ProjectSettingsCategory = "general" | "integrations" | "source-control";
+/** `project` is the Projects page shortcut: the new-thread defaults people change most. */
+export type ProjectSettingsCategory = "general" | "integrations" | "source-control" | "project";
 
 export function ProjectSettingsPanel({
   projectKey,
@@ -489,6 +491,12 @@ function ProjectDetail({
   return (
     <>
       <SettingsPageContainer className="gap-6">
+        <Alert variant="info">
+          <InfoIcon aria-hidden />
+          <AlertDescription>
+            Can't find a setting? Keep this project picked above and hop to any other settings page.
+          </AlertDescription>
+        </Alert>
         <SettingsSection id="project-overview" title="Project" hideTitle>
           <SettingsRow
             title="Name"
@@ -601,6 +609,7 @@ function ProjectDetail({
             }
           />
         </SettingsSection>
+        <ProjectDefaultsSettings category="project" />
         <ProjectActionsSettings />
         {hasMultipleCheckouts ? checkoutChoices : null}
         <SettingsSection title="Danger">

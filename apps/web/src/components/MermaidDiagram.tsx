@@ -78,7 +78,7 @@ function MermaidViewer({
                   <Button
                     variant="ghost"
                     size="xs"
-                    className="min-w-14 tabular-nums"
+                    className="min-w-14 "
                     aria-label="Reset zoom and pan"
                     onClick={() => controls.current?.reset()}
                   />

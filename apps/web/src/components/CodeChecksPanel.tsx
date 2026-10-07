@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useState } from "react";
 import {
   codeDiagnosticKey,
@@ -212,7 +212,7 @@ function CodeChecksContent({
               >
                 <Button
                   variant="link"
-                  className="h-auto max-w-full justify-start p-0 text-xs"
+                  className="h-auto max-w-full justify-start  "
                   onClick={() => onOpenFile(diagnostic.file, diagnostic.line)}
                 >
                   {diagnostic.file}:{diagnostic.line}
@@ -423,11 +423,11 @@ function CodeToolData({
             >
               <p className="text-xs font-medium">{item.text}</p>
               <p className="text-xs text-muted-foreground">Before</p>
-              <pre className="max-h-48 overflow-auto rounded bg-red-500/5 p-2 text-xs">
+              <pre className="max-h-48 overflow-auto rounded bg-error-surface p-2 text-xs">
                 {item.before}
               </pre>
               <p className="text-xs text-muted-foreground">After</p>
-              <pre className="max-h-48 overflow-auto rounded bg-green-500/5 p-2 text-xs">
+              <pre className="max-h-48 overflow-auto rounded bg-diff-addition/5 p-2 text-xs">
                 {item.after}
               </pre>
             </div>
@@ -437,7 +437,7 @@ function CodeToolData({
             <Button
               key={`${item.text}:${item.file ?? ""}:${item.line ?? 0}:${item.actionIndex ?? -1}`}
               variant="link"
-              className="h-auto break-all whitespace-normal text-left text-xs"
+              className="h-auto break-all whitespace-normal text-left "
               onClick={() => onOpenFile(item.file!, item.line ?? 1)}
             >
               {item.text}

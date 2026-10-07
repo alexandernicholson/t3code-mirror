@@ -68,6 +68,7 @@ const fields = [
 
 function layerLabel(source: CodexSchema.V2ConfigReadResponse__ConfigLayerSource): string {
   switch (source.type) {
+    case "packagedDefaults":
     case "user":
     case "system":
     case "legacyManagedConfigTomlFromFile":
@@ -135,7 +136,11 @@ export const writeCodexGlobalSettings = Effect.fn("writeCodexGlobalSettings")(fu
   yield* client.request("config/batchWrite", {
     filePath: current.filePath,
     expectedVersion: input.expectedVersion,
-    edits: input.edits.map(({ key, value }) => ({ keyPath: key, value, mergeStrategy: "replace" })),
+    edits: input.edits.map(({ key, value }) => ({
+      keyPath: key,
+      value,
+      mergeStrategy: "replace" as const,
+    })),
   });
   return yield* readCodexGlobalSettings(client, input.instanceId);
 });

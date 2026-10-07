@@ -5,7 +5,7 @@ import { emptyAdvisorConfiguration, ThreadId } from "@t3tools/contracts";
 import migration from "../persistence/Migrations/052_Advisors.ts";
 import * as Store from "./AdvisorStore.ts";
 
-const database = NodeSqliteClient.layerMemory();
+const database = NodeSqliteClient.layer({ filename: ":memory:" });
 const layer = Store.layer.pipe(
   Layer.provide(Layer.effectDiscard(migration).pipe(Layer.provideMerge(database))),
 );

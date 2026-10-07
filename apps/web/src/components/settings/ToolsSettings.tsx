@@ -156,7 +156,7 @@ function ServerEditor({
           <DialogTitle>{server ? "Edit MCP server" : "Add MCP server"}</DialogTitle>
           <DialogDescription>Choose how your agents connect to this server.</DialogDescription>
         </DialogHeader>
-        <DialogPanel className="space-y-5">
+        <DialogPanel className="">
           <div className="space-y-2 text-sm font-medium">
             <div className="flex items-center gap-1">
               <label htmlFor={`${formId}-name`}>Server name</label>

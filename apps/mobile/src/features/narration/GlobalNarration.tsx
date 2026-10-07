@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import {
   createContext,
   useCallback,
@@ -11,7 +12,7 @@ import {
 import { Alert, AppState, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import {
   GlobalNarrationQueue,
   narrationVoiceOrder,
@@ -93,7 +94,13 @@ export function GlobalNarrationProvider({ children }: { children: ReactNode }) {
     unsubscribe.current = subscribeNarrationFeed({
       registry: appAtomRegistry,
       shells: environmentThreadShells.threadShellsAtom,
-      environmentBaseline: (id) => appAtomRegistry.get(environmentSnapshotAtom(id))?.updatedAt,
+      environmentBaseline: (id) => {
+        const snapshot = appAtomRegistry.get(environmentSnapshotAtom(id));
+        return snapshot?.threads.reduce((latest, thread) => {
+          const at = DateTime.formatIso(thread.updatedAt);
+          return at > latest ? at : latest;
+        }, "");
+      },
       state: environmentThreadDetails.stateAtom,
       fullText: false,
       onRemove: (key) => queue.remove(key),

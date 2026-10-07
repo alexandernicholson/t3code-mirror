@@ -7,8 +7,8 @@ import {
   type ReviewerRun,
 } from "@t3tools/contracts";
 import { Context, Crypto, DateTime, Effect, Fiber, Layer, Option, Schema } from "effect";
-import { ProjectionSnapshotQuery } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
-import { ProviderInstanceRegistry } from "../provider/Services/ProviderInstanceRegistry.ts";
+import { ForkThreadRuntime as ProjectionSnapshotQuery } from "../orchestration-v2/ForkThreadRuntime.ts";
+import { ProviderInstanceRegistry } from "../provider/ProviderInstanceRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { makeTextGenerationFromRegistry } from "../textGeneration/TextGeneration.ts";
 import { ReviewerRunner } from "./ReviewerRunner.ts";

@@ -5,7 +5,7 @@ import { AttachmentCreateUploadUrlInput, CUSTOM_BACKGROUND_MAX_UPLOAD_BYTES } fr
 import {
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
-} from "./orchestration.ts";
+} from "./chatAttachment.ts";
 
 const isUploadInput = Schema.is(AttachmentCreateUploadUrlInput);
 

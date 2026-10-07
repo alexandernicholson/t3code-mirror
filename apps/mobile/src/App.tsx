@@ -26,6 +26,8 @@ import { shouldHandleAppLink } from "./lib/appLinking";
 import { useMobileNavigationTheme } from "./lib/useMobileNavigationTheme";
 import { SubscriptionUsageCoordinator } from "./widgets/SubscriptionUsageCoordinator";
 import { appBlurTargetRef } from "./lib/appBlurTarget";
+import { VoiceInputProvider } from "./features/voice-input/VoiceInputProvider";
+import { GlobalVoiceInputControl } from "./features/voice-input/GlobalVoiceInputControl";
 
 import "../global.css";
 
@@ -79,28 +81,29 @@ function AppContent() {
       <GestureHandlerRootView className="flex-1">
         <KeyboardProvider statusBarTranslucent>
           <SafeAreaProvider>
-            <StatusBar
-              barStyle={themeAppearance === "dark" ? "light-content" : "dark-content"}
-              translucent
-            />
-            {/* The navigation theme drives the NATIVE header appearance: native-stack
+            <VoiceInputProvider>
+              <StatusBar barStyle={themeAppearance === "dark" ? "light-content" : "dark-content"} />
+              {/* The navigation theme drives the NATIVE header appearance: native-stack
                 forwards `dark` as the nav bar's overrideUserInterfaceStyle. Without
                 this, React Navigation defaults to its light theme and every native
                 header (glass buttons, title, materials) is forced light even when
                 the system is in dark mode. */}
-            <BlurTargetView ref={appBlurTargetRef} style={{ flex: 1 }}>
-              <GlobalNarrationProvider>
-                <IncomingShareProvider>
-                  <Navigation linking={appLinking} theme={navigationTheme} />
-                </IncomingShareProvider>
-                <GlobalNarrationBar />
-              </GlobalNarrationProvider>
-              <ConfirmDialogHost />
-              <ThreadArrangementHost />
-            </BlurTargetView>
-            {/* Anchored-menu overlays render here — in-window, so the
+              <BlurTargetView ref={appBlurTargetRef} style={{ flex: 1 }}>
+                <GlobalNarrationProvider>
+                  <GlobalVoiceInputControl>
+                    <IncomingShareProvider>
+                      <Navigation linking={appLinking} theme={navigationTheme} />
+                    </IncomingShareProvider>
+                    <GlobalNarrationBar />
+                    <ConfirmDialogHost />
+                    <ThreadArrangementHost />
+                  </GlobalVoiceInputControl>
+                </GlobalNarrationProvider>
+              </BlurTargetView>
+              {/* Anchored-menu overlays render here — in-window, so the
                 keyboard stays up while a dropdown is open. */}
-            <OverlayPortalHost />
+              <OverlayPortalHost />
+            </VoiceInputProvider>
           </SafeAreaProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>

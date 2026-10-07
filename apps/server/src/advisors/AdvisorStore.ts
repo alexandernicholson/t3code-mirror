@@ -7,7 +7,7 @@ import {
   type AdvisorSubscriptionInput,
 } from "@t3tools/contracts";
 import { Context, Effect, Layer, Schema, Semaphore, Stream, SubscriptionRef } from "effect";
-import { SqlClient } from "effect/unstable/sql";
+import { SqlClient } from "effect/sql";
 
 const decodeConfiguration = Schema.decodeEffect(Schema.fromJsonString(AdvisorConfiguration));
 const decodeState = Schema.decodeEffect(Schema.fromJsonString(AdvisorState));

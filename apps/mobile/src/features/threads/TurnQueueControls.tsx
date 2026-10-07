@@ -1,3 +1,4 @@
+import { forkThreadQueue } from "@t3tools/client-runtime/state/forkThreadViews";
 import { useRef, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
 import type { EnvironmentId, MessageId, QueuedTurn, ThreadId } from "@t3tools/contracts";
@@ -6,7 +7,7 @@ import { assetUrlStateFromResult } from "@t3tools/client-runtime/state/assets";
 import { SymbolView } from "../../components/AppSymbol";
 import { ControlPillMenu } from "../../components/ControlPill";
 import { AppText as Text } from "../../components/AppText";
-import { useSelectedThreadDetail } from "../../state/use-thread-detail";
+import { useSelectedThreadProjection } from "../../state/use-thread-detail";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { threadEnvironment } from "../../state/threads";
@@ -35,8 +36,11 @@ export function TurnQueueControls(props: {
   onRestored: () => void;
 }) {
   const draftKey = scopedThreadKey(props.environmentId, props.threadId);
-  const detail = useSelectedThreadDetail();
-  const queue = detail?.id === props.threadId ? detail.turnQueue : undefined;
+  const detail = useSelectedThreadProjection();
+  const queue =
+    detail?.projection.thread.id === props.threadId
+      ? forkThreadQueue(detail.projection)
+      : undefined;
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);

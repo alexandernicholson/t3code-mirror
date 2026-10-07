@@ -1,9 +1,9 @@
+import { useAtomValue } from "@effect/atom-react";
+import { environmentThreadDetails } from "~/state/threads";
+import type { ThreadPendingApproval as PendingApproval } from "@t3tools/client-runtime/state/thread-requests";
 import type { ProviderApprovalDecision, ScopedThreadRef } from "@t3tools/contracts";
-import { ApprovalRequestId } from "@t3tools/contracts";
-import {
-  derivePendingRequests,
-  type PendingApproval,
-} from "@t3tools/client-runtime/pending-requests";
+import { RuntimeRequestId } from "@t3tools/contracts";
+
 import type { OrchestrationThreadActivity } from "@t3tools/contracts";
 import { isAtomCommandInterrupted } from "@t3tools/client-runtime/state/runtime";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
@@ -42,13 +42,14 @@ export function IdeApprovalsSection(props: {
   const respondToApproval = useAtomCommand(threadEnvironment.respondToApproval, {
     reportFailure: false,
   });
-  const [respondingRequestIds, setRespondingRequestIds] = useState<
-    ReadonlyArray<ApprovalRequestId>
-  >([]);
-  const { approvals } = derivePendingRequests(props.activities);
+  const [respondingRequestIds, setRespondingRequestIds] = useState<ReadonlyArray<RuntimeRequestId>>(
+    [],
+  );
+  const approvals =
+    useAtomValue(environmentThreadDetails.pendingRequestsAtom(props.threadRef))?.approvals ?? [];
 
   const onRespondToApproval = useCallback(
-    async (requestId: ApprovalRequestId, decision: ProviderApprovalDecision) => {
+    async (requestId: RuntimeRequestId, decision: ProviderApprovalDecision) => {
       setRespondingRequestIds((existing) =>
         existing.includes(requestId) ? existing : [...existing, requestId],
       );
@@ -82,7 +83,7 @@ export function IdeApprovalsSection(props: {
       aria-label="Pending approvals"
       className="border-b border-border/60 bg-card/60 px-3 py-2"
     >
-      <div className="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+      <div className="mb-1.5 text-2xs font-medium tracking-wide text-muted-foreground uppercase">
         {approvals.length === 1 ? "Approval needed" : `${approvals.length} approvals needed`}
       </div>
       <ul className="space-y-2">
@@ -92,22 +93,21 @@ export function IdeApprovalsSection(props: {
             className="rounded-md border border-border/70 bg-background px-2.5 py-2"
           >
             <div className="mb-1 flex items-center gap-2">
-              <span className="text-[11px] font-medium text-foreground">
+              <span className="text-2xs font-medium text-foreground">
                 {approvalKindLabel(approval)}
               </span>
               {approval.appName ? (
-                <span className="truncate text-[11px] text-muted-foreground">
-                  {approval.appName}
-                </span>
+                <span className="truncate text-2xs text-muted-foreground">{approval.appName}</span>
               ) : null}
             </div>
             {approval.detail ? (
-              <code className="mb-2 block max-h-24 overflow-auto rounded-sm bg-[var(--code-background)] px-1.5 py-1 font-mono text-[11px] whitespace-pre text-foreground/85 [scrollbar-width:thin]">
+              <code className="mb-2 block max-h-24 overflow-auto rounded-sm bg-code px-1.5 py-1 font-mono text-2xs whitespace-pre text-foreground/85 [scrollbar-width:thin]">
                 {approval.detail}
               </code>
             ) : null}
             <div className="flex flex-wrap items-center gap-1">
               <ComposerPendingApprovalActions
+                canRespond={approval.responseCapability === "live"}
                 requestId={approval.requestId}
                 isResponding={respondingRequestIds.includes(approval.requestId)}
                 options={approval.options}

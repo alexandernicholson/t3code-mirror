@@ -7,7 +7,7 @@ import {
 } from "./sourceUpdates.ts";
 
 it("defaults a source service to automatic updates", () => {
-  expect(Schema.decodeUnknownSync(SourceUpdateSettings)({})).toEqual({
+  expect(Schema.decodeSync(SourceUpdateSettings)({})).toEqual({
     enabled: true,
     branch: "main",
     policy: "automatic",
@@ -15,7 +15,7 @@ it("defaults a source service to automatic updates", () => {
 });
 
 it("a branch patch does not reset an existing manual restart policy or paused checks", () => {
-  const patch = Schema.decodeUnknownSync(SourceUpdateSettingsPatch)({ branch: "experiment" });
+  const patch = Schema.decodeSync(SourceUpdateSettingsPatch)({ branch: "experiment" });
   expect(patch).toEqual({ branch: "experiment" });
   expect({ enabled: false, policy: "manual-restart", ...patch }).toEqual({
     enabled: false,

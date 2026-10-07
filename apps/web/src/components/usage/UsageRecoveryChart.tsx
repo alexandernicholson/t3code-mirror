@@ -68,7 +68,7 @@ export function UsageHistoryChart({
         </span>
       </div>
       <div className="flex gap-2">
-        <div className="flex h-32 w-8 shrink-0 flex-col justify-between text-right text-[10px] text-muted-foreground tabular-nums">
+        <div className="flex h-32 w-8 shrink-0 flex-col justify-between text-right text-3xs text-muted-foreground tabular-nums">
           <span>100%</span>
           <span>50%</span>
           <span>0%</span>
@@ -132,12 +132,12 @@ export function UsageHistoryChart({
           })}
         </svg>
       </div>
-      <div className="mt-1 flex justify-between pl-10 text-[10px] text-muted-foreground">
+      <div className="mt-1 flex justify-between pl-10 text-3xs text-muted-foreground">
         <span>{new Date(since).toLocaleDateString()}</span>
         <span>Now</span>
       </div>
       {lines.length > 1 ? (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-2xs text-muted-foreground">
           {lines.map((line) => (
             <span key={line.account.key} className="inline-flex items-center gap-1.5">
               <span className="size-2 rounded-full" style={{ backgroundColor: line.color }} />
@@ -147,7 +147,7 @@ export function UsageHistoryChart({
         </div>
       ) : null}
       {lines.every((line) => line.points.length <= 1) ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="mt-2 text-2xs text-muted-foreground">
           History starts as T3 observes new limit snapshots.
         </p>
       ) : null}

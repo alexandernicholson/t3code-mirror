@@ -37,6 +37,13 @@ export function advisorSourceText(event: OrchestrationEvent): string | null {
   }
   if (event.type === "thread.activity-appended") {
     if (event.payload.activity.kind.startsWith("advisor")) return null;
+    if (
+      /^(?:run\.|run-attempt\.|node\.|provider-session\.|provider-thread\.|provider-turn\.|thread\.)/.test(
+        event.payload.activity.kind,
+      )
+    )
+      return null;
+    if (event.payload.activity.kind === "turn-item.updated") return null;
     // Usage and checkpoint bookkeeping add no new work for a reviewer to inspect.
     if (
       event.payload.activity.kind === "context-window.updated" ||
@@ -48,7 +55,12 @@ export function advisorSourceText(event: OrchestrationEvent): string | null {
   return null;
 }
 
-export function advisorMayGuide(thread: OrchestrationThreadShell): boolean {
+export function advisorMayGuide(thread: {
+  readonly session: { readonly status: string; readonly activeTurnId: string | null } | null;
+  readonly latestTurn: { readonly state: string } | null;
+  readonly interactionMode: string;
+  readonly archivedAt: string | null;
+}): boolean {
   return (
     thread.session?.status === "running" &&
     thread.session.activeTurnId !== null &&

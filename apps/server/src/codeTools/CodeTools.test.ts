@@ -13,28 +13,9 @@ import { Effect, FileSystem, Layer, Option, Stream } from "effect";
 import * as CodeTools from "./CodeTools.ts";
 import { runCommand } from "./process.ts";
 import { ServerConfig } from "../config.ts";
-import { OrchestrationEngineLive } from "../orchestration/Layers/OrchestrationEngine.ts";
-import { OrchestrationProjectionPipelineLive } from "../orchestration/Layers/ProjectionPipeline.ts";
-import { OrchestrationProjectionSnapshotQueryLive } from "../orchestration/Layers/ProjectionSnapshotQuery.ts";
-import { OrchestrationEngineService } from "../orchestration/Services/OrchestrationEngine.ts";
-import * as ThreadBackgroundLiveness from "../orchestration/ThreadBackgroundLiveness.ts";
-import * as ThreadPlanProgress from "../orchestration/ThreadPlanProgress.ts";
-import { OrchestrationEventStoreLive } from "../persistence/Layers/OrchestrationEventStore.ts";
-import { OrchestrationCommandReceiptRepositoryLive } from "../persistence/Layers/OrchestrationCommandReceipts.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
-import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
-
+import * as ForkFeatureRuntime from "../orchestration-v2/testkit/ForkFeatureRuntime.ts";
 const layer = CodeTools.layer.pipe(
-  Layer.provideMerge(
-    OrchestrationEngineLive.pipe(Layer.provide(OrchestrationProjectionPipelineLive)),
-  ),
-  Layer.provideMerge(OrchestrationProjectionSnapshotQueryLive),
-  Layer.provide(ThreadBackgroundLiveness.layer),
-  Layer.provide(ThreadPlanProgress.layer),
-  Layer.provide(OrchestrationEventStoreLive),
-  Layer.provide(OrchestrationCommandReceiptRepositoryLive),
-  Layer.provide(RepositoryIdentityResolver.layer),
-  Layer.provide(SqlitePersistenceMemory),
+  Layer.provideMerge(ForkFeatureRuntime.layer),
   Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-code-tools-test-" })),
   Layer.provide(NodeServices.layer),
 );
@@ -61,42 +42,13 @@ const setup = Effect.fn("CodeTools.testSetup")(function* (active = false) {
   const threadId = ThreadId.make("checks-thread");
   const projectId = ProjectId.make("checks-project");
   const createdAt = "2026-09-10T00:00:00.000Z";
-  const engine = yield* OrchestrationEngineService;
-  yield* engine.dispatch({
-    type: "project.create",
-    commandId: CommandId.make("project"),
+  yield* ForkFeatureRuntime.seedThread({
+    threadId,
     projectId,
+    cwd: root,
     title: "Code tools",
-    workspaceRoot: root,
-    createdAt,
-  });
-  yield* engine.dispatch({
-    type: "thread.create",
-    commandId: CommandId.make("thread"),
-    threadId,
-    projectId,
-    title: "Code checks",
     modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
-    runtimeMode: "full-access",
-    interactionMode: "default",
-    branch: null,
-    worktreePath: null,
-    createdAt,
-  });
-  yield* engine.dispatch({
-    type: "thread.session.set",
-    commandId: CommandId.make("session"),
-    threadId,
-    session: {
-      threadId,
-      status: active ? "running" : "ready",
-      providerName: "codex",
-      activeTurnId: active ? TurnId.make("turn") : null,
-      runtimeMode: "full-access",
-      lastError: null,
-      updatedAt: createdAt,
-    },
-    createdAt,
+    active,
   });
   const tools = yield* CodeTools.CodeTools;
   yield* tools.save({
@@ -170,20 +122,19 @@ it.effect("reports invalid rule files and supports pausing", () =>
   }).pipe(Effect.provide(layer), Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
-for (const active of [true, false])
-  it.effect(
-    `guidance respects existing findings, the retry budget and ${active ? "running" : "stopped"} turns`,
-    () =>
-      Effect.gen(function* () {
-        const { tools, fs, root, threadId } = yield* setup(active);
-        yield* fs.writeFileString(`${root}/file.txt`, "OLD\n");
-        yield* tools.prepare(threadId);
-        yield* tools.check(threadId);
-        assert.strictEqual((yield* snapshot(tools, threadId)).checks?.corrections, 0);
-        yield* fs.writeFileString(`${root}/file.txt`, "OLD\nNEW\n");
-        yield* tools.check(threadId);
-        assert.strictEqual((yield* snapshot(tools, threadId)).checks?.corrections, active ? 1 : 0);
-        yield* tools.check(threadId);
-        assert.strictEqual((yield* snapshot(tools, threadId)).checks?.corrections, active ? 1 : 0);
-      }).pipe(Effect.provide(layer), Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
+it.effect.each([true, false])(
+  "guidance respects existing findings and retry budget with active=%s",
+  (active) =>
+    Effect.gen(function* () {
+      const { tools, fs, root, threadId } = yield* setup(active);
+      yield* fs.writeFileString(`${root}/file.txt`, "OLD\n");
+      yield* tools.prepare(threadId);
+      yield* tools.check(threadId);
+      assert.strictEqual((yield* snapshot(tools, threadId)).checks?.corrections, 0);
+      yield* fs.writeFileString(`${root}/file.txt`, "OLD\nNEW\n");
+      yield* tools.check(threadId);
+      assert.strictEqual((yield* snapshot(tools, threadId)).checks?.corrections, active ? 1 : 0);
+      yield* tools.check(threadId);
+      assert.strictEqual((yield* snapshot(tools, threadId)).checks?.corrections, active ? 1 : 0);
+    }).pipe(Effect.provide(layer), Effect.scoped, Effect.provide(NodeServices.layer)),
+);

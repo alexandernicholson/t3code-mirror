@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import {
   createContext,
   useCallback,
@@ -155,7 +156,13 @@ export function GlobalNarrationProvider({ children }: { children: ReactNode }) {
       unsubscribe.current = subscribeNarrationFeed({
         registry: appAtomRegistry,
         shells: environmentThreadShells.threadShellsAtom,
-        environmentBaseline: (id) => appAtomRegistry.get(environmentSnapshotAtom(id))?.updatedAt,
+        environmentBaseline: (id) => {
+          const snapshot = appAtomRegistry.get(environmentSnapshotAtom(id));
+          return snapshot?.threads.reduce((latest, thread) => {
+            const at = DateTime.formatIso(thread.updatedAt);
+            return at > latest ? at : latest;
+          }, "");
+        },
         state: environmentThreadDetails.stateAtom,
         fullText: true,
         onRemove: (key) => queue.remove(key),

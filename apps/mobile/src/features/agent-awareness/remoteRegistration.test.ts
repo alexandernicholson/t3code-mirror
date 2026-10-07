@@ -9,19 +9,14 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
-import {
-  Cookies,
-  FetchHttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { Cookies, FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { ManagedRelay } from "@t3tools/client-runtime/relay";
 
 import type { EnvironmentId } from "@t3tools/contracts";
 import { verifyDpopProof } from "@t3tools/shared/dpop";
 import type { SavedRemoteConnection } from "../../lib/connection";
-import { cryptoLayer } from "../cloud/dpop";
-import { managedRelayClientLayer } from "../cloud/managedRelayLayer";
+import * as Dpop from "../cloud/dpop";
+import * as ManagedRelayLayer from "../cloud/managedRelayLayer";
 import {
   clearAgentAwarenessRegistrationRecord,
   loadAgentAwarenessRegistrationRecord,
@@ -101,11 +96,9 @@ vi.mock("expo-widgets", () => ({
   addPushToStartTokenListener: vi.fn(() => ({ remove: vi.fn() })),
 }));
 
-vi.mock("../../widgets/AgentActivity", () => ({
-  default: {
-    getInstances: widgetMocks.getInstances,
-    start: widgetMocks.start,
-  },
+vi.mock("./agentLiveActivity", () => ({
+  getAgentLiveActivities: widgetMocks.getInstances,
+  startAgentLiveActivity: widgetMocks.start,
 }));
 
 // The state modules pull the whole connection stack (and native expo modules)
@@ -227,17 +220,8 @@ function savedConnection(): SavedRemoteConnection {
   };
 }
 
-const relayTestLayer = managedRelayClientLayer("https://relay.example.test").pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      FetchHttpClient.layer.pipe(
-        Layer.provide(
-          Layer.succeed(FetchHttpClient.Fetch, (input, init) => globalThis.fetch(input, init)),
-        ),
-      ),
-      cryptoLayer,
-    ),
-  ),
+const layerRelayTest = ManagedRelayLayer.layer("https://relay.example.test").pipe(
+  Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Dpop.layer)),
 );
 
 const runBackgroundOperations = Effect.fn("TestRemoteRegistration.runBackgroundOperations")(
@@ -330,7 +314,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       expect(Notifications.addPushTokenListener).not.toHaveBeenCalled();
       expect(activity.getPushToken).not.toHaveBeenCalled();
       expect(activity.addPushTokenListener).not.toHaveBeenCalled();
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it("preserves disabled Live Activity preferences in relay registrations", () => {
@@ -465,7 +449,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
       expect(activity.getPushToken).toHaveBeenCalledTimes(2);
       expect(addPushTokenListener).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("preserves Live Activity push-token lookup failures", () => {
@@ -487,7 +471,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         cause,
         message: "Agent awareness operation read-live-activity-push-token failed.",
       });
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect(
@@ -501,7 +485,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
       return Effect.gen(function* () {
         expect(yield* registerLiveActivityPushToken({ activity: activity as never })).toBe(false);
-      }).pipe(Effect.provide(relayTestLayer));
+      }).pipe(Effect.provide(layerRelayTest));
     },
   );
 
@@ -525,7 +509,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         expect(activity.start).not.toHaveBeenCalled();
         expect(activity.update).not.toHaveBeenCalled();
         expect(activity.end).not.toHaveBeenCalled();
-      }).pipe(Effect.provide(relayTestLayer));
+      }).pipe(Effect.provide(layerRelayTest));
     },
   );
 
@@ -555,7 +539,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         }
         yield* runBackgroundOperations();
         expect(activity.getPushToken).toHaveBeenCalled();
-      }).pipe(Effect.provide(relayTestLayer));
+      }).pipe(Effect.provide(layerRelayTest));
     },
   );
 
@@ -585,7 +569,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       yield* refreshAgentAwarenessRegistration();
 
       expect(Notifications.getDevicePushTokenAsync).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("registers the APNs device when cloud auth becomes available", () => {
@@ -645,7 +629,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         }),
       ).toMatchObject({ ok: true });
       expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("marks registration failed when device registration cannot complete", () => {
@@ -668,7 +652,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       // read as enabled.
       yield* refreshAgentAwarenessRegistration();
       expect(getAgentAwarenessRegistrationStatus()).toBe("failed");
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it("clears registration status on cloud sign-out", () => {
@@ -707,7 +691,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     return Effect.gen(function* () {
       yield* runBackgroundOperations();
       expect(getAgentAwarenessRegistrationStatus()).toBe("unknown");
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("keeps a registered status when a later refresh fails", () => {
@@ -731,7 +715,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       );
       yield* refreshAgentAwarenessRegistration();
       expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("does not re-register the same account when nothing has changed", () => {
@@ -756,7 +740,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       yield* refreshAgentAwarenessRegistration();
       expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
       expect(saveAgentAwarenessRegistrationRecord).not.toHaveBeenCalled();
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("dedupes rapid activity-token re-registrations within the replay window", () => {
@@ -806,7 +790,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       vi.mocked(loadOrCreateAgentAwarenessDeviceId).mockClear();
       yield* refreshActiveLiveActivityRemoteRegistration();
       expect(loadOrCreateAgentAwarenessDeviceId).not.toHaveBeenCalled();
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("re-registers when the stored account identity differs", () => {
@@ -823,7 +807,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     return Effect.gen(function* () {
       yield* refreshAgentAwarenessRegistration();
       expect(saveAgentAwarenessRegistrationRecord).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("coalesces simultaneous sign-in and environment connection registrations", () => {
@@ -859,7 +843,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     return Effect.gen(function* () {
       yield* runBackgroundOperations();
       expect(Notifications.getPermissionsAsync).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("continues queued device registration after a failed auth lookup", () => {
@@ -885,7 +869,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
 
       expect(backgroundRuntime.pending).toHaveLength(0);
       expect(tokenProvider).toHaveBeenCalledTimes(2);
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it("only registers again when the authenticated identity changes", () => {
@@ -931,7 +915,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     return Effect.gen(function* () {
       yield* runBackgroundOperations();
       expect(Notifications.getDevicePushTokenAsync).toHaveBeenCalledTimes(1);
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect(
@@ -971,7 +955,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         unregisterAgentAwarenessConnection(savedConnection().environmentId);
 
         expect(fetchMock).not.toHaveBeenCalled();
-      }).pipe(Effect.provide(relayTestLayer));
+      }).pipe(Effect.provide(layerRelayTest));
     },
   );
 
@@ -1025,63 +1009,57 @@ describe("makeRelayDeviceRegistrationRequest", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(widgetMocks.start).toHaveBeenCalledTimes(1);
   });
-  for (const os of ["ios", "android"] as const) {
-    it.effect(
-      `does not enable ${os} notifications when a token rotates after permission is revoked`,
-      () => {
-        vi.spyOn(Platform, "OS", "get").mockReturnValue(os);
-        vi.spyOn(Platform, "Version", "get").mockReturnValue(os === "ios" ? 18 : 36);
-        vi.mocked(Notifications.getDevicePushTokenAsync).mockResolvedValue({
-          type: os,
-          data: "initial",
-        });
-        const registrations: unknown[] = [];
-        vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
-          const request = new Request(input, init);
-          if (request.url.endsWith("/v1/client/dpop-token")) {
-            return Response.json({
-              access_token: "dpop",
-              issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
-              token_type: "DPoP",
-              expires_in: 300,
-              scope: "mobile:registration",
-            });
-          }
-          registrations.push(await request.json());
-          return Response.json({ ok: true });
-        });
-        Constants.expoConfig!.extra = {
-          cloudEnabled: true,
-          clerk: { publishableKey: "pk_test_example", jwtTemplate: "t3-relay" },
-          relay: { url: "https://permission-relay.example.test" },
-        };
-        setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk"), "user-a");
-        return Effect.gen(function* () {
-          yield* runBackgroundOperations();
-          expect(registrations.at(-1)).toMatchObject({
-            preferences: { notificationsEnabled: true },
+  it.effect.each(["ios", "android"] as const)(
+    "does not enable %s notifications when a token rotates after permission is revoked",
+    (os) => {
+      vi.spyOn(Platform, "OS", "get").mockReturnValue(os);
+      vi.spyOn(Platform, "Version", "get").mockReturnValue(os === "ios" ? 18 : 36);
+      vi.mocked(Notifications.getDevicePushTokenAsync).mockResolvedValue({
+        type: os,
+        data: "initial",
+      });
+      const registrations: unknown[] = [];
+      vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        if (request.url.endsWith("/v1/client/dpop-token")) {
+          return Response.json({
+            access_token: "dpop",
+            issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+            token_type: "DPoP",
+            expires_in: 300,
+            scope: "mobile:registration",
           });
-          vi.mocked(Notifications.getPermissionsAsync).mockResolvedValueOnce({
-            granted: false,
-          } as Awaited<ReturnType<typeof Notifications.getPermissionsAsync>>);
-          const listener = vi.mocked(Notifications.addPushTokenListener).mock.calls.at(-1)![0];
-          listener({ type: os, data: "rotated" });
-          yield* runBackgroundOperations();
-          expect(registrations.at(-1)).toMatchObject({
-            preferences: { notificationsEnabled: false },
-          });
-          expect(registrations.at(-1)).not.toHaveProperty("pushToken");
-        }).pipe(
-          Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
-          Effect.provide(
-            managedRelayClientLayer("https://permission-relay.example.test").pipe(
-              Layer.provide(Layer.mergeAll(FetchHttpClient.layer, cryptoLayer)),
-            ),
+        }
+        registrations.push(await request.json());
+        return Response.json({ ok: true });
+      });
+      Constants.expoConfig!.extra = { relay: { url: "https://permission-relay.example.test" } };
+      setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk"), "user-a");
+      return Effect.gen(function* () {
+        yield* runBackgroundOperations();
+        expect(registrations.at(-1)).toMatchObject({
+          preferences: { notificationsEnabled: true },
+        });
+        vi.mocked(Notifications.getPermissionsAsync).mockResolvedValueOnce({
+          granted: false,
+        } as Awaited<ReturnType<typeof Notifications.getPermissionsAsync>>);
+        const listener = vi.mocked(Notifications.addPushTokenListener).mock.calls.at(-1)![0];
+        listener({ type: os, data: "rotated" });
+        yield* runBackgroundOperations();
+        expect(registrations.at(-1)).toMatchObject({
+          preferences: { notificationsEnabled: false },
+        });
+        expect(registrations.at(-1)).not.toHaveProperty("pushToken");
+      }).pipe(
+        Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
+        Effect.provide(
+          ManagedRelayLayer.layer("https://permission-relay.example.test").pipe(
+            Layer.provide(Layer.mergeAll(FetchHttpClient.layer, Dpop.layer)),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
   it.effect("preserves relay rejection errors with React Native response headers", () => {
     vi.spyOn(Platform, "OS", "get").mockReturnValue("android");
     vi.mocked(Notifications.getDevicePushTokenAsync).mockResolvedValue({
@@ -1130,7 +1108,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       }
       expect(getAgentAwarenessRegistrationStatus()).toBe("failed");
       expect(saveAgentAwarenessRegistrationRecord).not.toHaveBeenCalled();
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
 
   it.effect("registers an Android FCM token without invoking Apple Live Activities", () => {
@@ -1140,6 +1118,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       type: "android",
       data: "fcm-token",
     });
+    vi.mocked(loadPreferences).mockResolvedValue({ liveActivitiesEnabled: true } as Preferences);
     vi.stubGlobal(
       "fetch",
       vi.fn((request: RequestInfo | URL) => {
@@ -1176,7 +1155,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       vi.mocked(clearAndroidAgentNotifications).mockClear();
       setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk-token-user-b"), "user-b");
       expect(clearAndroidAgentNotifications).toHaveBeenCalled();
-    }).pipe(Effect.provide(relayTestLayer));
+    }).pipe(Effect.provide(layerRelayTest));
   });
   it.effect(
     "preserves same-account Android notifications and replays on remount and later foreground",
@@ -1218,7 +1197,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         setAgentAwarenessRelayTokenProvider(null);
         expect(clearAndroidAgentNotifications).toHaveBeenCalled();
         expect(clearAgentAwarenessRegistrationRecord).toHaveBeenCalled();
-      }).pipe(Effect.provide(relayTestLayer));
+      }).pipe(Effect.provide(layerRelayTest));
     },
   );
 
@@ -1239,7 +1218,7 @@ describe("makeRelayDeviceRegistrationRequest", () => {
         yield* runBackgroundOperations();
         expect(configureAndroidAgentNotifications).not.toHaveBeenCalled();
         expect(saveAgentAwarenessRegistrationRecord).not.toHaveBeenCalled();
-      }).pipe(Effect.provide(relayTestLayer));
+      }).pipe(Effect.provide(layerRelayTest));
     },
   );
 });

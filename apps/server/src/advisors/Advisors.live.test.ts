@@ -3,9 +3,8 @@ import { ClaudeSettings, ProviderInstanceId } from "@t3tools/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { ServerConfig } from "../config.ts";
-import { makeClaudeAdapter } from "../provider/Layers/ClaudeAdapter.ts";
+import * as LiveReview from "../orchestration-v2/testkit/LiveReview.ts";
 import { AdvisorRunner, make } from "./AdvisorRunner.ts";
-import { providerServiceTestLayer } from "../provider/testUtils/providerServiceTestLayer.ts";
 import { advisorOrchestrationTestLayer, runAdvisorTask } from "./orchestrationTestLayer.ts";
 
 const decodeClaudeSettings = Schema.decodeEffect(ClaudeSettings);
@@ -20,10 +19,7 @@ it.live.skipIf(!process.env.T3_REVIEW_LIVE_MODEL)(
       const path = yield* Path.Path;
       const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "t3-advisor-task-" });
       const settings = yield* decodeClaudeSettings({});
-      const adapter = yield* makeClaudeAdapter(settings).pipe(
-        Effect.provide(ServerConfig.layerTest(cwd, { prefix: "t3-advisor-live-" })),
-      );
-      const services = yield* Layer.build(providerServiceTestLayer(adapter));
+      const services = yield* Layer.build(LiveReview.layer);
       const runner = yield* make.pipe(Effect.provide(services));
       const orchestration = yield* Layer.build(
         advisorOrchestrationTestLayer.pipe(Layer.provide(Layer.succeed(AdvisorRunner, runner))),

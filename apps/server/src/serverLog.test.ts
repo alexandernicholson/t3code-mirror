@@ -11,7 +11,8 @@ import * as Logger from "effect/Logger";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as ServerConfig from "./config.ts";
-import { ServerLoggerLive } from "./serverLogger.ts";
+import { layer as ServerLoggerLive } from "./serverLogger.ts";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as ResourceAttribution from "./resourceTelemetry/ResourceAttribution.ts";
 import { makeServerLogStore, readServerLogDiagnostics, readServerLogTail } from "./serverLog.ts";
 
@@ -19,7 +20,11 @@ const TestLayer = ServerConfig.ServerConfig.layerTest(process.cwd(), {
   prefix: "t3-server-log-test-",
 }).pipe(Layer.provideMerge(NodeServices.layer));
 
-const IntegrationLayer = Layer.mergeAll(TestLayer, ResourceAttribution.layer);
+const IntegrationLayer = Layer.mergeAll(
+  TestLayer,
+  ResourceAttribution.layer,
+  FetchHttpClient.layer,
+);
 
 function makeLogConfig(overrides: Partial<ServerConfig.ServerLogConfig> = {}) {
   return {

@@ -5,7 +5,7 @@ import { Effect, Layer, Stream } from "effect";
 import migration from "../persistence/Migrations/054_Reviewers.ts";
 import * as Store from "./ReviewerStore.ts";
 
-const database = NodeSqliteClient.layerMemory();
+const database = NodeSqliteClient.layer({ filename: ":memory:" });
 const layer = Store.layer.pipe(
   Layer.provide(Layer.effectDiscard(migration).pipe(Layer.provideMerge(database))),
 );
