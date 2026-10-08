@@ -1,4 +1,3 @@
-import { parseContextWindowTokens } from "@t3tools/shared/contextWindow";
 import {
   readCodexContextWindows,
   resolveCodexContextWindow,
@@ -185,9 +184,42 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
         )?.slug ??
         requestedModel;
       const launchArgs = resolveCodexLaunchArgs(effectiveConfig.launchArgs, effectiveEnvironment);
-      const contextWindow = parseContextWindowTokens(
-        getModelSelectionStringOptionValue(modelSelection, "contextWindow") ?? "",
+      const contextWindowSelection = getModelSelectionStringOptionValue(
+        modelSelection,
+        "contextWindow",
       );
+      const contextWindow =
+        contextWindowSelection === undefined
+          ? undefined
+          : yield* Effect.gen(function* () {
+              const contexts = yield* readCodexContextWindows({
+                homePath: effectiveConfig.homePath,
+                environment: effectiveEnvironment,
+                cwd,
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fileSystem),
+                Effect.provideService(Path.Path, path),
+              );
+              return yield* Effect.try({
+                try: () =>
+                  resolveCodexContextWindow(contextWindowSelection, contexts.get(model) ?? {}),
+                catch: (cause) =>
+                  new TextGenerationError({
+                    operation,
+                    detail: "Invalid model context window for text generation.",
+                    cause,
+                  }),
+              });
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new TextGenerationError({
+                    operation,
+                    detail: "Could not resolve the model context window.",
+                    cause,
+                  }),
+              ),
+            );
       const reasoningEffort =
         getModelSelectionStringOptionValue(modelSelection, "reasoningEffort") ??
         DEFAULT_TEXT_GENERATION_REASONING_EFFORT;

@@ -268,6 +268,53 @@ it.layer(layerTest)("CodexDriver", (it) => {
   );
 
   it.effect.skipIf(windowsHost)(
+    "launches sessions through the managed toolchain's codex, not the host PATH's",
+    () =>
+      Effect.gen(function* () {
+        const serverConfig = yield* ServerConfig.ServerConfig;
+        const instanceId = ProviderInstanceId.make("codex-toolchain");
+        const launches: Array<
+          Parameters<CodexAdapterV2.CodexAppServerClientFactoryShape["open"]>[0]
+        > = [];
+        const instance = yield* CodexDriver.create({
+          instanceId,
+          displayName: "Codex test",
+          enabled: false,
+          environment: [],
+          config: CodexDriver.defaultConfig(),
+        }).pipe(
+          Effect.provideService(
+            CodexAdapterV2.CodexAppServerClientFactory,
+            CodexAdapterV2.CodexAppServerClientFactory.of({
+              open: (launch) =>
+                Effect.sync(() => launches.push(launch)).pipe(
+                  Effect.andThen(Effect.die("The fixture stops after recording the launch")),
+                ),
+            }),
+          ),
+        );
+        yield* instance.orchestrationAdapter
+          .openSession({
+            threadId: ThreadId.make("codex-toolchain-thread"),
+            providerSessionId: ProviderSessionId.make("codex-toolchain-session"),
+            modelSelection: { instanceId, model: "gpt-5.4" },
+            runtimePolicy: ProviderAdapterV2RuntimePolicy.make({
+              runtimeMode: "full-access",
+              interactionMode: "default",
+              cwd: serverConfig.stateDir,
+            }),
+          })
+          .pipe(Effect.scoped, Effect.exit);
+        expect(launches).toHaveLength(1);
+        const toolchainBin = NodePath.join(serverConfig.baseDir, "tools", "codex-cli", "bin");
+        expect(launches[0]!.environment.PATH?.startsWith(toolchainBin)).toBe(true);
+      }).pipe(
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, noSpawn),
+        Effect.scoped,
+      ),
+  );
+
+  it.effect.skipIf(windowsHost)(
     "runs the standalone updater against the shared home, not the shadow home",
     () =>
       Effect.gen(function* () {
@@ -444,18 +491,20 @@ it.layer(layerTest)("CodexDriver", (it) => {
     );
   }
 
+  // The default `codex` command always runs from the managed T3-home toolchain,
+  // so host installer detection only applies to custom configured commands.
   it.effect.each([
     {
       name: "conventional shim",
       dataRoot: "mise",
-      commandName: "codex",
+      commandName: "codex-host",
       version: "0.153.4",
       nodeFirst: false,
     },
     {
       name: "custom data directory",
       dataRoot: "custom-tool-data",
-      commandName: "codex",
+      commandName: "codex-host",
       version: "0.153.4",
       nodeFirst: false,
     },
@@ -469,14 +518,14 @@ it.layer(layerTest)("CodexDriver", (it) => {
     {
       name: "outdated provider",
       dataRoot: "mise",
-      commandName: "codex",
+      commandName: "codex-host",
       version: "0.153.3",
       nodeFirst: false,
     },
     {
       name: "npm before shim",
       dataRoot: "mise",
-      commandName: "codex",
+      commandName: "codex-host",
       version: "0.153.4",
       nodeFirst: true,
     },

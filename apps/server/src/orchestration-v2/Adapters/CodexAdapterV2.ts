@@ -38,7 +38,11 @@ import {
 import { SKILL_MENTION_PATTERN } from "@t3tools/shared/composerInlineTokens";
 import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
 import { dynamicToolTitle } from "@t3tools/shared/toolActivity";
-import { getModelSelectionStringOptionValue, modelSelectionsEqual } from "@t3tools/shared/model";
+import {
+  getModelSelectionStringOptionValue,
+  modelSelectionsEqual,
+  normalizeModelSlug,
+} from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import type {
   ChatAttachment,
@@ -1704,45 +1708,55 @@ export function makeCodexAdapterV2(adapterOptions: CodexAdapterV2Options): Provi
                 ),
               );
         const runtimeEnvironment = resolvedRuntime?.environment ?? adapterOptions.environment;
-        const contextWindowValue = getModelSelectionStringOptionValue(
-          input.modelSelection,
-          "contextWindow",
-        );
-        const contexts =
-          contextWindowValue === undefined
-            ? undefined
-            : yield* readCodexContextWindows({
-                environment: runtimeEnvironment,
-                cwd: input.runtimePolicy.cwd ?? adapterOptions.serverConfig.cwd,
-                modelSlugs: [input.modelSelection.model],
-              }).pipe(
-                Effect.provideService(FileSystem.FileSystem, adapterOptions.fileSystem),
-                Effect.provide(Path.layer),
-              );
-        const selectedContextWindow =
-          contextWindowValue === undefined
-            ? undefined
-            : yield* Effect.try({
-                try: () =>
-                  resolveCodexContextWindow(
-                    contextWindowValue,
-                    contexts?.get(input.modelSelection.model) ?? {},
-                  ),
-                catch: (cause) =>
-                  new ProviderAdapterOpenSessionError({
-                    driver: CODEX_PROVIDER,
-                    providerSessionId: input.providerSessionId,
-                    cause,
-                  }),
-              });
+        const runtimeSettings = resolvedRuntime?.config ?? adapterOptions.settings;
         const client = yield* clientFactory.open({
           instanceId: adapterOptions.instanceId,
           threadId: input.threadId,
           providerSessionId: input.providerSessionId,
           runtimePolicy: input.runtimePolicy,
-          settings: resolvedRuntime?.config ?? adapterOptions.settings,
+          settings: runtimeSettings,
           environment: resolvedRuntime?.environment ?? adapterOptions.environment,
         });
+        const contextWindowValue = getModelSelectionStringOptionValue(
+          input.modelSelection,
+          "contextWindow",
+        );
+        const selectedContextWindow =
+          contextWindowValue === undefined
+            ? undefined
+            : yield* Effect.gen(function* () {
+                // Resolve named context windows ("default"/"maximum") against the
+                // effective home's catalog and the user's config.toml, the same
+                // way the pre-V2 session runtime did.
+                const { config } = yield* client
+                  .request("config/read", { includeLayers: false })
+                  .pipe(Effect.orElseSucceed(() => ({ config: {} as Record<string, unknown> })));
+                const contexts = yield* readCodexContextWindows({
+                  environment: runtimeEnvironment,
+                  cwd: input.runtimePolicy.cwd ?? adapterOptions.serverConfig.cwd,
+                  homePath: runtimeSettings.homePath || undefined,
+                  config,
+                }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, adapterOptions.fileSystem),
+                  Effect.provide(Path.layer),
+                );
+                return yield* Effect.try({
+                  try: () =>
+                    resolveCodexContextWindow(
+                      contextWindowValue,
+                      contexts.get(
+                        normalizeModelSlug(input.modelSelection.model) ??
+                          (typeof config.model === "string" ? config.model : ""),
+                      ) ?? {},
+                    ),
+                  catch: (cause) =>
+                    new ProviderAdapterOpenSessionError({
+                      driver: CODEX_PROVIDER,
+                      providerSessionId: input.providerSessionId,
+                      cause,
+                    }),
+                });
+              });
         const additionalContextByThread = yield* Ref.make(
           new Map<
             string,

@@ -12,31 +12,42 @@ export type ComposerControlSize = "sm" | "xs";
 /**
  * The composer toolbar's control look. `sm` is the expanded toolbar; `xs` is the dimmer resting
  * strip. `aria-pressed` marks a toggle that is on (plan mode). This is an app control, not a
- * restyled Button, so it owns its classes.
+ * restyled Button, so it owns its classes. `outline` is the bordered look settings panels use
+ * where the composer's glass ghost would float untethered.
  */
-function composerControlClassName(size: ComposerControlSize, className?: string) {
+export type ComposerControlVariant = "default" | "outline";
+
+function composerControlClassName(
+  size: ComposerControlSize,
+  className: string | undefined,
+  variant: ComposerControlVariant,
+) {
   return cn(
     "relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-(--control-radius) border border-transparent text-base outline-none hover:bg-accent data-pressed:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 data-disabled:pointer-events-none data-disabled:opacity-64 pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 [&:active:not([aria-haspopup])]:scale-[0.97] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:-mx-0.5 [&_svg[data-composer-control-icon]]:mx-0",
     size === "xs"
       ? "h-7 gap-1 px-1.75 font-normal text-muted-foreground/70 text-sm hover:text-foreground/80 sm:h-6 sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5 [&_svg[data-composer-control-chevron]]:ms-0 [&_svg[data-composer-control-chevron]]:-me-1"
       : "h-7 gap-1.5 px-2.5 font-medium text-secondary-label [&_svg:not([class*='text-'])]:text-muted-foreground hover:text-foreground sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
     "aria-pressed:bg-accent aria-pressed:text-accent-foreground aria-pressed:hover:bg-accent/80",
+    variant === "outline" &&
+      "border-input bg-popover shadow-xs/5 hover:bg-accent/50 data-pressed:bg-accent/50 dark:bg-input/32 dark:hover:bg-input/64",
     className,
   );
 }
 
 type ComposerControlProps = useRender.ComponentProps<"button"> & {
   size?: ComposerControlSize;
+  variant?: ComposerControlVariant | undefined;
 };
 
 export function ComposerControl({
   className,
   size = "sm",
+  variant = "default",
   render,
   ...props
 }: ComposerControlProps) {
   const defaultProps = {
-    className: composerControlClassName(size, className),
+    className: composerControlClassName(size, className, variant),
     type: render ? undefined : ("button" as const),
   };
   return useRender({
@@ -117,7 +128,10 @@ export function ComposerSelectControl({
   size?: ComposerControlSize;
 }) {
   return (
-    <SelectPrimitive.Trigger className={composerControlClassName(size, className)} {...props}>
+    <SelectPrimitive.Trigger
+      className={composerControlClassName(size, className, "default")}
+      {...props}
+    >
       {children}
       <SelectPrimitive.Icon>
         <ComposerControlChevron size={size} />

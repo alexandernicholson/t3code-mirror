@@ -49,6 +49,7 @@ export function SettingsModelPicker({
         lockedProvider={null}
         instanceEntries={instanceEntries}
         modelOptionsByInstance={modelOptions}
+        triggerVariant="outline"
         triggerAriaLabel={label}
         onInstanceModelChange={(instanceId, model) =>
           onChange(
@@ -69,6 +70,7 @@ export function SettingsModelPicker({
           onPromptChange={() => {}}
           allowPromptInjectedEffort={false}
           planModeEnabled={false}
+          triggerVariant="outline"
           triggerAriaLabel={`${label} options`}
           isComposerOwned={false}
           onModelOptionsChange={(options) =>

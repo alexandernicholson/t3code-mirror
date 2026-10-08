@@ -265,7 +265,18 @@ export const CodexDriver: ProviderDriver<CodexSettings, CodexDriverEnv> = {
           enabled,
           config,
         },
-        { onUsageLimits: (update) => snapshot.applyUsageLimits(update) },
+        {
+          onUsageLimits: (update) => snapshot.applyUsageLimits(update),
+          // Sessions must launch with the same environment the probes use.
+          // Without the managed toolchain's PATH, `codex` resolves to whatever
+          // the host PATH finds first — which can be an older install than the
+          // toolchain's, and a catalog/provider mismatch then fails every turn.
+          resolveRuntime: Effect.succeed({
+            config: effectiveConfig,
+            environment: processEnv,
+            revision: "cli",
+          }),
+        },
       ).pipe(
         Effect.mapError(
           (cause) =>

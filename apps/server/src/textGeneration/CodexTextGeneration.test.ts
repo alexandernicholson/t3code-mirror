@@ -259,6 +259,62 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
       ),
   );
 
+  it.effect.each([
+    ["default", 128000],
+    ["maximum", 1000000],
+    ["256000", 256000],
+  ] as const)(
+    "narration forwards %s context alongside effort and service tier",
+    ([selection, tokens]) =>
+      withFakeCodexEnv(
+        {
+          output: JSON.stringify({ text: "Checking the tests." }),
+          requireArg: `model_context_window=${tokens}`,
+          requireReasoningEffort: "high",
+          requireServiceTier: "priority",
+          contextCatalog: {
+            models: [{ slug: "gpt-5.4", context_window: 128000, max_context_window: 1000000 }],
+          },
+        },
+        (generation) =>
+          generation.generateNarration({
+            cwd: process.cwd(),
+            message: "I am reviewing the tests",
+            instructions: "One sentence",
+            modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.4", [
+              { id: "contextWindow", value: selection },
+              { id: "reasoningEffort", value: "high" },
+              { id: "serviceTier", value: "priority" },
+            ]),
+          }),
+      ),
+  );
+
+  it.effect("rejects narration context above the selected model's maximum", () =>
+    withFakeCodexEnv(
+      {
+        output: JSON.stringify({ text: "Must not run" }),
+        contextCatalog: {
+          models: [{ slug: "gpt-5.4", context_window: 128000, max_context_window: 200000 }],
+        },
+      },
+      (generation) =>
+        generation
+          .generateNarration({
+            cwd: process.cwd(),
+            message: "Review",
+            instructions: "Brief",
+            modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.4", [
+              { id: "contextWindow", value: "256000" },
+            ]),
+          })
+          .pipe(
+            Effect.result,
+            Effect.tap((result) => Effect.sync(() => expect(result._tag).toBe("Failure"))),
+          ),
+    ),
+  );
+
   it.effect("omits a persisted service tier for managed ChatGPT text generation", () =>
     withFakeCodexEnv(
       {

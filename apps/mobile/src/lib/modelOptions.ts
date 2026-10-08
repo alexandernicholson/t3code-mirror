@@ -53,9 +53,6 @@ function normalizeSelectionOptions(
     return selection;
   }
   const selections = withImplicitThinkingDefault(capabilities, selection.options);
-  if (!selection.options?.length) {
-    return { instanceId: selection.instanceId, model: selection.model };
-  }
   const options = buildExplicitProviderOptionSelectionsFromDescriptors(
     getProviderOptionDescriptors({
       caps: capabilities,

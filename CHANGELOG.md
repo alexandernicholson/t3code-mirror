@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.2] - 2026-10-07
+
+- Codex sessions launch with the managed Codex installation instead of whatever `codex` is first on the host PATH, so turns no longer fail on a model catalog mismatch.
+- Codex "default" and "maximum" context windows resolve against the account's model catalog and `config.toml` for both turns and narration summaries; sizes above the model's maximum are rejected.
+- Sessions and pairing links issued before the granular-permission change keep their full access after upgrading instead of becoming read-only.
+- Mobile keeps default model options such as thinking when a selection has no explicit options.
+- Restore the custom sidebar title, provider-wide settings in the provider editor, and outlined model pickers in Settings. Settings search finds narration, updates, secrets, and MCP servers on their current pages.
+
+---
+
 ## [0.9.1] - 2026-10-07
 
 - Fix source-service upgrades to orchestration V2: keep released migration files and hashes intact, align new migration filenames with their execution IDs, and support legacy SQL imports.

@@ -31,6 +31,7 @@ import {
   REUSABLE_DEV_SESSION_PREFIX,
   resolveReusableDevAuth,
 } from "./ReusableDevAuth.ts";
+import { upgradeLegacyDefaultAuthGrants } from "./LegacyGrantUpgrade.ts";
 import {
   base64UrlDecodeUtf8,
   base64UrlEncode,
@@ -506,6 +507,9 @@ export const make = Effect.gen(function* () {
   const cookieName = resolveSessionCookieName(cookieInput);
   const legacyCookieName = resolveLegacySessionCookieName(cookieInput);
   const devAuth = resolveReusableDevAuth(serverConfig);
+  // Sessions issued before the granular-permission split keep the access they
+  // were granted; this runs before anything can serve them.
+  yield* upgradeLegacyDefaultAuthGrants();
   if (devAuth) {
     yield* authSessions
       .createIfAbsent({

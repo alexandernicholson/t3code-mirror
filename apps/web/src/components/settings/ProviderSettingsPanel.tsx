@@ -1008,6 +1008,16 @@ export function EnvironmentProviderSettings({
         selected={mode === "list" && selectedRow?.instanceId === row.instanceId}
         onSelect={mode === "list" ? () => setSelectedInstanceId(row.instanceId) : undefined}
         readOnly={readOnly}
+        globalSettings={
+          mode === "editor" && liveProvider?.supportsGlobalSettings ? (
+            <ProviderGlobalSettingsSection
+              key={`${environmentId}:${row.instanceId}`}
+              environmentId={environmentId}
+              instanceId={row.instanceId}
+              readOnly={readOnly}
+            />
+          ) : null
+        }
         runtime={
           mode === "editor" &&
           row.driver === "codex" &&

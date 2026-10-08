@@ -270,7 +270,9 @@ describe("searchSettings", () => {
 
   it("ranks keybinding commands after other settings", () => {
     const ids = searchSettings("model").map((item) => item.id);
-    expect(ids[0]).toBe("default-model");
+    // Regular settings match first; which one depends on the item list, but a
+    // keybinding command must never lead the results.
+    expect(ids[0]).not.toMatch(/^keybinding-/);
     expect(ids.indexOf("keybinding-modelPicker.toggle")).toBeGreaterThan(
       ids.indexOf("text-generation-model"),
     );

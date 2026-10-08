@@ -26,6 +26,7 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { readPullRequestListPreferences } from "../pullRequest/pullRequestListPreferences";
 import { isSidebarUtilityPage, useNavigateToMainApp } from "./mainAppLocation";
+import { SidebarBrandMarkdown } from "./SidebarBrandMarkdown";
 import { SidebarThreadUndoNotice } from "./SidebarThreadUndoNotice";
 import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
@@ -84,6 +85,7 @@ export function SidebarBrandWidthProbe({
 }: {
   onWidthChange: (width: number) => void;
 }) {
+  const brandText = useSidebarBrandText();
   const observeWidth = useCallback(
     (probe: HTMLDivElement) => {
       const observer = new ResizeObserver(([entry]) => {
@@ -102,7 +104,7 @@ export function SidebarBrandWidthProbe({
       ref={observeWidth}
     >
       <div className="ml-[var(--workspace-titlebar-content-left)] flex">
-        <SidebarBrandMark onBackdrop={false} />
+        <SidebarBrandMark brandText={brandText} onBackdrop={false} />
       </div>
     </div>
   );
@@ -121,12 +123,30 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
       )}
       to="/"
     >
-      <SidebarBrandMark onBackdrop={onBackdrop} />
+      <SidebarBrandMark brandText={brandText} onBackdrop={onBackdrop} />
     </Link>
   );
 }
 
-function SidebarBrandMark({ onBackdrop }: { onBackdrop: boolean }) {
+function SidebarBrandMark({
+  brandText,
+  onBackdrop,
+}: {
+  readonly brandText: string | null;
+  readonly onBackdrop: boolean;
+}) {
+  // Unhydrated settings render nothing rather than flashing the default wordmark.
+  if (brandText === null) return null;
+  if (brandText.trim().length > 0) {
+    return (
+      <span
+        className="block min-w-0 truncate text-sm font-medium tracking-tight whitespace-nowrap"
+        data-sidebar-brand="custom"
+      >
+        <SidebarBrandMarkdown text={brandText} />
+      </span>
+    );
+  }
   return (
     // Center the visible capitals, without the font's ascender/descender space.
     <span className="inline-flex min-w-0 items-baseline gap-1 text-sm font-medium tracking-tight">

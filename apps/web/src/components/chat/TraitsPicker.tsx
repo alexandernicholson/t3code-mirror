@@ -37,6 +37,7 @@ import {
   ComposerControlChevron,
   ComposerControlIcon,
   type ComposerControlSize,
+  type ComposerControlVariant,
 } from "./ComposerControl";
 import { useComposerMenuProps } from "./composerEventScope";
 import { useComposerMenuState } from "./useComposerMenuState";
@@ -297,6 +298,7 @@ export interface TraitsMenuContentProps {
   planModeEnabled: boolean;
   triggerClassName?: string;
   triggerAriaLabel?: string;
+  triggerVariant?: ComposerControlVariant;
   isComposerOwned?: boolean;
 }
 
@@ -617,6 +619,7 @@ export const TraitsPicker = memo(function TraitsPicker({
   planModeEnabled,
   triggerClassName,
   triggerAriaLabel,
+  triggerVariant,
   isComposerOwned,
   size = "sm",
   hidden = false,
@@ -681,6 +684,7 @@ export const TraitsPicker = memo(function TraitsPicker({
                   aria-label={triggerLabel}
                   data-composer-shortcut={isComposerOwned ? "composer.effort" : undefined}
                   size={size}
+                  variant={triggerVariant}
                   className={cn(
                     isCodexStyle
                       ? "min-w-0 max-w-40 shrink justify-start overflow-hidden whitespace-nowrap sm:max-w-48"
